@@ -14,7 +14,7 @@ import { useFavoris } from '@/hooks/useFavoris'
 import { useMesDemandes } from '@/hooks/useQr'
 import { useDemandeCiblee } from '@/hooks/useDemandeCiblee'
 import { formatF } from '@/lib/format'
-import { rythmeCourt } from '@/lib/tontineLabels'
+import { rythmeCourtDe } from '@/lib/tontineLabels'
 import { TontineStatut } from '@/types/common'
 import { jeCotise, jeGere, type MaTontine } from '@/types/me'
 
@@ -75,7 +75,7 @@ export function MesTontinesPage() {
               {STATUT_LABEL[t.statut] && <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-[11px] font-semibold text-neutral-600">{STATUT_LABEL[t.statut]}</span>}
             </span>
             <span className="block text-sm text-neutral-500 truncate">
-              {t.montantLibre ? 'Montant libre' : `${formatF(t.montant)} / ${rythmeCourt(t.frequence)}`} · {t.nombreMembresActuels}{t.nombreMembres ? `/${t.nombreMembres}` : ''} membres
+              {t.montantLibre ? 'Montant libre' : `${formatF(t.montant)} / ${rythmeCourtDe(t)}`} · {t.nombreMembresActuels}{t.nombreMembres ? `/${t.nombreMembres}` : ''} membres
             </span>
             {(n > 0 || payer) && (
               <span className="mt-1 flex gap-1">

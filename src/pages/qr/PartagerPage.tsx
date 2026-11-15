@@ -11,7 +11,7 @@ import { MessageCircle, Copy, Share2 } from 'lucide-react'
 import { ScreenHeader } from '@/components/layout/ScreenHeader'
 import { useTontineVue } from '@/hooks/useTontineVue'
 import { formatF } from '@/lib/format'
-import { rythmeCourt } from '@/lib/tontineLabels'
+import { rythmeCourtDe } from '@/lib/tontineLabels'
 import { appUrl, whatsappUrl } from '@/lib/share'
 import { useInvitationTontine } from '@/hooks/useQr'
 import { messageErreur } from '@/lib/apiError'
@@ -37,7 +37,7 @@ export function PartagerPage() {
   const pourTontine = !!t
   const url = t ? invitation.data?.url ?? appUrl() : appUrl()
   const titre = t ? `Inviter dans ${t.nom}` : 'Inviter un proche'
-  const detail = t ? (t.montantLibre ? 'Montant libre' : `${formatF(t.montant)} / ${rythmeCourt(t.frequence)}`) : 'Dinthialma, vos tontines simples et claires'
+  const detail = t ? (t.montantLibre ? 'Montant libre' : `${formatF(t.montant)} / ${rythmeCourtDe(t)}`) : 'Dinthialma, vos tontines simples et claires'
   const texte = t
     ? `Rejoins notre tontine ${t.nom} (${detail}) :`
     : 'Je gère mes tontines avec Dinthialma, rejoins-moi :'

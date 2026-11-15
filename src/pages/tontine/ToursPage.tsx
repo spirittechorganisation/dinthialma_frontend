@@ -3,7 +3,7 @@
  * Gestionnaire en mode manuel sans tour en cours : « Démarrer le tour suivant ».
  * Desktop : détail du tour (T7) dans un panneau à droite ; /tontine/:id/tours/:cycleId ouvre cette page avec le panneau.
  */
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Panneau, PanneauVide } from '@/components/layout/Panneau'
 import { useIsDesktop } from '@/hooks/useMediaQuery'
@@ -14,10 +14,10 @@ import { ChevronRight, Trophy, RotateCw, RefreshCw } from 'lucide-react'
 import { ScreenHeader } from '@/components/layout/ScreenHeader'
 import { Modal } from '@/components/ui/Modal'
 import { useTontineVue } from '@/hooks/useTontineVue'
-import { useCycles, useOpenCycle } from '@/hooks/useCycles'
+import { useCycles, useOpenCycle, usePropositionTour } from '@/hooks/useCycles'
 import { useOnline } from '@/hooks/useOnline'
-import { formatF, formatDateCourte } from '@/lib/format'
-import { TOUR_STATUT, datesTourSuggerees } from '@/lib/tontineLabels'
+import { formatF, formatDateCourte, formatEcheance } from '@/lib/format'
+import { TOUR_STATUT, aujourdhuiIso } from '@/lib/tontineLabels'
 import { messageErreur } from '@/lib/apiError'
 import { CycleStatut, ModeCycle, TontineStatut } from '@/types/common'
 import { TontineType } from '@/types/tontine'
@@ -123,7 +123,7 @@ export function ToursPage() {
         </div>
       )}
 
-      {t && <DemarrerTourSheet isOpen={demarrerOpen} onClose={() => setDemarrerOpen(false)} tontineId={id} frequence={t.frequence} />}
+      {t && demarrerOpen && <DemarrerTourSheet onClose={() => setDemarrerOpen(false)} tontineId={id} />}
     </div>
   )
 }
@@ -147,6 +147,7 @@ function LigneTour({ tontineId, cycle, mot, selected = false, replace = false }:
           </span>
           <span className="block text-sm text-neutral-500 truncate">
             {formatDateCourte(cycle.dateDebut)} → {formatDateCourte(cycle.dateFin)}
+            {(cycle.nombreEcheances ?? 1) > 1 ? ` · ${cycle.nombreEcheances} cotisations` : ''}
             {gagnants ? ` · ` : ''}
             {gagnants && <><Trophy size={12} className="inline -mt-0.5 text-yellow-700" /> {gagnants}</>}
           </span>
@@ -154,22 +155,37 @@ function LigneTour({ tontineId, cycle, mot, selected = false, replace = false }:
         {cycle.montantNet != null && cycle.statut === CycleStatut.TERMINE && (
           <span className="text-sm font-bold tabular-nums">{formatF(cycle.montantNet)}</span>
         )}
+        {cycle.statut === CycleStatut.EN_COURS && cycle.tousPayes && (
+          <span className="rounded-full bg-yellow-100 px-2 py-0.5 text-[11px] font-semibold text-yellow-900 flex-shrink-0">Jackpot prêt</span>
+        )}
         <ChevronRight size={18} className="text-neutral-300" />
       </Link>
     </li>
   )
 }
 
-/** Feuille « Démarrer un tour » : dates préremplies selon le rythme */
-export function DemarrerTourSheet({ isOpen, onClose, tontineId, frequence }: { isOpen: boolean; onClose: () => void; tontineId: string; frequence: string }) {
-  const suggestion = datesTourSuggerees(frequence)
-  const [debut, setDebut] = useState(suggestion.debut)
-  const [fin, setFin] = useState(suggestion.fin)
+/**
+ * Feuille « Démarrer un tour » : le backend propose la date de fin selon le rythme de la tontine
+ * (et le nombre de cotisations par tour). Le gestionnaire garde la proposition ou choisit une autre fin.
+ */
+export function DemarrerTourSheet({ onClose, tontineId }: { onClose: () => void; tontineId: string }) {
+  const [debut, setDebut] = useState(aujourdhuiIso())
+  // null = on suit la date proposée
+  const [finChoisie, setFinChoisie] = useState<string | null>(null)
+  const proposition = usePropositionTour(tontineId, debut || undefined, !!debut)
   const { mutate: ouvrir, isPending } = useOpenCycle()
-  const invalide = !debut || !fin || fin < debut
+
+  // Changer le début relance la proposition : on repart de la date proposée
+  useEffect(() => { setFinChoisie(null) }, [debut])
+
+  const finProposee = proposition.data?.dateFin?.slice(0, 10) ?? ''
+  const fin = finChoisie ?? finProposee
+  const echeances = finChoisie ? [] : proposition.data?.echeances ?? []
+  const invalide = !debut || (!!fin && fin < debut)
 
   const valider = () => ouvrir(
-    { tontineId, request: { dateDebut: debut, dateFin: fin } },
+    // Sans date choisie, le backend applique lui-même sa proposition
+    { tontineId, request: { dateDebut: debut, ...(finChoisie ? { dateFin: finChoisie } : {}) } },
     {
       onSuccess: () => { toast.success('Tour démarré'); onClose() },
       onError: (err) => {
@@ -179,16 +195,27 @@ export function DemarrerTourSheet({ isOpen, onClose, tontineId, frequence }: { i
   )
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Démarrer un tour" size="sm">
+    <Modal isOpen onClose={onClose} title="Démarrer un tour" size="sm">
       <div className="space-y-4">
         <label className="block">
           <span className="text-sm font-semibold text-neutral-700">Début</span>
           <input type="date" value={debut} onChange={(e) => setDebut(e.target.value)} className="mt-1 w-full h-12 px-4 rounded-2xl bg-neutral-100 text-[16px] outline-none focus:ring-2 focus:ring-primary-600" />
         </label>
         <label className="block">
-          <span className="text-sm font-semibold text-neutral-700">Fin</span>
-          <input type="date" value={fin} min={debut} onChange={(e) => setFin(e.target.value)} className="mt-1 w-full h-12 px-4 rounded-2xl bg-neutral-100 text-[16px] outline-none focus:ring-2 focus:ring-primary-600" />
+          <span className="flex items-center justify-between text-sm font-semibold text-neutral-700">
+            Fin
+            {finChoisie && finProposee && (
+              <button type="button" onClick={() => setFinChoisie(null)} className="text-sm font-semibold text-primary-800">Reprendre la date proposée</button>
+            )}
+          </span>
+          <input type="date" value={fin} min={debut} onChange={(e) => setFinChoisie(e.target.value || null)} className="mt-1 w-full h-12 px-4 rounded-2xl bg-neutral-100 text-[16px] outline-none focus:ring-2 focus:ring-primary-600" />
         </label>
+        {!finChoisie && finProposee && (
+          <p className="rounded-2xl bg-primary-50 px-3 py-2 text-sm text-neutral-800">
+            Date proposée selon le rythme de la tontine
+            {echeances.length > 1 ? ` : ${echeances.length} cotisations, la dernière avant ${formatEcheance(echeances[echeances.length - 1])}.` : '.'}
+          </p>
+        )}
         {fin && debut && fin < debut && <p className="text-sm text-red-700">La fin doit être après le début.</p>}
         <button
           onClick={valider}

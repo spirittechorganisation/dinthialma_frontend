@@ -98,7 +98,7 @@ function LigneCotisant({ t, cotisant }: { t: MaTontine; cotisant: CotisantSummar
       </p>
       <div className="mt-1.5">
         {due?.statut === 'A_PAYER' ? (
-          <Pastille cls="bg-red-50 text-red-700">À payer · {dueDetail(due.dateLimite)}</Pastille>
+          <Pastille cls="bg-red-50 text-red-700">À payer · {dueDetail(due.echeanceAt ?? due.dateLimite)}</Pastille>
         ) : due?.statut === 'EN_ATTENTE' ? (
           <Pastille cls="bg-amber-50 text-amber-800">En attente de validation</Pastille>
         ) : due?.statut === 'VALIDE' ? (

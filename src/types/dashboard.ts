@@ -89,6 +89,11 @@ export interface CycleEnCoursInfo {
   numeroCycle: number
   dateDebut: string
   dateFin: string
+  echeanceAt?: string
+  montantJackpotPrevu?: number
+  tousPayes?: boolean
+  nombreEcheances?: number
+  numeroEcheanceCourante?: number
   beneficiaireNom?: string
   beneficiaireUserId?: string
   /** Cotisations VALIDÉES du tour */

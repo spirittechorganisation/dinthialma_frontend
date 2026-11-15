@@ -28,7 +28,7 @@ import { useLocalPreference } from '@/hooks/useLocalPreference'
 import { useOnline } from '@/hooks/useOnline'
 import { formatF, formatDateCourte } from '@/lib/format'
 import { paymentMethodLabel } from '@/lib/paymentMethods'
-import { rythmeCourt, compteARebours } from '@/lib/tontineLabels'
+import { rythmeCourtDe, compteARebours } from '@/lib/tontineLabels'
 import { CotisationStatut, CycleStatut, MembreStatut, TontineStatut } from '@/types/common'
 import { TontineType } from '@/types/tontine'
 import type { Cotisation } from '@/types/cotisation'
@@ -280,7 +280,7 @@ export function FicheTontinePage() {
               </button>
             </div>
             <p className="mt-1 text-sm text-neutral-500">
-              {t.montantLibre ? 'Montant libre' : `${formatF(t.montant)} / ${rythmeCourt(t.frequence)}`}
+              {t.montantLibre ? 'Montant libre' : `${formatF(t.montant)} / ${rythmeCourtDe(t)}`}
               {etat ? ` · ${etat}` : ''}
             </p>
             {pct !== null && (

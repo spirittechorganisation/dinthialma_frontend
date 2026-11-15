@@ -27,6 +27,14 @@ export type ApiErrorCode =
   // Cotisations / tours
   | 'COTISATION_ALREADY_EXISTS' | 'NO_CYCLE_IN_PROGRESS' | 'AMOUNT_BELOW_MINIMUM' | 'AMOUNT_MISMATCH'
   | 'COTISATION_NOT_EDITABLE' | 'COTISATION_NOT_PENDING' | 'CYCLE_ALREADY_IN_PROGRESS'
+  | 'DESIGNATION_EN_ATTENTE'
+  // Rythme, échéances, remise du jackpot (B26, B32, B33)
+  | 'RYTHME_INVALIDE' | 'JOUR_ECHEANCE_INVALIDE' | 'HEURE_ECHEANCE_INVALIDE' | 'RYTHME_NON_MODIFIABLE'
+  | 'ECHEANCE_NON_MODIFIABLE' | 'COTISATIONS_PAR_TOUR_INVALIDE' | 'COTISATIONS_PAR_TOUR_NON_MODIFIABLE'
+  | 'ECHEANCE_INTROUVABLE' | 'ECHEANCE_NON_OUVERTE' | 'REGULARISATION_IMPOSSIBLE'
+  | 'REMISE_JACKPOT_INCOMPLETE' | 'MODE_REMISE_INDISPONIBLE'
+  // Commissions (B30)
+  | 'COMMISSION_ALREADY_EXISTS' | 'COMMISSION_PERCENTAGE_TOO_HIGH'
   // Console
   | 'CODE_LIST_SYSTEM_VALUE'
   // Côté front
@@ -87,7 +95,22 @@ const TEXTES: Partial<Record<ApiErrorCode, string>> = {
   TONTINE_NOT_OPEN: "Cette tontine n'accepte pas de nouveaux membres pour le moment.",
   DEMANDE_DEJA_EN_ATTENTE: 'Vous avez déjà envoyé une demande.',
   DEMANDE_NOT_PENDING: 'Cette demande a déjà été traitée.',
-  COTISATION_ALREADY_EXISTS: 'Un paiement existe déjà pour ce tour.',
+  COTISATION_ALREADY_EXISTS: 'Un paiement existe déjà pour cette cotisation.',
+  RYTHME_INVALIDE: 'Ce rythme de cotisation n’est pas accepté.',
+  JOUR_ECHEANCE_INVALIDE: 'Ce jour limite ne correspond pas au rythme choisi.',
+  HEURE_ECHEANCE_INVALIDE: 'Heure limite invalide.',
+  RYTHME_NON_MODIFIABLE: 'Le rythme ne peut plus être modifié : la tontine a démarré.',
+  ECHEANCE_NON_MODIFIABLE: 'La tontine est terminée : l’échéance ne peut plus être modifiée.',
+  COTISATIONS_PAR_TOUR_INVALIDE: 'Nombre de cotisations par tour invalide.',
+  COTISATIONS_PAR_TOUR_NON_MODIFIABLE: 'Le nombre de cotisations par tour ne peut plus être modifié : la tontine a démarré.',
+  ECHEANCE_INTROUVABLE: 'Cette cotisation est introuvable. Actualisez la page.',
+  ECHEANCE_NON_OUVERTE: 'Cette cotisation n’est pas encore ouverte au paiement.',
+  REGULARISATION_IMPOSSIBLE: 'Ce retard ne peut pas être payé ici. Contactez votre gestionnaire.',
+  REMISE_JACKPOT_INCOMPLETE: 'Le jackpot n’est pas complet : attendez les retardataires ou choisissez une autre option.',
+  MODE_REMISE_INDISPONIBLE: 'Cette option de remise n’est pas possible pour ce tour.',
+  COMMISSION_ALREADY_EXISTS: 'Cette commission existe déjà.',
+  COMMISSION_PERCENTAGE_TOO_HIGH: 'La commission ne peut pas dépasser 100 %.',
+  DESIGNATION_EN_ATTENTE: 'Désignez d’abord le gagnant du tour précédent.',
   NO_CYCLE_IN_PROGRESS: "Le tour n'est pas en cours.",
   AMOUNT_BELOW_MINIMUM: 'Montant inférieur au minimum.',
   AMOUNT_MISMATCH: 'Le montant doit être égal au montant fixé.',

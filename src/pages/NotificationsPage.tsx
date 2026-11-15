@@ -18,7 +18,13 @@ type Categorie = 'jackpot' | 'paiement' | 'validation' | 'retard' | 'tour' | 'me
 function categorie(type: NotificationType): Categorie {
   switch (type) {
     case NotificationType.JACKPOT_DISTRIBUE:
-    case NotificationType.DISTRIBUTION_FINALE: return 'jackpot'
+    case NotificationType.DISTRIBUTION_FINALE:
+    case NotificationType.JACKPOT_PRET:
+    case NotificationType.COMPLEMENT_A_REMETTRE:
+    case NotificationType.GAGNANTS_A_DESIGNER:
+    case NotificationType.PRIORITE_JACKPOT_DEMANDEE:
+    case NotificationType.PRIORITE_JACKPOT_ACCORDEE:
+    case NotificationType.PRIORITE_JACKPOT_REFUSEE: return 'jackpot'
     case NotificationType.PAIEMENT_RECU:
     case NotificationType.COTISATION_SOUMISE: return 'paiement'
     case NotificationType.COTISATION_VALIDEE: return 'validation'
@@ -83,7 +89,15 @@ function destination(n: NotificationItem, t: MaTontine | undefined): string | nu
     case NotificationType.TOUR_PROCHE:
     case NotificationType.JACKPOT_DISTRIBUE:
     case NotificationType.DISTRIBUTION_FINALE:
+    // Gestionnaire : jackpot à remettre, complément à remettre, gagnant à désigner → le tour concerné
+    case NotificationType.JACKPOT_PRET:
+    case NotificationType.COMPLEMENT_A_REMETTRE:
+    case NotificationType.GAGNANTS_A_DESIGNER:
       return tour
+    // Règles modifiées par le gestionnaire (échéance, rappels, ordre) → les règles de la tontine
+    case NotificationType.REGLES_MODIFIEES:
+    case NotificationType.ORDRE_BENEFICIAIRE_MODIFIE:
+      return tid ? `/tontine/${tid}/reglages` : null
     case NotificationType.INVITATION_TONTINE:
     case NotificationType.STATUT_MEMBRE:
       return tid ? (gere && n.membreId ? `/tontine/${tid}/membres/${n.membreId}` : `/tontine/${tid}`) : null
