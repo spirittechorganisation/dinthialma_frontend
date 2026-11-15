@@ -16,6 +16,17 @@ export enum NotificationType {
   ADHESION_REFUSEE      = 'ADHESION_REFUSEE',
   /** Gestionnaire : des membres n'ont pas encore payé le tour (veille et jour de l'échéance) — B26 / B31 */
   COTISATIONS_MANQUANTES = 'COTISATIONS_MANQUANTES',
+  /** Membres : échéance, rappels ou règles modifiés par le gestionnaire */
+  REGLES_MODIFIEES       = 'REGLES_MODIFIEES',
+  /** Gestionnaire : tout le monde a payé, le jackpot peut être remis */
+  JACKPOT_PRET           = 'JACKPOT_PRET',
+  /** Gestionnaire : un retard a été payé sur un tour déjà remis, complément à remettre au gagnant */
+  COMPLEMENT_A_REMETTRE  = 'COMPLEMENT_A_REMETTRE',
+  GAGNANTS_A_DESIGNER    = 'GAGNANTS_A_DESIGNER',
+  ORDRE_BENEFICIAIRE_MODIFIE = 'ORDRE_BENEFICIAIRE_MODIFIE',
+  PRIORITE_JACKPOT_DEMANDEE  = 'PRIORITE_JACKPOT_DEMANDEE',
+  PRIORITE_JACKPOT_ACCORDEE  = 'PRIORITE_JACKPOT_ACCORDEE',
+  PRIORITE_JACKPOT_REFUSEE   = 'PRIORITE_JACKPOT_REFUSEE',
 }
 
 export interface NotificationItem {

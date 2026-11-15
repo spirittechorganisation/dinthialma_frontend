@@ -4,27 +4,37 @@
  * Le membre paie hors de l'app (Wave, Orange Money, Free Money, espèces) puis le déclare ici.
  * Tontine et tour sont déduits ; montant prérempli (pavé numérique si montant libre) ;
  * moyen mémorisé. Parcours type : carte d'action « Payer » → « Confirmer » → reçu.
+ * Un tour peut compter plusieurs cotisations : on paie celle en cours (« cotisation 2 sur 4 »).
+ * Les cotisations en retard restent payables, même après la remise du jackpot : elles sont
+ * proposées en premier dans « Que payez-vous ? » (un paiement par cotisation).
  *
  * /payer            → choix de la tontine (sauté s'il n'y a qu'une cotisation à payer)
  * /payer/:tontineId → déclaration
  */
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
-import { Copy, ChevronDown, ChevronRight, Clock, CheckCircle2, CalendarX, WifiOff } from 'lucide-react'
+import { clsx } from 'clsx'
+import { Copy, ChevronDown, ChevronRight, Clock, CheckCircle2, CalendarX, WifiOff, Circle } from 'lucide-react'
 import { ScreenHeader } from '@/components/layout/ScreenHeader'
 import { InitialsAvatar } from '@/components/ui/Section'
 import { PaymentMethodTiles } from '@/components/pay/PaymentMethodTiles'
 import { AmountPad, BigAmount } from '@/components/pay/AmountPad'
 import { useCotisantSummary, useMesRoles } from '@/hooks/useMe'
-import { useRecordCotisation } from '@/hooks/useCotisations'
+import { useRecordCotisation, useCotisations } from '@/hooks/useCotisations'
+import { useCycle } from '@/hooks/useCycles'
 import { useOnline } from '@/hooks/useOnline'
-import { formatF, formatDateCourte, safeGet, safeSet } from '@/lib/format'
+import { formatF, formatEcheance, safeGet, safeSet } from '@/lib/format'
 import { formatPhoneLocal } from '@/lib/phone'
 import { isMobileMoney, LAST_METHOD_KEY, METHODE_PAR_DEFAUT, estDisponible } from '@/lib/paymentMethods'
 import { synchroniserPreferences } from '@/lib/preferences'
 import { messageErreur } from '@/lib/apiError'
+import { CotisationStatut } from '@/types/common'
 import type { CotisantTontineSummary } from '@/types/me'
+
+/** Cotisations en retard d'une tontine : tours déjà remis + cotisations passées du tour en cours */
+const nbRetards = (l: CotisantTontineSummary) => l.echeancesARegulariser.length + (l.cotisationDue?.echeancesEnRetard ?? 0)
+const limiteDe = (l: CotisantTontineSummary) => l.cotisationDue?.echeanceAt ?? l.cotisationDue?.dateLimite ?? null
 
 export function PayerPage() {
   const { tontineId } = useParams<{ tontineId: string }>()
@@ -60,10 +70,11 @@ export function PayerPage() {
 // ─── Choix de la tontine (« Pour quelle tontine ? ») ─────────────────────────
 
 function ChoisirTontine({ lignes }: { lignes: CotisantTontineSummary[] }) {
+  // Les retards d'abord, puis la date limite la plus proche
   const aPayer = lignes
-    .filter((l) => l.cotisationDue?.statut === 'A_PAYER')
-    .sort((a, b) => +new Date(a.cotisationDue!.dateLimite) - +new Date(b.cotisationDue!.dateLimite))
-  const autres = lignes.filter((l) => l.cotisationDue && l.cotisationDue.statut !== 'A_PAYER')
+    .filter((l) => l.cotisationDue?.statut === 'A_PAYER' || nbRetards(l) > 0)
+    .sort((a, b) => (nbRetards(b) > 0 ? 1 : 0) - (nbRetards(a) > 0 ? 1 : 0) || +new Date(limiteDe(a) ?? 0) - +new Date(limiteDe(b) ?? 0))
+  const autres = lignes.filter((l) => l.cotisationDue && !aPayer.includes(l))
 
   if (aPayer.length === 1 && autres.length === 0) return <Navigate to={`/payer/${aPayer[0].tontineId}`} replace />
 
@@ -76,17 +87,20 @@ function ChoisirTontine({ lignes }: { lignes: CotisantTontineSummary[] }) {
           <p className="px-1 text-sm font-semibold text-neutral-500">Pour quelle tontine ?</p>
           <ul className="mt-2 bg-white rounded-3xl shadow-sm divide-y divide-neutral-100">
             {[...aPayer, ...autres].map((l) => {
-              const due = l.cotisationDue!
-              const statut = due.statut === 'A_PAYER'
-                ? `${due.montant != null ? formatF(due.montant) : 'Montant libre'} · avant le ${formatDateCourte(due.dateLimite)}`
-                : due.statut === 'EN_ATTENTE' ? 'Déclarée · en attente de validation' : 'Payée ✓'
+              const due = l.cotisationDue
+              const retards = nbRetards(l)
+              const statut = retards > 0
+                ? `${retards} cotisation${retards > 1 ? 's' : ''} en retard`
+                : due?.statut === 'A_PAYER'
+                  ? `${due.montant != null ? formatF(due.montant) : 'Montant libre'} · avant ${formatEcheance(limiteDe(l))}`
+                  : due?.statut === 'EN_ATTENTE' ? 'Déclarée · en attente de validation' : 'Payée ✓'
               return (
                 <li key={l.tontineId}>
                   <Link to={`/payer/${l.tontineId}`} className="flex items-center gap-3 px-4 py-3 min-h-[64px]">
                     <InitialsAvatar name={l.nom} />
                     <span className="min-w-0 flex-1">
                       <span className="block font-semibold text-neutral-900 truncate">{l.nom}</span>
-                      <span className="block text-sm text-neutral-500 truncate">{statut}</span>
+                      <span className={clsx('block text-sm truncate', retards > 0 ? 'font-medium text-red-700' : 'text-neutral-500')}>{statut}</span>
                     </span>
                     <ChevronRight size={18} className="text-neutral-300" />
                   </Link>
@@ -102,23 +116,81 @@ function ChoisirTontine({ lignes }: { lignes: CotisantTontineSummary[] }) {
 
 // ─── Déclaration ─────────────────────────────────────────────────────────────
 
+/** Ce que le membre paie : la cotisation en cours, ou une cotisation en retard */
+interface Cible {
+  cle: string
+  cycleId: string
+  /** Absent : le backend prend la cotisation en cours */
+  echeanceId?: string
+  numeroCycle: number
+  numeroEcheance: number | null
+  nombreEcheances: number | null
+  /** null = montant libre à saisir */
+  montant: number | null
+  limite: string | null
+  enRetard: boolean
+}
+
 function DeclarerPaiement({ ligne }: { ligne: CotisantTontineSummary }) {
   const navigate = useNavigate()
   const online = useOnline()
   const due = ligne.cotisationDue
   const { mutate: record, isPending } = useRecordCotisation()
 
+  // Retards sur le tour en cours : le résumé donne leur nombre, le tour et mes paiements disent lesquels
+  const retardsDuTour = (due?.echeancesEnRetard ?? 0) > 0
+  const tour = useCycle(ligne.tontineId, retardsDuTour && due ? due.cycleId : '')
+  const mesPaiements = useCotisations(ligne.tontineId, due?.cycleId, 0, 50, ligne.monMembreId ?? undefined, retardsDuTour)
+
+  const cibles = useMemo<Cible[]>(() => {
+    // 1. Retards sur des tours déjà remis (les plus anciens d'abord)
+    const liste: Cible[] = ligne.echeancesARegulariser.map((e) => ({
+      cle: e.echeanceId, cycleId: e.cycleId, echeanceId: e.echeanceId, numeroCycle: e.numeroCycle,
+      numeroEcheance: e.numeroEcheance, nombreEcheances: null, montant: e.montant, limite: e.echeanceAt, enRetard: true,
+    }))
+    // 2. Cotisations passées du tour en cours, sans paiement déclaré ou validé de ma part
+    if (due && retardsDuTour && tour.data && mesPaiements.data) {
+      const couvertes = new Set(
+        mesPaiements.data.content
+          .filter((c) => c.statut === CotisationStatut.EN_ATTENTE || c.statut === CotisationStatut.VALIDE)
+          .map((c) => c.echeanceId),
+      )
+      for (const e of tour.data.echeances ?? []) {
+        if (e.statut !== 'ECHUE' || couvertes.has(e.id)) continue
+        liste.push({
+          cle: e.id, cycleId: due.cycleId, echeanceId: e.id, numeroCycle: due.numeroCycle,
+          numeroEcheance: e.numero, nombreEcheances: due.nombreEcheances, montant: due.montant, limite: e.echeanceAt, enRetard: true,
+        })
+      }
+    }
+    // 3. La cotisation en cours
+    if (due?.statut === 'A_PAYER') {
+      liste.push({
+        cle: 'courante', cycleId: due.cycleId, echeanceId: due.echeanceId ?? undefined, numeroCycle: due.numeroCycle,
+        numeroEcheance: due.numeroEcheance, nombreEcheances: due.nombreEcheances,
+        montant: due.montantLibre ? null : due.montant, limite: due.echeanceAt ?? due.dateLimite, enRetard: false,
+      })
+    }
+    return liste
+  }, [ligne.echeancesARegulariser, due, retardsDuTour, tour.data, mesPaiements.data])
+
   // Dernier moyen utilisé s'il est disponible, sinon Espèces (seul moyen ouvert pour l'instant)
   const [methode, setMethode] = useState(() => {
     const dernier = safeGet(LAST_METHOD_KEY) ?? ''
     return estDisponible(dernier) ? dernier : METHODE_PAR_DEFAUT
   })
+  const [choix, setChoix] = useState<string | null>(null)
   const [montantLibre, setMontantLibre] = useState(0)
   const [refOpen, setRefOpen] = useState(false)
   const [reference, setReference] = useState('')
   const [error, setError] = useState<string | null>(null)
 
-  if (!due) {
+  // Par défaut : la cotisation en cours ; sinon le retard le plus ancien
+  const cible = cibles.find((c) => c.cle === choix) ?? cibles.find((c) => !c.enRetard) ?? cibles[0]
+
+  if (!cible && retardsDuTour && (tour.isLoading || mesPaiements.isLoading)) return <PayerSkeleton />
+
+  if (!cible && !due) {
     return (
       <Shell>
         <Message
@@ -130,7 +202,7 @@ function DeclarerPaiement({ ligne }: { ligne: CotisantTontineSummary }) {
     )
   }
 
-  if (due.statut !== 'A_PAYER') {
+  if (!cible && due) {
     const valide = due.statut === 'VALIDE'
     return (
       <Shell>
@@ -148,11 +220,15 @@ function DeclarerPaiement({ ligne }: { ligne: CotisantTontineSummary }) {
       </Shell>
     )
   }
+  if (!cible) return null
 
-  const montant = due.montantLibre ? montantLibre : due.montant ?? 0
-  const minimum = due.montantMinimum ?? 0
-  const montantValide = montant > 0 && (!due.montantLibre || montant >= minimum)
+  const libre = cible.montant == null
+  const montant = libre ? montantLibre : cible.montant ?? 0
+  const minimum = libre ? due?.montantMinimum ?? 0 : 0
+  const montantValide = montant > 0 && (!libre || montant >= minimum)
   const peutConfirmer = online && !!methode && montantValide && !isPending
+  const libelleCible = (c: Cible) =>
+    `Tour ${c.numeroCycle}${c.numeroEcheance && (c.nombreEcheances ?? 2) > 1 ? ` · cotisation ${c.numeroEcheance}${c.nombreEcheances ? ` sur ${c.nombreEcheances}` : ''}` : ''}`
 
   const copierNumero = async () => {
     try {
@@ -171,7 +247,8 @@ function DeclarerPaiement({ ligne }: { ligne: CotisantTontineSummary }) {
       {
         tontineId: ligne.tontineId,
         request: {
-          cycleId: due.cycleId,
+          cycleId: cible.cycleId,
+          ...(cible.echeanceId ? { echeanceId: cible.echeanceId } : {}),
           montant,
           methodePaiement: methode,
           referenceTransaction: reference.trim() || undefined,
@@ -195,22 +272,57 @@ function DeclarerPaiement({ ligne }: { ligne: CotisantTontineSummary }) {
   return (
     <Shell>
       <div className="space-y-4 pb-28 lg:pb-0">
-        {due.motifDernierRefus && (
+        {due?.motifDernierRefus && !cible.enRetard && (
           <p role="status" className="rounded-3xl bg-red-50 px-4 py-3 text-sm text-red-800">
             <b>Votre paiement a été refusé :</b> {due.motifDernierRefus}. Vous pouvez le déclarer à nouveau.
           </p>
         )}
+
+        {/* Plusieurs cotisations à régler, ou un retard : on choisit laquelle on paie (une par paiement) */}
+        {(cibles.length > 1 || cible.enRetard) && (
+          <section className="bg-white rounded-3xl shadow-sm">
+            <p className="px-4 pt-4 text-sm font-semibold text-neutral-500">Que payez-vous ?</p>
+            <ul role="radiogroup" aria-label="Cotisation à payer" className="mt-1 divide-y divide-neutral-100">
+              {cibles.map((c) => {
+                const actif = c.cle === cible.cle
+                return (
+                  <li key={c.cle}>
+                    <button
+                      type="button"
+                      role="radio"
+                      aria-checked={actif}
+                      onClick={() => { setChoix(c.cle); setError(null) }}
+                      className="w-full flex items-center gap-3 px-4 py-3 min-h-[60px] text-left"
+                    >
+                      {actif ? <CheckCircle2 size={22} className="text-primary-700 flex-shrink-0" /> : <Circle size={22} className="text-neutral-300 flex-shrink-0" />}
+                      <span className="min-w-0 flex-1">
+                        <span className="block font-semibold text-neutral-900">{libelleCible(c)}</span>
+                        <span className={clsx('block text-sm', c.enRetard ? 'font-medium text-red-700' : 'text-neutral-500')}>
+                          {c.enRetard ? `En retard · échue le ${formatEcheance(c.limite)}` : `Avant ${formatEcheance(c.limite)}`}
+                        </span>
+                      </span>
+                      <span className="font-bold tabular-nums text-neutral-900">{c.montant != null ? formatF(c.montant) : 'Libre'}</span>
+                    </button>
+                  </li>
+                )
+              })}
+            </ul>
+          </section>
+        )}
+
         <section className="bg-white rounded-3xl shadow-sm p-5 text-center">
-          <p className="text-sm font-medium text-neutral-500">{ligne.nom} · Tour {due.numeroCycle}</p>
+          <p className="text-sm font-medium text-neutral-500">{ligne.nom} · {libelleCible(cible)}</p>
           <div className="mt-3">
             <BigAmount value={montant} />
           </div>
-          <p className="mt-2 text-sm text-neutral-500">
-            {due.montantLibre
-              ? minimum ? `Montant libre · minimum ${formatF(minimum)}` : 'Montant libre'
-              : `À payer avant le ${formatDateCourte(due.dateLimite)}`}
+          <p className={clsx('mt-2 text-sm', cible.enRetard ? 'font-medium text-red-700' : 'text-neutral-500')}>
+            {cible.enRetard
+              ? `En retard · échue le ${formatEcheance(cible.limite)}`
+              : libre
+                ? minimum ? `Montant libre · minimum ${formatF(minimum)}` : 'Montant libre'
+                : `À payer avant ${formatEcheance(cible.limite)}`}
           </p>
-          {due.montantLibre && (
+          {libre && (
             <div className="mt-4">
               <AmountPad value={montantLibre} onChange={setMontantLibre} />
             </div>

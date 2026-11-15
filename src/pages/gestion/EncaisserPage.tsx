@@ -5,6 +5,7 @@
  * /encaisser                       → « Pour quelle tontine ? » (sauté s'il n'y en a qu'une avec un tour en cours)
  * /encaisser/:tontineId            → « De qui ? » (membres pas encore payés en tête)
  * /encaisser/:tontineId?membre=id  → « Combien ? » directement (fiche membre, scan d'un QR membre)
+ * ?echeance=id (et ?tour=id pour un tour déjà remis) → encaisser un retard sur une cotisation passée
  *
  * Desktop (≥ 1024 px) : « De qui ? » à gauche et « Combien ? » à droite sur le même écran ;
  * le membre choisi reste dans l'URL (?membre=id), comme sur mobile.
@@ -23,6 +24,7 @@ import { AmountPad, BigAmount } from '@/components/pay/AmountPad'
 import { useGestionSummary } from '@/hooks/useMe'
 import { useTontine } from '@/hooks/useTontines'
 import { useRecapCycle, useAdminRecordCotisation } from '@/hooks/useCotisations'
+import { useCycle } from '@/hooks/useCycles'
 import { useOnline } from '@/hooks/useOnline'
 import { formatF } from '@/lib/format'
 import { messageErreur } from '@/lib/apiError'
@@ -67,7 +69,7 @@ function ChoisirTontine() {
                     <span className="min-w-0 flex-1">
                       <span className="block font-semibold text-neutral-900 truncate">{t.nom}</span>
                       <span className="block text-sm text-neutral-500">
-                        Tour {c.numeroCycle} · {manquants > 0 ? `${manquants} n'ont pas payé` : 'tout le monde a payé'}
+                        Tour {c.numeroCycle}{c.nombreEcheances > 1 && c.numeroEcheanceCourante ? ` · cotisation ${c.numeroEcheanceCourante}/${c.nombreEcheances}` : ''} · {manquants > 0 ? `${manquants} n'ont pas payé` : 'tout le monde a payé'}
                       </span>
                     </span>
                     <ChevronRight size={18} className="text-neutral-300" />
@@ -90,16 +92,29 @@ function EncaisserTontine({ tontineId }: { tontineId: string }) {
   const gestion = useGestionSummary()
   const { data: tontine } = useTontine(tontineId)
   const stats = gestion.data?.tontines.find((t) => t.tontineId === tontineId)
-  const cycleId = stats?.cycleEnCours?.cycleId ?? ''
-  const recap = useRecapCycle(tontineId, cycleId, 0, 200, !!cycleId)
+  // Retard à encaisser : tour précisé (déjà remis) et / ou cotisation passée du tour
+  const tourParam = params.get('tour')
+  const echeanceId = params.get('echeance') ?? undefined
+  const tour = useCycle(tontineId, tourParam ?? '')
+  const cycleId = tourParam ?? stats?.cycleEnCours?.cycleId ?? ''
+  const recap = useRecapCycle(tontineId, cycleId, 0, 200, !!cycleId, echeanceId)
   const desktop = useIsDesktop()
+  // Garde le tour et la cotisation visés quand on choisit ou change de membre
+  const avecMembre = (id?: string) => {
+    const n = new URLSearchParams()
+    if (tourParam) n.set('tour', tourParam)
+    if (echeanceId) n.set('echeance', echeanceId)
+    if (id) n.set('membre', id)
+    return n
+  }
 
-  if (gestion.isLoading || (cycleId && recap.isLoading)) return <Shell title={tontine?.nom}><Skeleton /></Shell>
+  if (gestion.isLoading || (cycleId && recap.isLoading) || (tourParam && tour.isLoading)) return <Shell title={tontine?.nom}><Skeleton /></Shell>
   if (gestion.isError || recap.isError) return <Shell><Erreur onRetry={() => { gestion.refetch(); recap.refetch() }} /></Shell>
   if (!stats) {
     return <Shell><Message icon={<CalendarX size={28} />} title="Tontine introuvable" text="Vous ne gérez pas cette tontine." /></Shell>
   }
-  if (!stats.cycleEnCours) {
+  const numeroCycle = tourParam ? tour.data?.numeroCycle : stats.cycleEnCours?.numeroCycle
+  if (!cycleId || numeroCycle == null) {
     return (
       <Shell title={stats.nom}>
         <Message icon={<CalendarX size={28} />} title="Aucun tour en cours" text="Démarrez un tour pour pouvoir encaisser.">
@@ -111,6 +126,9 @@ function EncaisserTontine({ tontineId }: { tontineId: string }) {
 
   const lignes = (recap.data?.content ?? []).filter((l) => l.statutMembre === MembreStatut.ACTIF)
   const membre = membreId ? lignes.find((l) => l.membreId === membreId) : undefined
+  // « · cotisation 2/4 » quand le tour en compte plusieurs ; « · retard » pour une cotisation passée
+  const ref = lignes[0]
+  const suffixeTour = `${ref?.nombreEcheances && ref.nombreEcheances > 1 && ref.numeroEcheance ? ` · cotisation ${ref.numeroEcheance}/${ref.nombreEcheances}` : ''}${echeanceId || tourParam ? ' · retard' : ''}`
 
   const actif = (l: CycleRecapLigne) => (l.statutCotisation === CotisationStatut.EN_ATTENTE || l.statutCotisation === CotisationStatut.VALIDE)
   const membreAEncaisser = membreId && membre && !actif(membre) ? membre : undefined
@@ -118,16 +136,19 @@ function EncaisserTontine({ tontineId }: { tontineId: string }) {
     tontineId,
     tontineNom: stats.nom,
     cycleId,
-    numeroCycle: stats.cycleEnCours.numeroCycle,
+    echeanceId,
+    numeroCycle,
+    suffixeTour,
     montantDefaut: stats.montantLibre ? 0 : stats.montant ?? tontine?.montant ?? 0,
-    onChangeMembre: () => setParams({}, { replace: true }),
+    onChangeMembre: () => setParams(avecMembre(), { replace: true }),
   }
   const deQuiProps = {
     tontineId,
-    numeroCycle: stats.cycleEnCours.numeroCycle,
+    numeroCycle,
+    suffixeTour,
     lignes,
     // Desktop : changer de membre remplace la sélection (pas d'empilement dans l'historique)
-    onChoisir: (id: string) => setParams({ membre: id }),
+    onChoisir: (id: string) => setParams(avecMembre(id)),
   }
 
   // Desktop : un seul écran, liste à défilement interne à gauche, formulaire compact à droite
@@ -137,11 +158,13 @@ function EncaisserTontine({ tontineId }: { tontineId: string }) {
         tontineId={tontineId}
         tontineNom={stats.nom}
         cycleId={cycleId}
-        numeroCycle={stats.cycleEnCours.numeroCycle}
+        echeanceId={echeanceId}
+        numeroCycle={numeroCycle}
+        suffixeTour={suffixeTour}
         montantDefaut={montantProps.montantDefaut}
         lignes={lignes}
         membreId={membreAEncaisser?.membreId ?? null}
-        onChoisir={(id) => setParams({ membre: id }, { replace: true })}
+        onChoisir={(id) => setParams(avecMembre(id), { replace: true })}
         onFermer={montantProps.onChangeMembre}
       />
     )
@@ -164,9 +187,10 @@ function EncaisserTontine({ tontineId }: { tontineId: string }) {
 
 // ─── « De qui ? » ────────────────────────────────────────────────────────────
 
-function DeQuiContenu({ tontineId, numeroCycle, lignes, onChoisir, selectedId }: {
+function DeQuiContenu({ tontineId, numeroCycle, suffixeTour = '', lignes, onChoisir, selectedId }: {
   tontineId: string
   numeroCycle: number
+  suffixeTour?: string
   lignes: CycleRecapLigne[]
   onChoisir: (membreId: string) => void
   /** Desktop : membre dont le formulaire est ouvert à droite */
@@ -195,11 +219,11 @@ function DeQuiContenu({ tontineId, numeroCycle, lignes, onChoisir, selectedId }:
           aria-label="Chercher un membre"
         />
       </div>
-      <p className="mt-2 px-1 text-xs text-neutral-500">Tour {numeroCycle}</p>
+      <p className="mt-2 px-1 text-xs text-neutral-500">Tour {numeroCycle}{suffixeTour}</p>
 
       {toutPaye && !q && (
         <div className="mt-3 lg:hidden">
-          <Message icon={<PartyPopper size={28} />} title="Tout le monde a payé ce tour ✓" text="Il n'y a rien à encaisser." />
+          <Message icon={<PartyPopper size={28} />} title={suffixeTour ? 'Tout le monde a payé cette cotisation ✓' : 'Tout le monde a payé ce tour ✓'} text="Il n'y a rien à encaisser." />
         </div>
       )}
 
@@ -267,11 +291,14 @@ function DeQuiContenu({ tontineId, numeroCycle, lignes, onChoisir, selectedId }:
 
 // ─── « Combien ? » ───────────────────────────────────────────────────────────
 
-function MontantForm({ tontineId, cycleId, numeroCycle, montantDefaut, membre, onChangeMembre, inline = false }: {
+function MontantForm({ tontineId, cycleId, echeanceId, numeroCycle, suffixeTour = '', montantDefaut, membre, onChangeMembre, inline = false }: {
   tontineId: string
   tontineNom: string
   cycleId: string
+  /** Cotisation passée à régulariser ; absente = cotisation en cours */
+  echeanceId?: string
   numeroCycle: number
+  suffixeTour?: string
   montantDefaut: number
   membre: CycleRecapLigne
   onChangeMembre: () => void
@@ -299,6 +326,7 @@ function MontantForm({ tontineId, cycleId, numeroCycle, montantDefaut, membre, o
         request: {
           membreId: membre.membreId,
           cycleId,
+          ...(echeanceId ? { echeanceId } : {}),
           montant,
           methodePaiement: methode,
           referenceTransaction: reference.trim() || undefined,
@@ -332,7 +360,7 @@ function MontantForm({ tontineId, cycleId, numeroCycle, montantDefaut, membre, o
             <InitialsAvatar name={nom} size={48} />
             <div className="min-w-0 flex-1">
               <p className="font-bold text-neutral-900 truncate">{nom}</p>
-              <p className="text-sm text-neutral-500">Tour {numeroCycle}{membre.accountStatus === AccountStatus.PRE_ENROLLED ? ' · Sans compte' : ''}</p>
+              <p className="text-sm text-neutral-500">Tour {numeroCycle}{suffixeTour}{membre.accountStatus === AccountStatus.PRE_ENROLLED ? ' · Sans compte' : ''}</p>
             </div>
             <button onClick={onChangeMembre} className="h-11 px-3 rounded-full bg-neutral-100 text-sm font-semibold">Changer</button>
           </div>

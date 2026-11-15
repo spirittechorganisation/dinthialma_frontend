@@ -1,6 +1,7 @@
 /**
  * T8 — Réglages / Infos de la tontine (gabarit « Paramètres »).
- * Gestionnaire : règles, commissions (ajouter / modifier / supprimer), partager le QR d'invitation,
+ * Gestionnaire : règles, limite de paiement et rappels (modifiables en cours), option de remise du jackpot,
+ * commissions (ajouter / modifier / supprimer), partager le QR d'invitation,
  * actions sensibles (suspendre / relancer, supprimer le brouillon).
  * Membre / lecture : règles, gestionnaire à contacter, commissions en consultation.
  */
@@ -8,23 +9,28 @@ import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { clsx } from 'clsx'
-import { Phone, Plus, Pencil, Trash2, RotateCw } from 'lucide-react'
+import { Phone, Plus, Pencil, Trash2, RotateCw, CheckCircle2, Circle } from 'lucide-react'
 import { ScreenHeader } from '@/components/layout/ScreenHeader'
 import { Modal } from '@/components/ui/Modal'
 import { QrCard } from '@/components/home/QrCard'
 import { useTontineVue } from '@/hooks/useTontineVue'
 import {
   useCommissions, useCreateCommission, useUpdateCommission, useDeleteCommission,
-  useSuspendreTontine, useActiverTontine, useDeleteTontine,
+  useSuspendreTontine, useActiverTontine, useDeleteTontine, useModifierEcheance, useModifierReglages,
 } from '@/hooks/useTontines'
+import { EcheancePicker } from '@/components/tontine/EcheancePicker'
+import { Stepper } from '@/components/ui/Stepper'
 import { useOnline } from '@/hooks/useOnline'
 import { formatF, formatDateCourte } from '@/lib/format'
 import { formatPhoneLocal, toLocalPhone } from '@/lib/phone'
-import { rythmeCourt } from '@/lib/tontineLabels'
+import {
+  rythmeCourtDe, rythmeDe, rythmePhraseDe, echeancePhrase, dureeTour, capital,
+  HEURE_ECHEANCE_DEFAUT, DECLENCHEMENTS, MODES_REMISE,
+} from '@/lib/tontineLabels'
 import { useInvitationTontine, useRegenererInvitation, useRevoquerInvitation } from '@/hooks/useQr'
 import { messageErreur } from '@/lib/apiError'
 import { ModeCycle, TontineStatut } from '@/types/common'
-import { TontineType, type Commission } from '@/types/tontine'
+import { TontineType, type Commission, type Tontine, type RappelsEcheance, type ModeRemise } from '@/types/tontine'
 import { TYPES_COMMISSION, valeurCommission } from '@/lib/commissions'
 
 const ORDRE: Record<string, string> = {
@@ -35,6 +41,14 @@ const ORDRE: Record<string, string> = {
 
 
 type Sensible = 'suspendre' | 'relancer' | 'supprimer'
+
+/** Rappels en clair ; valeurs par défaut du backend : la veille + 3 h avant */
+function rappelsTexte(r: RappelsEcheance | null | undefined): string {
+  const veille = r?.veille ?? true
+  const heures = r?.heuresAvant ?? 3
+  const morceaux = [veille ? 'la veille à 18h' : '', heures > 0 ? `${heures} h avant` : ''].filter(Boolean)
+  return morceaux.length ? capital(morceaux.join(' et ')) : 'Aucun rappel'
+}
 
 export function ReglagesTontinePage() {
   const { id = '' } = useParams()
@@ -48,6 +62,8 @@ export function ReglagesTontinePage() {
 
   const [edition, setEdition] = useState<Commission | 'nouvelle' | null>(null)
   const [sensible, setSensible] = useState<Sensible | null>(null)
+  const [echeanceOpen, setEcheanceOpen] = useState(false)
+  const { mutate: changerRemise, isPending: remisePending, variables: remiseEnvoyee } = useModifierReglages()
   const { mutate: suspendre, isPending: suspending } = useSuspendreTontine()
   const { mutate: activer, isPending: activating } = useActiverTontine()
   const { mutate: supprimer, isPending: deleting } = useDeleteTontine()
@@ -73,20 +89,29 @@ export function ReglagesTontinePage() {
 
   const isEvent = t.tontineType === TontineType.EVENEMENTIELLE
   const brouillon = t.statut === TontineStatut.BROUILLON
+  const terminee = t.statut === TontineStatut.TERMINEE
+  const rythme = rythmeDe(t)
+  // « Chaque semaine, le dimanche, avant 20h » ; sans jour ni heure imposés : fin de chaque période
+  const limite = echeancePhrase(t)
+  const paiementTexte = `${rythme ? capital(rythmePhraseDe(rythme)) : 'À chaque période'}${limite ? `, ${limite}` : ''}`
+  const modeRemise: ModeRemise = (remisePending && remiseEnvoyee?.modeRemise) || t.modeRemise || 'DISPONIBLE'
   const regles: [string, string][] = [
     ['Type', isEvent ? 'Pour un événement' : 'Chacun son tour'],
-    ['Montant', t.montantLibre ? `Libre${t.montantMinimum ? ` · minimum ${formatF(t.montantMinimum)}` : ''}` : `${formatF(t.montant)} / ${rythmeCourt(t.frequence)}`],
+    ['Montant', t.montantLibre ? `Libre${t.montantMinimum ? ` · minimum ${formatF(t.montantMinimum)}` : ''}` : `${formatF(t.montant)} / ${rythmeCourtDe(t)}`],
     ...(isEvent
       ? [
           ...(t.nomEvenement ? [['Événement', t.nomEvenement] as [string, string]] : []),
           ['Date de l\'événement', formatDateCourte(t.dateEcheance)] as [string, string],
-          ['Rappels', rythmeCourt(t.frequence)] as [string, string],
         ]
       : [
           ['Membres', `${t.nombreMembresActuels} / ${t.nombreMembres}`] as [string, string],
           ['Gagnants par tour', String(t.nombreGagnants || 1)] as [string, string],
           ['Ordre des gagnants', ORDRE[t.ordreBeneficiaire ?? ''] ?? t.ordreBeneficiaire ?? '—'] as [string, string],
           ['Tours', t.modeCycle === ModeCycle.MANUEL ? 'Démarrés par le gestionnaire' : 'Automatiques'] as [string, string],
+          ['Jackpot', (t.cotisationsParTour ?? 1) > 1
+            ? `Toutes les ${t.cotisationsParTour} cotisations${rythme ? ` · ${dureeTour(rythme, t.cotisationsParTour ?? 1)}` : ''}`
+            : 'À chaque cotisation'] as [string, string],
+          ['Remise du jackpot', DECLENCHEMENTS.find((d) => d.value === t.declenchementJackpot)?.label ?? 'À la fin du tour'] as [string, string],
         ]),
     ['Début', formatDateCourte(t.dateDebut)],
     ['Créée le', formatDateCourte(t.createdAt)],
@@ -131,6 +156,58 @@ export function ReglagesTontinePage() {
           </dl>
           {t.description && <p className="px-4 pb-4 text-sm text-neutral-600">{t.description}</p>}
         </Section>
+
+        <Section
+          titre="Paiement et rappels"
+          action={gerant && !terminee ? (
+            <button onClick={() => setEcheanceOpen(true)} disabled={!online} className="h-9 px-3 rounded-full bg-primary-50 text-sm font-semibold text-primary-800 inline-flex items-center gap-1 disabled:opacity-50">
+              <Pencil size={15} /> Modifier
+            </button>
+          ) : undefined}
+        >
+          <dl className="divide-y divide-neutral-100">
+            <div className="flex items-start justify-between gap-4 px-4 py-3">
+              <dt className="text-sm text-neutral-500">À payer</dt>
+              <dd className="text-sm font-semibold text-neutral-900 text-right">{paiementTexte}</dd>
+            </div>
+            <div className="flex items-start justify-between gap-4 px-4 py-3">
+              <dt className="text-sm text-neutral-500">Rappels</dt>
+              <dd className="text-sm font-semibold text-neutral-900 text-right">{rappelsTexte(t.rappels)}</dd>
+            </div>
+          </dl>
+        </Section>
+
+        {/* Rotative : que faire quand il manque des cotisations au moment de remettre le jackpot */}
+        {gerant && !isEvent && !terminee && (
+          <Section titre="S'il manque de l'argent à la remise">
+            <div role="radiogroup" aria-label="Option de remise par défaut" className="divide-y divide-neutral-100">
+              {MODES_REMISE.map((m) => {
+                const choisi = modeRemise === m.value
+                return (
+                  <button
+                    key={m.value}
+                    type="button"
+                    role="radio"
+                    aria-checked={choisi}
+                    disabled={!online || remisePending}
+                    onClick={() => !choisi && changerRemise({ id, modeRemise: m.value }, {
+                      onSuccess: () => toast.success('Option de remise enregistrée'),
+                      onError: (e) => toast.error(messageErreur(e, "L'enregistrement a échoué. Réessayez.")),
+                    })}
+                    className="w-full flex items-start gap-3 px-4 py-3 text-left disabled:opacity-60"
+                  >
+                    {choisi ? <CheckCircle2 size={22} className="mt-0.5 text-primary-700 flex-shrink-0" /> : <Circle size={22} className="mt-0.5 text-neutral-300 flex-shrink-0" />}
+                    <span className="min-w-0">
+                      <span className="block font-semibold text-neutral-900">{m.label}</span>
+                      <span className="block text-sm text-neutral-500">{m.detail}</span>
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+            <p className="px-4 pb-4 pt-1 text-xs text-neutral-500">Vous pourrez choisir autrement à chaque remise.</p>
+          </Section>
+        )}
 
         {!gerant && (
           <Section titre="Gestionnaire">
@@ -196,7 +273,7 @@ export function ReglagesTontinePage() {
               subtitle={invitation.data ? `Code ${invitation.data.code}` : invitation.isError ? 'Lien d’invitation désactivé' : 'Préparation du lien…'}
               url={invitation.data?.url ?? null}
               onShare={() => navigate(`/partager?tontine=${t.id}`)}
-              shareText={`Rejoins notre tontine ${t.nom} (${formatF(t.montant)} / ${rythmeCourt(t.frequence)}) :`}
+              shareText={`Rejoins notre tontine ${t.nom} (${formatF(t.montant)} / ${rythmeCourtDe(t)}) :`}
             />
             <div className="flex flex-wrap gap-2 px-1">
               <button
@@ -237,6 +314,8 @@ export function ReglagesTontinePage() {
         )}
       </div>
 
+      {echeanceOpen && <EcheanceSheet tontine={t} onClose={() => setEcheanceOpen(false)} />}
+
       {edition && (
         <CommissionSheet
           tontineId={id}
@@ -263,6 +342,55 @@ export function ReglagesTontinePage() {
         )}
       </Modal>
     </Shell>
+  )
+}
+
+/** Feuille « Paiement et rappels » : jour et heure limites, rappels avant l'échéance (modifiable en cours) */
+function EcheanceSheet({ tontine: t, onClose }: { tontine: Tontine; onClose: () => void }) {
+  const unite = rythmeDe(t)?.unite ?? 'MOIS'
+  const [jour, setJour] = useState(t.jourEcheance ?? '')
+  const [heure, setHeure] = useState((t.heureEcheance ?? HEURE_ECHEANCE_DEFAUT).slice(0, 5))
+  const [veille, setVeille] = useState(t.rappels?.veille ?? true)
+  const [heuresAvant, setHeuresAvant] = useState(t.rappels?.heuresAvant ?? 3)
+  const { mutate: enregistrer, isPending } = useModifierEcheance()
+  const enCours = t.statut === TontineStatut.ACTIVE || t.statut === TontineStatut.SUSPENDUE
+
+  const valider = () => enregistrer(
+    // jourEcheance "" retire le jour imposé
+    { id: t.id, request: { jourEcheance: jour, heureEcheance: heure, rappels: { veille, heuresAvant } } },
+    {
+      onSuccess: () => { toast.success(enCours ? 'Enregistré : les membres sont prévenus' : 'Enregistré'); onClose() },
+      onError: (e) => toast.error(messageErreur(e, "L'enregistrement a échoué. Réessayez.")),
+    },
+  )
+
+  return (
+    <Modal isOpen onClose={onClose} title="Paiement et rappels" size="sm">
+      <div className="space-y-5">
+        <EcheancePicker unite={unite} jour={jour} onJour={setJour} heure={heure} onHeure={setHeure} />
+
+        <div>
+          <p className="text-sm font-semibold text-neutral-700">Rappels aux membres qui n'ont pas payé</p>
+          <label className="mt-2 flex items-center justify-between h-12 px-4 rounded-2xl bg-neutral-100">
+            <span className="font-medium text-neutral-800">La veille à 18h</span>
+            <input type="checkbox" checked={veille} onChange={(e) => setVeille(e.target.checked)} className="w-6 h-6 accent-primary-700" />
+          </label>
+          <div className="mt-3">
+            <Stepper value={heuresAvant} min={0} max={24} onChange={setHeuresAvant} label={heuresAvant === 0 ? 'pas de rappel le jour même' : `heure${heuresAvant > 1 ? 's' : ''} avant la limite`} small />
+          </div>
+        </div>
+
+        {enCours && (
+          <p className="rounded-2xl bg-amber-50 px-3 py-2 text-sm text-amber-800">
+            Le tour en cours ne change pas. La nouvelle limite s'applique aux prochains tours et les membres sont prévenus.
+          </p>
+        )}
+
+        <button onClick={valider} disabled={isPending} className="w-full h-14 rounded-full bg-primary-700 text-white text-[17px] font-bold disabled:opacity-50">
+          {isPending ? 'Enregistrement…' : 'Enregistrer'}
+        </button>
+      </div>
+    </Modal>
   )
 }
 

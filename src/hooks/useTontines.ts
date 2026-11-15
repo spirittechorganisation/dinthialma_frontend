@@ -1,6 +1,10 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useEffect, useState } from 'react'
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import { tontineService } from '@/services/tontineService'
-import { CreateTontineRequest, UpdateTontineRequest, CreateCommissionRequest, UpdateCommissionRequest } from '@/types/tontine'
+import {
+  CreateTontineRequest, UpdateTontineRequest, CreateCommissionRequest, UpdateCommissionRequest,
+  ModifierEcheanceRequest, ModeRemise, SimulationParams,
+} from '@/types/tontine'
 
 // ─── Tontines ─────────────────────────────────────────────────────────────────
 
@@ -70,6 +74,57 @@ export function useSuspendreTontine() {
       queryClient.invalidateQueries({ queryKey: ['tontines'] })
       queryClient.invalidateQueries({ queryKey: ['tontine', id] })
     },
+  })
+}
+
+/** Après un changement de règles : la fiche, mes listes et les tours à venir (replanifiés) */
+function invaliderTontine(queryClient: ReturnType<typeof useQueryClient>, id: string) {
+  queryClient.invalidateQueries({ queryKey: ['tontines'] })
+  queryClient.invalidateQueries({ queryKey: ['tontine', id] })
+  queryClient.invalidateQueries({ queryKey: ['me'] })
+  queryClient.invalidateQueries({ queryKey: ['cycles', id] })
+  queryClient.invalidateQueries({ queryKey: ['cycle', id] })
+}
+
+/** Jour / heure limite et rappels, y compris tontine en cours (B26) */
+export function useModifierEcheance() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, request }: { id: string; request: ModifierEcheanceRequest }) =>
+      tontineService.modifierEcheance(id, request),
+    onSuccess: (_, { id }) => invaliderTontine(queryClient, id),
+  })
+}
+
+/** Option de remise du jackpot par défaut (B33) */
+export function useModifierReglages() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, modeRemise }: { id: string; modeRemise: ModeRemise }) =>
+      tontineService.modifierReglages(id, { modeRemise }),
+    onSuccess: (_, { id }) => invaliderTontine(queryClient, id),
+  })
+}
+
+/**
+ * Calendrier simulé par le backend pour les écrans Créer / Modifier.
+ * Les paramètres sont temporisés (saisie du montant au pavé) et le dernier résultat reste affiché
+ * pendant le rechargement, pour que le résumé ne clignote pas.
+ */
+export function useSimulation(params: SimulationParams | null) {
+  const cle = params ? JSON.stringify(params) : ''
+  const [stable, setStable] = useState(cle)
+  useEffect(() => {
+    const id = setTimeout(() => setStable(cle), 350)
+    return () => clearTimeout(id)
+  }, [cle])
+  return useQuery({
+    queryKey: ['simulation', stable],
+    queryFn: ({ signal }) => tontineService.simuler(JSON.parse(stable) as SimulationParams, signal),
+    enabled: !!stable,
+    placeholderData: keepPreviousData,
+    staleTime: 5 * 60_000,
+    retry: false,
   })
 }
 

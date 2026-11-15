@@ -4,7 +4,7 @@ import { clsx } from 'clsx'
 import { Check, ChevronRight, Search, Trophy } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { InitialsAvatar } from '@/components/ui/Section'
-import { formatF, formatDateCourte } from '@/lib/format'
+import { formatF, formatEcheance } from '@/lib/format'
 import type { CotisantSummary, GestionSummary, ModeAccueil } from '@/types/me'
 
 // ─── « Pour quelle tontine ? » ───────────────────────────────────────────────
@@ -195,6 +195,7 @@ export function PlusSheet({ isOpen, onClose, items }: { isOpen: boolean; onClose
   )
 }
 
-export function dueDetail(dateLimite: string | null | undefined): string {
-  return dateLimite ? `avant le ${formatDateCourte(dateLimite)}` : ''
+/** Limite de paiement : date-heure de l'échéance si le backend la fournit, sinon la date de fin */
+export function dueDetail(limite: string | null | undefined): string {
+  return limite ? `avant ${formatEcheance(limite)}` : ''
 }

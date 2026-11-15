@@ -1,5 +1,8 @@
 import api from './api'
-import { Tontine, CreateTontineRequest, UpdateTontineRequest, Commission, CreateCommissionRequest, UpdateCommissionRequest } from '@/types/tontine'
+import {
+  Tontine, CreateTontineRequest, UpdateTontineRequest, Commission, CreateCommissionRequest, UpdateCommissionRequest,
+  ModifierEcheanceRequest, ModeRemise, SimulationParams, SimulationCalendrier,
+} from '@/types/tontine'
 import { PageResponse, CustomResponse, RawPage, toPage } from '@/types/common'
 
 export const tontineService = {
@@ -49,6 +52,27 @@ export const tontineService = {
   suspendreTontine: async (id: string): Promise<Tontine> => {
     const response = await api.put<CustomResponse<Tontine>>(`/v1/tontines/${id}/suspendre`)
     return response.data.data
+  },
+
+  // ─── Échéance et rappels, modifiables en cours de tontine (B26) ─────────────
+  // S'applique aux tours pas encore commencés ; les membres actifs sont prévenus.
+  modifierEcheance: async (id: string, request: ModifierEcheanceRequest): Promise<Tontine> => {
+    const response = await api.patch<CustomResponse<Tontine>>(`/v1/tontines/${id}/echeance`, request)
+    return response.data.data
+  },
+
+  // ─── Option de remise du jackpot par défaut (B33, rotative) ─────────────────
+  modifierReglages: async (id: string, request: { modeRemise?: ModeRemise }): Promise<Tontine> => {
+    const response = await api.patch<CustomResponse<Tontine>>(`/v1/tontines/${id}/reglages`, request)
+    return response.data.data
+  },
+
+  // ─── Calendrier simulé par le backend, sans effet en base (B26 / B32) ───────
+  // Mêmes règles que l'activation : le front n'a pas à recalculer les dates.
+  simuler: async (params: SimulationParams, signal?: AbortSignal): Promise<SimulationCalendrier> => {
+    const response = await api.get<CustomResponse<SimulationCalendrier>>('/v1/tontines/simulation', { params, signal })
+    const d = response.data.data
+    return { ...d, echeances: d?.echeances ?? [], tours: d?.tours ?? [] }
   },
 
   // ─── Commissions ─────────────────────────────────────────────────────────────

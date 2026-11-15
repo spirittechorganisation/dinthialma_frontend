@@ -24,7 +24,11 @@ interface EncaisserDesktopProps {
   tontineId: string
   tontineNom: string
   cycleId: string
+  /** Cotisation passée à régulariser ; absente = cotisation en cours */
+  echeanceId?: string
   numeroCycle: number
+  /** « · cotisation 2/4 », « · retard » */
+  suffixeTour?: string
   /** 0 = montant libre (à saisir) */
   montantDefaut: number
   lignes: CycleRecapLigne[]
@@ -84,7 +88,7 @@ export function EncaisserDesktop(p: EncaisserDesktopProps) {
         </button>
         <div className="min-w-0 flex-1">
           <h1 className="text-[26px] font-bold text-neutral-900 leading-tight">Encaisser</h1>
-          <p className="text-sm text-neutral-500 truncate">{p.tontineNom} · Tour {p.numeroCycle}</p>
+          <p className="text-sm text-neutral-500 truncate">{p.tontineNom} · Tour {p.numeroCycle}{p.suffixeTour}</p>
         </div>
         <div className="w-64">
           <div className="flex items-center justify-between text-sm">
@@ -195,7 +199,7 @@ export function EncaisserDesktop(p: EncaisserDesktopProps) {
   )
 }
 
-function FormulaireEncaissement({ tontineId, cycleId, numeroCycle, montantDefaut, membre, onFermer }: EncaisserDesktopProps & { membre: CycleRecapLigne }) {
+function FormulaireEncaissement({ tontineId, cycleId, echeanceId, numeroCycle, suffixeTour = '', montantDefaut, membre, onFermer }: EncaisserDesktopProps & { membre: CycleRecapLigne }) {
   const navigate = useNavigate()
   const online = useOnline()
   const { mutate: encaisser, isPending } = useAdminRecordCotisation()
@@ -222,6 +226,7 @@ function FormulaireEncaissement({ tontineId, cycleId, numeroCycle, montantDefaut
         request: {
           membreId: membre.membreId,
           cycleId,
+          ...(echeanceId ? { echeanceId } : {}),
           montant,
           methodePaiement: methode,
           referenceTransaction: reference.trim() || undefined,
@@ -246,7 +251,7 @@ function FormulaireEncaissement({ tontineId, cycleId, numeroCycle, montantDefaut
           <div className="min-w-0 flex-1">
             <p className="text-lg font-bold text-neutral-900 truncate">{nom}</p>
             <p className="text-sm text-neutral-500">
-              Tour {numeroCycle}{membre.ordreJackpot ? ` · N° ${membre.ordreJackpot}` : ''}{membre.accountStatus === AccountStatus.PRE_ENROLLED ? ' · Sans compte' : ''}
+              Tour {numeroCycle}{suffixeTour}{membre.ordreJackpot ? ` · N° ${membre.ordreJackpot}` : ''}{membre.accountStatus === AccountStatus.PRE_ENROLLED ? ' · Sans compte' : ''}
             </p>
           </div>
           <button type="button" onClick={onFermer} className="h-10 px-3 rounded-full bg-neutral-100 text-sm font-semibold text-neutral-700 hover:bg-neutral-200 inline-flex items-center gap-1.5">

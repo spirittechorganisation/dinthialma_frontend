@@ -32,6 +32,12 @@ export interface InvitationApercu {
   tontineType: 'ROTATIVE' | 'EVENEMENTIELLE'
   montant: number | null
   frequence: string | null
+  /** Règles connues avant d'adhérer : rythme, limite de paiement, cotisations par tour (B26 / B32) */
+  rythmeIntervalle: number | null
+  rythmeUnite: 'JOUR' | 'SEMAINE' | 'MOIS' | null
+  jourEcheance: string | null
+  heureEcheance: string | null
+  cotisationsParTour: number | null
   montantLibre: boolean
   montantMinimum: number | null
   nomEvenement: string | null
@@ -116,6 +122,11 @@ export const qrService = {
       tontineType: a.tontineType ?? 'ROTATIVE',
       montant: ouNull(a.montant),
       frequence: ouNull(a.frequence),
+      rythmeIntervalle: ouNull(a.rythmeIntervalle),
+      rythmeUnite: ouNull(a.rythmeUnite),
+      jourEcheance: ouNull(a.jourEcheance),
+      heureEcheance: ouNull(a.heureEcheance),
+      cotisationsParTour: ouNull(a.cotisationsParTour),
       montantLibre: !!a.montantLibre,
       montantMinimum: ouNull(a.montantMinimum),
       nomEvenement: ouNull(a.nomEvenement),

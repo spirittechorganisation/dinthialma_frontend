@@ -15,7 +15,7 @@ import { LogoIcon } from '@/components/ui/LogoIcon'
 import { qrService } from '@/services/qrService'
 import { getAccessToken, isTokenExpired } from '@/lib/tokenStorage'
 import { formatF, formatDateCourte, safeSet } from '@/lib/format'
-import { rythmeCourt } from '@/lib/tontineLabels'
+import { rythmeCourtDe, echeancePhrase } from '@/lib/tontineLabels'
 import { parseApiError, messageErreur } from '@/lib/apiError'
 import { INVITATION_EN_ATTENTE_KEY } from '@/lib/share'
 
@@ -72,8 +72,17 @@ export function InvitationPage() {
               <p className="mt-1 text-lg font-semibold text-neutral-700">
                 {a.montantLibre
                   ? `Montant libre${a.montantMinimum ? ` · minimum ${formatF(a.montantMinimum)}` : ''}`
-                  : `${formatF(a.montant)}${a.frequence ? ` / ${rythmeCourt(a.frequence)}` : ''}`}
+                  : `${formatF(a.montant)}${a.frequence || a.rythmeUnite ? ` / ${rythmeCourtDe(a)}` : ''}`}
               </p>
+              {/* Règles connues avant d'adhérer : limite de paiement et rythme du jackpot */}
+              {(echeancePhrase(a) || (a.cotisationsParTour ?? 1) > 1) && (
+                <p className="mt-1 text-sm text-neutral-600">
+                  {[
+                    echeancePhrase(a) ? `À payer ${echeancePhrase(a)}` : '',
+                    (a.cotisationsParTour ?? 1) > 1 ? `jackpot toutes les ${a.cotisationsParTour} cotisations` : '',
+                  ].filter(Boolean).join(' · ')}
+                </p>
+              )}
               <div className="mt-3 flex flex-wrap justify-center gap-x-4 gap-y-1 text-sm text-neutral-500">
                 {a.gestionnairePrenom && <span className="inline-flex items-center gap-1.5"><Users size={15} /> Gérée par {a.gestionnairePrenom}</span>}
                 {a.dateEcheance && <span className="inline-flex items-center gap-1.5"><Calendar size={15} /> {a.nomEvenement ?? 'Événement'} le {formatDateCourte(a.dateEcheance)}</span>}

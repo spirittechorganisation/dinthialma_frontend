@@ -347,7 +347,7 @@
           "Cycles"
         ],
         "summary": "Clôturer un cycle",
-        "description": "🔒 Rôles : créateur de la tontine, SUPER_ADMIN.\n\nPasse le cycle **EN_COURS → TERMINÉ** avec le traitement automatique suivant :\n\n1. Calcul du jackpot brut = somme des cotisations **VALIDÉES** du cycle\n2. Calcul des commissions actives (POURCENTAGE_JACKPOT, FRAIS_FIXES_PAR_CYCLE)\n3. Stockage de montantJackpot, montantCommission, montantNet\n4. Cotisations **EN_ATTENTE** restantes → marquées **EN_RETARD**\n5. En mode AUTOMATIQUE : le cycle suivant (EN_ATTENTE) passe **EN_COURS** et un SMS est envoyé au bénéficiaire suivant",
+        "description": "🔒 Rôles : créateur de la tontine, SUPER_ADMIN.\n\nPasse le cycle **EN_COURS → TERMINÉ** avec le traitement automatique suivant :\n\n1. Calcul du jackpot brut = somme des cotisations **VALIDÉES** du cycle\n2. Calcul des commissions actives (POURCENTAGE_JACKPOT, FRAIS_FIXES_PAR_CYCLE)\n3. Stockage de montantJackpot, montantCommission, montantNet\n4. Cotisations **EN_ATTENTE** restantes → marquées **EN_RETARD**\n5. En mode AUTOMATIQUE : le cycle suivant (EN_ATTENTE) passe **EN_COURS** et un SMS est envoyé au bénéficiaire suivant\n\n**Option de remise (B33)** : corps facultatif `modeRemise`, sinon le réglage de la tontine. `ATTENDRE` avec un jackpot incomplet → 409 `REMISE_JACKPOT_INCOMPLETE` ; `CAISSE`, ou `AVANCE_COMMISSION` quand la commission ne couvre pas le manque → 400 `MODE_REMISE_INDISPONIBLE`.",
         "operationId": "closeCycle",
         "parameters": [
           {
@@ -373,6 +373,15 @@
             "example": "660e8400-e29b-41d4-a716-446655440000"
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CloturerCycleRequest"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Cycle clôturé avec jackpot calculé",
@@ -2041,7 +2050,7 @@
           "Membres"
         ],
         "summary": "Lister les cotisants d'une tontine",
-        "description": "🔒 Rôles : membres de la tontine, créateur, SUPER_ADMIN.\n\nRetourne les cotisants triés par ordre jackpot (position dans la rotation).\n\nFiltres optionnels :\n- `statut` (ACTIF, SUSPENDU, SORTI)\n- `q` : prénom, nom ou téléphone (insensible à la casse, « + » ignoré)\n- `cycleId` + `aPaye` : `aPaye=false` = membres sans cotisation active (EN_ATTENTE ou VALIDE) sur ce cycle, `aPaye=true` = membres ayant payé ou déclaré. Un `cycleId` hors tontine renvoie 404.\n\nPagination : `?page=0&size=20&sort=ordreJackpot,asc`",
+        "description": "🔒 Rôles : membres de la tontine, créateur, SUPER_ADMIN.\n\nRetourne les cotisants triés par ordre jackpot (position dans la rotation).\n\nFiltres optionnels :\n- `statut` (ACTIF, SUSPENDU, SORTI)\n- `q` : prénom, nom ou téléphone (insensible à la casse, « + » ignoré)\n- `cycleId` + `aPaye` : `aPaye=false` = membres sans cotisation active (EN_ATTENTE ou VALIDE) sur ce cycle, `aPaye=true` = membres ayant payé ou déclaré. Un `cycleId` hors tontine renvoie 404.\n- `echeanceId` + `aPaye` : même filtre sur une échéance précise du tour (B32), prioritaire sur `cycleId` ; hors tontine → 404 `ECHEANCE_INTROUVABLE`.\n\nPagination : `?page=0&size=20&sort=ordreJackpot,asc`",
         "operationId": "listMembres",
         "parameters": [
           {
@@ -2083,6 +2092,16 @@
             "name": "cycleId",
             "in": "query",
             "description": "Cycle de référence pour le filtre aPaye (doit appartenir à la tontine)",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "echeanceId",
+            "in": "query",
+            "description": "Échéance de référence pour le filtre aPaye (B32)",
             "required": false,
             "schema": {
               "type": "string",
@@ -4586,6 +4605,54 @@
         ]
       }
     },
+    "/v1/tontines/{id}/reglages": {
+      "patch": {
+        "tags": [
+          "Tontines"
+        ],
+        "summary": "Modifier les réglages de remise (y compris en cours)",
+        "description": "🔒 Rôles : créateur de la tontine, SUPER_ADMIN. Tontine rotative non terminée. Champ absent = inchangé. `modeRemise` : option de remise du jackpot par défaut (B33), effective aux prochaines remises ; `CAISSE` → 400 `MODE_REMISE_INDISPONIBLE`.",
+        "operationId": "modifierReglages",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModifierReglagesRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
     "/v1/tontines/{id}/ordre-beneficiaire": {
       "patch": {
         "tags": [
@@ -4610,6 +4677,54 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/ChangerOrdreBeneficiaireRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/v1/tontines/{id}/echeance": {
+      "patch": {
+        "tags": [
+          "Tontines"
+        ],
+        "summary": "Modifier le jour / l'heure d'échéance et les rappels (y compris en cours)",
+        "description": "🔒 Rôles : créateur de la tontine, SUPER_ADMIN. Tontine non terminée (sinon 400 `ECHEANCE_NON_MODIFIABLE`). Champ absent = inchangé ; `jourEcheance: \"\"` retire le jour imposé. Le tour en cours et les tours terminés ne bougent pas ; les tours pas encore commencés sont replanifiés (événementielle : jusqu'à la date de l'événement). Changement d'échéance notifié aux membres actifs (`REGLES_MODIFIEES`). Le rythme (intervalle, unité) ne se modifie qu'en BROUILLON via PUT.",
+        "operationId": "modifierEcheance",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModifierEcheanceRequest"
               }
             }
           },
@@ -4839,6 +4954,130 @@
         ]
       }
     },
+    "/v1/tontines/{tontineId}/cycles/{cycleId}/remise/apercu": {
+      "get": {
+        "tags": [
+          "Cycles"
+        ],
+        "summary": "Aperçu avant la remise du jackpot (B33)",
+        "description": "🔒 Rôles : créateur de la tontine, SUPER_ADMIN. Tour EN_COURS d'une tontine rotative. Aucun effet en base.\n\nRenvoie le jackpot prévu, le collecté, le manquant, les retardataires et, pour chaque option de remise (`ATTENDRE`, `DISPONIBLE`, `AVANCE_COMMISSION`, `AVANCE_GESTIONNAIRE`, `CAISSE`), si elle est possible et ce qu'elle donne : montant remis, commission perçue, avance du gestionnaire, reste à recevoir. L'option choisie se passe ensuite à `PUT /{cycleId}/cloturer`.",
+        "operationId": "apercuRemise",
+        "parameters": [
+          {
+            "name": "tontineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "cycleId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Aperçu calculé",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RemiseApercuResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Tour pas EN_COURS ou tontine non rotative",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Accès interdit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Tontine ou cycle introuvable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/v1/tontines/{tontineId}/cycles/proposition": {
+      "get": {
+        "tags": [
+          "Cycles"
+        ],
+        "summary": "Proposer le prochain tour (mode MANUEL)",
+        "description": "🔒 Rôles : créateur de la tontine, SUPER_ADMIN. Aucun effet en base.\n\nDate de fin et échéances du tour calculées selon le rythme et le nombre de cotisations par tour (B26/B32), à partir de `dateDebut` (défaut : aujourd'hui). Le gestionnaire garde cette date ou en choisit une autre à l'ouverture.",
+        "operationId": "proposerTour",
+        "parameters": [
+          {
+            "name": "tontineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "dateDebut",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
     "/v1/tontines/{tontineId}/cycles/beneficiaires": {
       "get": {
         "tags": [
@@ -4922,7 +5161,7 @@
           "Cotisations"
         ],
         "summary": "Récapitulatif des cotisations d'un cycle par membre",
-        "description": "🔒 Rôles : créateur de la tontine, SUPER_ADMIN.\n\nRetourne un enregistrement par membre actif/suspendu de la tontine :\n- `statutCotisation` **null** → membre n'a soumis aucune cotisation pour ce cycle\n- `statutCotisation` **EN_ATTENTE** → cotisation soumise, en attente de validation\n- `statutCotisation` **VALIDE** → cotisation validée et prise en compte\n- `statutCotisation` **EN_RETARD** → cycle clôturé sans cotisation validée\n\nLes membres sont triés par `ordreJackpot` croissant puis par date d'adhésion. Les membres SORTI sont exclus.\n\nPagination : `?page=0&size=20` (tri par défaut `ordreJackpot,asc` puis `createdAt,asc`).",
+        "description": "🔒 Rôles : créateur de la tontine, SUPER_ADMIN.\n\nRetourne un enregistrement par membre actif/suspendu de la tontine :\n- `statutCotisation` **null** → membre n'a soumis aucune cotisation pour ce cycle\n- `statutCotisation` **EN_ATTENTE** → cotisation soumise, en attente de validation\n- `statutCotisation` **VALIDE** → cotisation validée et prise en compte\n- `statutCotisation` **EN_RETARD** → cycle clôturé sans cotisation validée\n\nTour à plusieurs échéances (B32) : les champs de cotisation portent sur l'échéance de référence (`?echeanceId=`, sinon l'échéance en cours) ; `echeancesDues`, `echeancesPayees` et `echeances[]` détaillent tout le tour.Les membres sont triés par `ordreJackpot` croissant puis par date d'adhésion. Les membres SORTI sont exclus.\n\nPagination : `?page=0&size=20` (tri par défaut `ordreJackpot,asc` puis `createdAt,asc`).",
         "operationId": "getCycleRecap",
         "parameters": [
           {
@@ -4946,6 +5185,16 @@
               "format": "uuid"
             },
             "example": "660e8400-e29b-41d4-a716-446655440000"
+          },
+          {
+            "name": "echeanceId",
+            "in": "query",
+            "description": "Échéance de référence (défaut : échéance en cours)",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
           },
           {
             "name": "pageable",
@@ -4988,7 +5237,7 @@
             }
           },
           "404": {
-            "description": "Tontine ou cycle introuvable",
+            "description": "Tontine, cycle ou échéance introuvable (ECHEANCE_INTROUVABLE)",
             "content": {
               "application/json": {
                 "schema": {
@@ -5169,6 +5418,224 @@
                 "schema": {
                   "type": "string",
                   "format": "byte"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/v1/tontines/simulation": {
+      "get": {
+        "tags": [
+          "Tontines"
+        ],
+        "summary": "Simuler le calendrier des tours",
+        "description": "🔒 Rôles : tout utilisateur authentifié. Aucun effet en base.\n\nCalcule les échéances avec les mêmes règles que l'activation (B26), pour l'écran de création : `rythmeIntervalle` + `rythmeUnite` (ou `frequence`), `jourEcheance`, `heureEcheance`, `dateDebut` ; ROTATIVE : `nombreMembres` (+ `nombreGagnants`) ; EVENEMENTIELLE : `dateEcheance`. 400 échéances listées au plus.\n\nErreurs : `RYTHME_INVALIDE`, `JOUR_ECHEANCE_INVALIDE`, `HEURE_ECHEANCE_INVALIDE`.",
+        "operationId": "simulerCalendrier",
+        "parameters": [
+          {
+            "name": "rythmeIntervalle",
+            "in": "query",
+            "description": "« Tous les N … »",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "description": "« Tous les N … »",
+              "example": 3
+            },
+            "example": 3
+          },
+          {
+            "name": "rythmeUnite",
+            "in": "query",
+            "description": "JOUR | SEMAINE | MOIS",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "JOUR | SEMAINE | MOIS",
+              "example": "JOUR"
+            },
+            "example": "JOUR"
+          },
+          {
+            "name": "jourEcheance",
+            "in": "query",
+            "description": "SEMAINE : LUNDI…DIMANCHE ; MOIS : 1…31 ou DERNIER",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "SEMAINE : LUNDI…DIMANCHE ; MOIS : 1…31 ou DERNIER",
+              "example": "DIMANCHE"
+            },
+            "example": "DIMANCHE"
+          },
+          {
+            "name": "heureEcheance",
+            "in": "query",
+            "description": "HH:mm, défaut 23:59",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "HH:mm, défaut 23:59",
+              "example": "23:59"
+            },
+            "example": "23:59"
+          },
+          {
+            "name": "frequence",
+            "in": "query",
+            "description": "Fréquence historique, si aucun rythme n'est fourni",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "Fréquence historique, si aucun rythme n'est fourni",
+              "example": "MENSUEL"
+            },
+            "example": "MENSUEL"
+          },
+          {
+            "name": "dateDebut",
+            "in": "query",
+            "description": "Date de démarrage",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "description": "Date de démarrage",
+              "example": "2026-11-12"
+            },
+            "example": "2026-11-12"
+          },
+          {
+            "name": "tontineType",
+            "in": "query",
+            "description": "Défaut ROTATIVE",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "Type de tontine. ROTATIVE = jackpot tournant distribué à un ou plusieurs membres à chaque cycle ; EVENEMENTIELLE = épargne collective vers un événement, chaque membre récupère sa mise nette à la clôture finale.",
+              "enum": [
+                "ROTATIVE",
+                "EVENEMENTIELLE"
+              ],
+              "example": "ROTATIVE"
+            },
+            "example": "ROTATIVE"
+          },
+          {
+            "name": "nombreMembres",
+            "in": "query",
+            "description": "ROTATIVE : nombre de membres (obligatoire)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "description": "ROTATIVE : nombre de membres (obligatoire)",
+              "example": 10,
+              "minimum": 1
+            },
+            "example": 10
+          },
+          {
+            "name": "nombreGagnants",
+            "in": "query",
+            "description": "ROTATIVE : gagnants par tour (défaut 1)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "description": "ROTATIVE : gagnants par tour (défaut 1)",
+              "example": 1,
+              "minimum": 1
+            },
+            "example": 1
+          },
+          {
+            "name": "cotisationsParTour",
+            "in": "query",
+            "description": "ROTATIVE : cotisations par tour (B32, défaut 1)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "description": "ROTATIVE : cotisations par tour (B32, défaut 1)",
+              "example": 4,
+              "minimum": 1
+            },
+            "example": 4
+          },
+          {
+            "name": "jackpotVise",
+            "in": "query",
+            "description": "ROTATIVE : jackpot visé brut, si cotisationsParTour est absent (B32)",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "description": "ROTATIVE : jackpot visé brut, si cotisationsParTour est absent (B32)",
+              "example": 500000
+            },
+            "example": 500000
+          },
+          {
+            "name": "montant",
+            "in": "query",
+            "description": "Montant d'une cotisation (jackpot visé et jackpot par tour)",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "description": "Montant d'une cotisation (jackpot visé et jackpot par tour)",
+              "example": 5000
+            },
+            "example": 5000
+          },
+          {
+            "name": "dateEcheance",
+            "in": "query",
+            "description": "EVENEMENTIELLE : date de l'événement (obligatoire)",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "description": "EVENEMENTIELLE : date de l'événement (obligatoire)",
+              "example": "2027-06-16"
+            },
+            "example": "2027-06-16"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Calendrier simulé",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SimulationCalendrierResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Rythme ou paramètres invalides",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "JWT manquant ou expiré",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
                 }
               }
             }
@@ -5468,7 +5935,7 @@
           "Mon espace"
         ],
         "summary": "Mes jackpots : reçus et à venir",
-        "description": "🔒 Rôles : tout utilisateur authentifié.\n\n- `recus` : jackpots reçus (tontines ROTATIVE), avec tour, date de remise et montant net ; `totalRecu` en fait la somme.\n- `aVenir` : une ligne par tontine ROTATIVE ACTIVE où je suis ACTIF sans avoir encore gagné. En rotation fixe (`modeAttribution=ORDRE`) : mon rang parmi les non-gagnants, le tour estimé et sa date de fin prévue (null si ce tour n'est pas encore planifié). En `TIRAGE` ou `CHOIX` : pas d'estimation de tour ni de date.\n\n`montantEstime` = montant × membres ACTIFS ÷ gagnants par tour, avant commissions.",
+        "description": "🔒 Rôles : tout utilisateur authentifié.\n\n- `recus` : jackpots reçus (tontines ROTATIVE), avec tour, date de remise et montant net ; `totalRecu` en fait la somme.\n- `aVenir` : une ligne par tontine ROTATIVE ACTIVE où je suis ACTIF sans avoir encore gagné. En rotation fixe (`modeAttribution=ORDRE`) : mon rang parmi les non-gagnants, le tour estimé et sa date de fin prévue (null si ce tour n'est pas encore planifié). En `TIRAGE` ou `CHOIX` : pas d'estimation de tour ni de date.\n\n`montantEstime` = montant × membres ACTIFS × cotisations par tour (B32) ÷ gagnants par tour, avant commissions.",
         "operationId": "getJackpots",
         "responses": {
           "200": {
@@ -6693,7 +7160,19 @@
               "PRIORITE_DEJA_ACTIVE",
               "PRIORITE_NOT_PENDING",
               "COMMISSION_ALREADY_EXISTS",
-              "COMMISSION_PERCENTAGE_TOO_HIGH"
+              "COMMISSION_PERCENTAGE_TOO_HIGH",
+              "RYTHME_INVALIDE",
+              "JOUR_ECHEANCE_INVALIDE",
+              "HEURE_ECHEANCE_INVALIDE",
+              "RYTHME_NON_MODIFIABLE",
+              "ECHEANCE_NON_MODIFIABLE",
+              "COTISATIONS_PAR_TOUR_INVALIDE",
+              "COTISATIONS_PAR_TOUR_NON_MODIFIABLE",
+              "ECHEANCE_INTROUVABLE",
+              "ECHEANCE_NON_OUVERTE",
+              "REGULARISATION_IMPOSSIBLE",
+              "REMISE_JACKPOT_INCOMPLETE",
+              "MODE_REMISE_INDISPONIBLE"
             ]
           },
           "message": {
@@ -6714,6 +7193,24 @@
             "description": "Position dans l'ordre des jackpots (optionnel : à la suite sinon)",
             "example": 4,
             "minimum": 1
+          }
+        }
+      },
+      "CloturerCycleRequest": {
+        "type": "object",
+        "description": "Corps facultatif de la remise du jackpot (clôture d'un tour, B33). Sans corps, l'option de remise par défaut de la tontine s'applique.",
+        "properties": {
+          "modeRemise": {
+            "type": "string",
+            "description": "Option de remise pour ce tour ; absente = réglage de la tontine. Voir l'aperçu GET /cycles/{cycleId}/remise/apercu pour les montants de chaque option.",
+            "enum": [
+              "ATTENDRE",
+              "DISPONIBLE",
+              "AVANCE_COMMISSION",
+              "AVANCE_GESTIONNAIRE",
+              "CAISSE"
+            ],
+            "example": "DISPONIBLE"
           }
         }
       },
@@ -6749,6 +7246,39 @@
             "description": "Date de fin prévue du cycle",
             "example": "2024-07-31"
           },
+          "echeanceAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Limite de paiement du tour (B26) : dateFin + heure d'échéance, avec fuseau (Dakar = UTC)",
+            "example": "2024-07-31T23:59:00Z"
+          },
+          "nombreEcheances": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Nombre d'échéances de cotisation du tour (B32)",
+            "example": 4
+          },
+          "echeances": {
+            "type": "array",
+            "description": "Échéances de cotisation du tour, dans l'ordre (B32)",
+            "items": {
+              "$ref": "#/components/schemas/EcheanceResponse"
+            }
+          },
+          "echeanceEnCours": {
+            "$ref": "#/components/schemas/EcheanceResponse",
+            "description": "Échéance ouverte en ce moment (absente si aucune)"
+          },
+          "montantJackpotPrevu": {
+            "type": "number",
+            "description": "Jackpot brut prévu du tour (B32) = montant par membre × membres ACTIFS × échéances du tour, tous gagnants confondus (comparable à montantJackpot) ; null si montant libre sans plancher",
+            "example": 200000
+          },
+          "tousPayes": {
+            "type": "boolean",
+            "description": "Tour EN_COURS dont chaque membre ACTIF a une cotisation VALIDÉE sur chaque échéance (B32) : le jackpot peut être remis. Toujours false hors tour EN_COURS",
+            "example": false
+          },
           "montantJackpot": {
             "type": "number",
             "description": "Jackpot brut = somme des cotisations VALIDÉES (calculé à la clôture)",
@@ -6763,6 +7293,27 @@
             "type": "number",
             "description": "Montant net total = jackpot brut - commissions (calculé à la clôture)",
             "example": 490000
+          },
+          "modeRemise": {
+            "type": "string",
+            "description": "Option de remise retenue à la clôture (B33) ; null avant la remise",
+            "enum": [
+              "ATTENDRE",
+              "DISPONIBLE",
+              "AVANCE_COMMISSION",
+              "AVANCE_GESTIONNAIRE",
+              "CAISSE"
+            ]
+          },
+          "resteARecevoir": {
+            "type": "number",
+            "description": "Complément encore dû aux bénéficiaires quand les retards seront payés (B33, information de suivi) ; null si le tour n'est pas remis ou l'a été avant B33",
+            "example": 8000
+          },
+          "montantAvance": {
+            "type": "number",
+            "description": "Avance de poche du gestionnaire encore à rembourser par les régularisations (B33, information de suivi)",
+            "example": 0
           },
           "statut": {
             "type": "string",
@@ -6802,6 +7353,44 @@
             "type": "string",
             "format": "date-time",
             "description": "Date de dernière modification"
+          }
+        }
+      },
+      "EcheanceResponse": {
+        "type": "object",
+        "description": "Échéance de cotisation d'un tour",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "UUID de l'échéance (à passer en echeanceId pour payer une échéance passée)"
+          },
+          "numero": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Rang dans le tour (1 à N)",
+            "example": 2
+          },
+          "dateDebut": {
+            "type": "string",
+            "format": "date",
+            "description": "Premier jour de la période de cotisation",
+            "example": "2026-11-23"
+          },
+          "echeanceAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Limite de paiement, avec fuseau",
+            "example": "2026-11-29T20:00:00Z"
+          },
+          "statut": {
+            "type": "string",
+            "description": "Statut calculé : A_VENIR, EN_COURS, ECHUE",
+            "enum": [
+              "A_VENIR",
+              "EN_COURS",
+              "ECHUE"
+            ]
           }
         }
       },
@@ -6927,6 +7516,23 @@
             "format": "int32",
             "description": "Numéro du cycle concerné",
             "example": 5
+          },
+          "echeanceId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "UUID de l'échéance du tour couverte par cette cotisation (B32)"
+          },
+          "numeroEcheance": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Rang de l'échéance dans le tour (1 à N)",
+            "example": 2
+          },
+          "echeanceAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Limite de paiement de l'échéance, avec fuseau",
+            "example": "2026-11-29T20:00:00Z"
           },
           "membre": {
             "$ref": "#/components/schemas/MembreInfo",
@@ -7168,6 +7774,25 @@
           }
         }
       },
+      "RappelsEcheance": {
+        "type": "object",
+        "description": "Rappels avant échéance (défaut : la veille à 18h00 + 3 heures avant)",
+        "properties": {
+          "veille": {
+            "type": "boolean",
+            "description": "Rappel la veille de l'échéance à 18h00",
+            "example": true
+          },
+          "heuresAvant": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Rappel N heures avant l'échéance (0 = aucun, 1 à 24)",
+            "example": 3,
+            "maximum": 24,
+            "minimum": 0
+          }
+        }
+      },
       "UpdateTontineRequest": {
         "type": "object",
         "description": "Corps de la requête de mise à jour d'une tontine. Tous les champs sont optionnels – seuls les champs non nuls sont mis à jour. Modification autorisée uniquement si la tontine est en statut BROUILLON.",
@@ -7191,8 +7816,70 @@
           },
           "frequence": {
             "type": "string",
-            "description": "Nouvelle fréquence (code FREQUENCE_TONTINE, null = inchangée)",
+            "description": "Nouvelle fréquence historique (null = inchangée), traduite en rythme ; ignorée si rythmeIntervalle ou rythmeUnite est fourni",
             "example": "HEBDOMADAIRE"
+          },
+          "rythmeIntervalle": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Nouvel intervalle du rythme (null = inchangé). Rythme modifiable seulement en BROUILLON (sinon 400 RYTHME_NON_MODIFIABLE).",
+            "example": 3
+          },
+          "rythmeUnite": {
+            "type": "string",
+            "description": "Nouvelle unité du rythme (null = inchangée)",
+            "enum": [
+              "JOUR",
+              "SEMAINE",
+              "MOIS"
+            ],
+            "example": "JOUR"
+          },
+          "jourEcheance": {
+            "type": "string",
+            "description": "Nouveau jour d'échéance (null = inchangé, \"\" = aucun jour imposé)",
+            "example": "DIMANCHE"
+          },
+          "heureEcheance": {
+            "type": "string",
+            "description": "Nouvelle heure d'échéance HH:mm (null = inchangée)",
+            "example": "20:00"
+          },
+          "rappels": {
+            "$ref": "#/components/schemas/RappelsEcheance",
+            "description": "Rappels avant échéance (champ absent = inchangé)"
+          },
+          "cotisationsParTour": {
+            "type": "integer",
+            "format": "int32",
+            "description": "ROTATIVE : nombre de cotisations par tour (≥ 1, défaut 1). Ex. chaque semaine, jackpot toutes les 4 cotisations → 4. EVENEMENTIELLE : 1 seulement (sinon 400 COTISATIONS_PAR_TOUR_INVALIDE). Modifiable en BROUILLON seulement.",
+            "example": 4
+          },
+          "jackpotVise": {
+            "type": "number",
+            "description": "Jackpot visé, brut avant commission (ROTATIVE) : l'app en déduit cotisationsParTour = jackpotVise ÷ (montant × nombreMembres ÷ nombreGagnants), arrondi au plus proche. Ignoré si cotisationsParTour est fourni.",
+            "example": 500000
+          },
+          "declenchementJackpot": {
+            "type": "string",
+            "description": "Remise possible : FIN_DU_TOUR (défaut) ou TOUS_PAYES",
+            "enum": [
+              "FIN_DU_TOUR",
+              "TOUS_PAYES"
+            ],
+            "example": "FIN_DU_TOUR"
+          },
+          "modeRemise": {
+            "type": "string",
+            "description": "Option de remise du jackpot par défaut (B33) : ATTENDRE, DISPONIBLE (défaut), AVANCE_COMMISSION ou AVANCE_GESTIONNAIRE ; modifiable à chaque remise",
+            "enum": [
+              "ATTENDRE",
+              "DISPONIBLE",
+              "AVANCE_COMMISSION",
+              "AVANCE_GESTIONNAIRE",
+              "CAISSE"
+            ],
+            "example": "DISPONIBLE"
           },
           "ordreBeneficiaire": {
             "type": "string",
@@ -7309,8 +7996,65 @@
           },
           "frequence": {
             "type": "string",
-            "description": "Code de fréquence (FREQUENCE_TONTINE)",
+            "description": "Fréquence historique si le rythme y correspond, sinon PERSONNALISEE (lire le rythme)",
             "example": "MENSUEL"
+          },
+          "rythmeIntervalle": {
+            "type": "integer",
+            "format": "int32",
+            "description": "« Tous les N … » (B26)",
+            "example": 1
+          },
+          "rythmeUnite": {
+            "type": "string",
+            "description": "Unité du rythme (B26)",
+            "enum": [
+              "JOUR",
+              "SEMAINE",
+              "MOIS"
+            ],
+            "example": "MOIS"
+          },
+          "jourEcheance": {
+            "type": "string",
+            "description": "Jour d'échéance (LUNDI…DIMANCHE, 1…31, DERNIER) ; absent = aucun jour imposé",
+            "example": 30
+          },
+          "heureEcheance": {
+            "type": "string",
+            "description": "Heure limite de paiement HH:mm, heure de Dakar",
+            "example": "23:59"
+          },
+          "rappels": {
+            "$ref": "#/components/schemas/RappelsEcheance",
+            "description": "Rappels avant échéance"
+          },
+          "cotisationsParTour": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Cotisations (échéances) par tour (B32)",
+            "example": 4
+          },
+          "declenchementJackpot": {
+            "type": "string",
+            "description": "Remise du jackpot possible (B32)",
+            "enum": [
+              "FIN_DU_TOUR",
+              "TOUS_PAYES"
+            ],
+            "example": "FIN_DU_TOUR"
+          },
+          "modeRemise": {
+            "type": "string",
+            "description": "Option de remise du jackpot par défaut (B33)",
+            "enum": [
+              "ATTENDRE",
+              "DISPONIBLE",
+              "AVANCE_COMMISSION",
+              "AVANCE_GESTIONNAIRE",
+              "CAISSE"
+            ],
+            "example": "DISPONIBLE"
           },
           "ordreBeneficiaire": {
             "type": "string",
@@ -7700,9 +8444,70 @@
           },
           "frequence": {
             "type": "string",
-            "description": "Fréquence de cotisation – code de la liste FREQUENCE_TONTINE. Exemples : JOURNALIERE, HEBDOMADAIRE, BIMENSUEL, MENSUEL, TRIMESTRIEL.",
-            "example": "MENSUEL",
-            "minLength": 1
+            "description": "Fréquence historique (compatibilité) : JOURNALIERE, HEBDOMADAIRE, BIMENSUEL, MENSUEL, TRIMESTRIEL. Traduite en rythme ; ignorée si rythmeIntervalle / rythmeUnite sont fournis. L'un ou l'autre est obligatoire (sinon 400 RYTHME_INVALIDE).",
+            "example": "MENSUEL"
+          },
+          "rythmeIntervalle": {
+            "type": "integer",
+            "format": "int32",
+            "description": "« Tous les N … » (B26) : JOUR 1 à 90, SEMAINE 1 à 26, MOIS 1 à 12. À fournir avec rythmeUnite ; prime sur frequence.",
+            "example": 3
+          },
+          "rythmeUnite": {
+            "type": "string",
+            "description": "Unité du rythme (B26)",
+            "enum": [
+              "JOUR",
+              "SEMAINE",
+              "MOIS"
+            ],
+            "example": "JOUR"
+          },
+          "jourEcheance": {
+            "type": "string",
+            "description": "Jour d'échéance facultatif : SEMAINE → LUNDI…DIMANCHE ; MOIS → \"1\"…\"31\" ou \"DERNIER\" (29–31 absents du mois → dernier jour) ; JOUR → aucun. 1ʳᵉ échéance = prochaine occurrence strictement après dateDebut.",
+            "example": "DIMANCHE"
+          },
+          "heureEcheance": {
+            "type": "string",
+            "description": "Heure limite de paiement HH:mm, heure de Dakar (défaut 23:59)",
+            "example": "23:59"
+          },
+          "rappels": {
+            "$ref": "#/components/schemas/RappelsEcheance",
+            "description": "Rappels avant échéance (défaut : veille 18h00 + 3 h avant)"
+          },
+          "cotisationsParTour": {
+            "type": "integer",
+            "format": "int32",
+            "description": "ROTATIVE : nombre de cotisations par tour (≥ 1, défaut 1). Ex. chaque semaine, jackpot toutes les 4 cotisations → 4. EVENEMENTIELLE : 1 seulement (sinon 400 COTISATIONS_PAR_TOUR_INVALIDE). Modifiable en BROUILLON seulement.",
+            "example": 4
+          },
+          "jackpotVise": {
+            "type": "number",
+            "description": "Jackpot visé, brut avant commission (ROTATIVE) : l'app en déduit cotisationsParTour = jackpotVise ÷ (montant × nombreMembres ÷ nombreGagnants), arrondi au plus proche. Ignoré si cotisationsParTour est fourni.",
+            "example": 500000
+          },
+          "declenchementJackpot": {
+            "type": "string",
+            "description": "Remise possible : FIN_DU_TOUR (défaut) ou TOUS_PAYES",
+            "enum": [
+              "FIN_DU_TOUR",
+              "TOUS_PAYES"
+            ],
+            "example": "FIN_DU_TOUR"
+          },
+          "modeRemise": {
+            "type": "string",
+            "description": "Option de remise du jackpot par défaut (B33) : ATTENDRE, DISPONIBLE (défaut), AVANCE_COMMISSION ou AVANCE_GESTIONNAIRE ; modifiable à chaque remise",
+            "enum": [
+              "ATTENDRE",
+              "DISPONIBLE",
+              "AVANCE_COMMISSION",
+              "AVANCE_GESTIONNAIRE",
+              "CAISSE"
+            ],
+            "example": "DISPONIBLE"
           },
           "ordreBeneficiaire": {
             "type": "string",
@@ -8056,24 +8861,29 @@
           "dateFin": {
             "type": "string",
             "format": "date",
-            "description": "Date de fin prévue du cycle (doit être après dateDebut)",
+            "description": "Date de fin prévue du cycle (≥ dateDebut). Facultative : absente, elle est calculée selon le rythme de la tontine (B26). L'échéance du tour = ce jour à l'heure d'échéance.",
             "example": "2024-07-31"
           }
         },
         "required": [
-          "dateDebut",
-          "dateFin"
+          "dateDebut"
         ]
       },
       "RecordCotisationRequest": {
         "type": "object",
-        "description": "Corps de la requête d'enregistrement d'une cotisation par le membre. Une seule cotisation par membre par cycle est autorisée. La cotisation est créée en statut EN_ATTENTE – l'admin devra la valider.",
+        "description": "Corps de la requête d'enregistrement d'une cotisation par le membre. Une seule cotisation active par membre et par échéance du tour. La cotisation est créée en statut EN_ATTENTE – l'admin devra la valider.",
         "properties": {
           "cycleId": {
             "type": "string",
             "format": "uuid",
             "description": "UUID du cycle auquel appartient cette cotisation (cycles_tontine.id)",
             "example": "550e8400-e29b-41d4-a716-446655440002"
+          },
+          "echeanceId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Échéance du tour payée (B32). Facultatif : par défaut l'échéance en cours (la dernière ouverte). À renseigner pour régulariser une échéance passée ; une échéance pas encore ouverte est refusée (ECHEANCE_NON_OUVERTE).",
+            "example": "550e8400-e29b-41d4-a716-446655440010"
           },
           "montant": {
             "type": "number",
@@ -8116,6 +8926,12 @@
             "format": "uuid",
             "description": "UUID du cycle concerné (cycles_tontine.id)",
             "example": "550e8400-e29b-41d4-a716-446655440002"
+          },
+          "echeanceId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Échéance du tour payée (B32). Facultatif : par défaut l'échéance en cours (la dernière ouverte). À renseigner pour régulariser une échéance passée ; une échéance pas encore ouverte est refusée (ECHEANCE_NON_OUVERTE).",
+            "example": "550e8400-e29b-41d4-a716-446655440010"
           },
           "montant": {
             "type": "number",
@@ -8316,7 +9132,19 @@
               "PRIORITE_DEJA_ACTIVE",
               "PRIORITE_NOT_PENDING",
               "COMMISSION_ALREADY_EXISTS",
-              "COMMISSION_PERCENTAGE_TOO_HIGH"
+              "COMMISSION_PERCENTAGE_TOO_HIGH",
+              "RYTHME_INVALIDE",
+              "JOUR_ECHEANCE_INVALIDE",
+              "HEURE_ECHEANCE_INVALIDE",
+              "RYTHME_NON_MODIFIABLE",
+              "ECHEANCE_NON_MODIFIABLE",
+              "COTISATIONS_PAR_TOUR_INVALIDE",
+              "COTISATIONS_PAR_TOUR_NON_MODIFIABLE",
+              "ECHEANCE_INTROUVABLE",
+              "ECHEANCE_NON_OUVERTE",
+              "REGULARISATION_IMPOSSIBLE",
+              "REMISE_JACKPOT_INCOMPLETE",
+              "MODE_REMISE_INDISPONIBLE"
             ]
           },
           "message": {
@@ -8891,6 +9719,24 @@
           }
         }
       },
+      "ModifierReglagesRequest": {
+        "type": "object",
+        "description": "Réglages de la tontine modifiables à tout moment, y compris en cours (B33). Champ absent = inchangé.",
+        "properties": {
+          "modeRemise": {
+            "type": "string",
+            "description": "Option de remise du jackpot par défaut : ATTENDRE, DISPONIBLE, AVANCE_COMMISSION ou AVANCE_GESTIONNAIRE. S'applique aux prochaines remises ; le gestionnaire peut encore en choisir une autre à chaque remise.",
+            "enum": [
+              "ATTENDRE",
+              "DISPONIBLE",
+              "AVANCE_COMMISSION",
+              "AVANCE_GESTIONNAIRE",
+              "CAISSE"
+            ],
+            "example": "DISPONIBLE"
+          }
+        }
+      },
       "ChangerOrdreBeneficiaireRequest": {
         "type": "object",
         "description": "Changement de la règle de désignation des gagnants, y compris en cours",
@@ -8906,6 +9752,26 @@
             ],
             "example": "HYBRIDE",
             "minLength": 1
+          }
+        }
+      },
+      "ModifierEcheanceRequest": {
+        "type": "object",
+        "description": "Jour / heure d'échéance et rappels (B26) ; appliqués aux tours pas encore commencés",
+        "properties": {
+          "jourEcheance": {
+            "type": "string",
+            "description": "Nouveau jour d'échéance (null = inchangé, \"\" = aucun jour imposé) : SEMAINE → LUNDI…DIMANCHE ; MOIS → 1…31 ou DERNIER",
+            "example": "DIMANCHE"
+          },
+          "heureEcheance": {
+            "type": "string",
+            "description": "Nouvelle heure d'échéance HH:mm (null = inchangée)",
+            "example": "20:00"
+          },
+          "rappels": {
+            "$ref": "#/components/schemas/RappelsEcheance",
+            "description": "Rappels avant échéance (champ absent = inchangé)"
           }
         }
       },
@@ -8927,6 +9793,148 @@
             "items": {
               "type": "string"
             }
+          }
+        }
+      },
+      "Option": {
+        "type": "object",
+        "description": "Résultat d'une option de remise",
+        "properties": {
+          "modeRemise": {
+            "type": "string",
+            "description": "Option de remise",
+            "enum": [
+              "ATTENDRE",
+              "DISPONIBLE",
+              "AVANCE_COMMISSION",
+              "AVANCE_GESTIONNAIRE",
+              "CAISSE"
+            ],
+            "example": "AVANCE_COMMISSION"
+          },
+          "possible": {
+            "type": "boolean",
+            "description": "false si l'option ne s'applique pas : ATTENDRE avec un manque, AVANCE_COMMISSION quand la commission ne couvre pas le manque, CAISSE (pas encore disponible)"
+          },
+          "montantNet": {
+            "type": "number",
+            "description": "Total remis aux bénéficiaires du tour",
+            "example": 400000
+          },
+          "montantBeneficiaire": {
+            "type": "number",
+            "description": "Part d'un bénéficiaire (total ÷ gagnants par tour)",
+            "example": 400000
+          },
+          "commission": {
+            "type": "number",
+            "description": "Commission perçue par le gestionnaire à la remise",
+            "example": 90000
+          },
+          "avanceGestionnaire": {
+            "type": "number",
+            "description": "Avance de poche du gestionnaire, au-delà de sa commission",
+            "example": 0
+          },
+          "resteARecevoir": {
+            "type": "number",
+            "description": "Complément dû aux bénéficiaires quand les retards seront payés",
+            "example": 0
+          },
+          "montantARecuperer": {
+            "type": "number",
+            "description": "Ce que les régularisations rendront au gestionnaire (avance de poche et commission abandonnée)",
+            "example": 10000
+          }
+        }
+      },
+      "RemiseApercuResponse": {
+        "type": "object",
+        "description": "Aperçu avant la remise du jackpot d'un tour (B33) : ce qui est prévu, collecté, manquant, et le résultat de chaque option de remise. Montants de suivi : Dinthialma ne détient aucun fonds.",
+        "properties": {
+          "cycleId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "UUID du tour"
+          },
+          "numeroCycle": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Numéro du tour",
+            "example": 3
+          },
+          "jackpotPrevu": {
+            "type": "number",
+            "description": "Jackpot brut prévu (montant × membres ACTIFS × échéances)",
+            "example": 500000
+          },
+          "collecte": {
+            "type": "number",
+            "description": "Somme des cotisations VALIDÉES du tour",
+            "example": 490000
+          },
+          "manquant": {
+            "type": "number",
+            "description": "Jackpot prévu − collecté (0 si tout est payé)",
+            "example": 10000
+          },
+          "modeRemiseParDefaut": {
+            "type": "string",
+            "description": "Option de remise par défaut de la tontine",
+            "enum": [
+              "ATTENDRE",
+              "DISPONIBLE",
+              "AVANCE_COMMISSION",
+              "AVANCE_GESTIONNAIRE",
+              "CAISSE"
+            ],
+            "example": "DISPONIBLE"
+          },
+          "retardataires": {
+            "type": "array",
+            "description": "Membres ACTIFS à qui il manque au moins une cotisation validée",
+            "items": {
+              "$ref": "#/components/schemas/Retardataire"
+            }
+          },
+          "options": {
+            "type": "array",
+            "description": "Résultat de chaque option de remise, applicable ou non",
+            "items": {
+              "$ref": "#/components/schemas/Option"
+            }
+          }
+        }
+      },
+      "Retardataire": {
+        "type": "object",
+        "description": "Membre en retard sur le tour",
+        "properties": {
+          "membreId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "UUID du membre (tontine_membres.id)"
+          },
+          "firstName": {
+            "type": "string",
+            "description": "Prénom",
+            "example": "Dieynaba"
+          },
+          "lastName": {
+            "type": "string",
+            "description": "Nom",
+            "example": "Fall"
+          },
+          "echeancesManquees": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Nombre d'échéances du tour sans cotisation validée",
+            "example": 2
+          },
+          "montant": {
+            "type": "number",
+            "description": "Montant correspondant, en FCFA",
+            "example": 10000
           }
         }
       },
@@ -8982,7 +9990,7 @@
       },
       "CycleRecapCotisationResponse": {
         "type": "object",
-        "description": "Vue récapitulatif par membre pour un cycle donné. statutCotisation null = aucune cotisation soumise pour ce cycle.",
+        "description": "Vue récapitulatif par membre pour un cycle donné. Les champs de cotisation portent sur l'échéance de référence (echeanceId : celle du filtre, sinon l'échéance en cours) ; statutCotisation null = aucune cotisation soumise pour cette échéance. Le détail par échéance est dans echeances (B32).",
         "properties": {
           "membreId": {
             "type": "string",
@@ -9089,6 +10097,101 @@
           "enregistrePar": {
             "$ref": "#/components/schemas/SaisiePar",
             "description": "Utilisateur ayant enregistré la cotisation (null si aucune)"
+          },
+          "echeanceId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Échéance de référence des champs de cotisation ci-dessus"
+          },
+          "numeroEcheance": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Rang de l'échéance de référence (1 à N)",
+            "example": 2
+          },
+          "echeanceAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Limite de paiement de l'échéance de référence, avec fuseau"
+          },
+          "nombreEcheances": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Nombre d'échéances du tour",
+            "example": 4
+          },
+          "echeancesDues": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Échéances déjà ouvertes au paiement (dues à ce jour, en cours comprise)",
+            "example": 2
+          },
+          "echeancesPayees": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Échéances couvertes par une cotisation VALIDE",
+            "example": 1
+          },
+          "echeances": {
+            "type": "array",
+            "description": "Détail par échéance du tour, dans l'ordre",
+            "items": {
+              "$ref": "#/components/schemas/EcheanceRecap"
+            }
+          }
+        }
+      },
+      "EcheanceRecap": {
+        "type": "object",
+        "description": "Situation du membre sur une échéance du tour",
+        "properties": {
+          "echeanceId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "UUID de l'échéance"
+          },
+          "numero": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Rang dans le tour (1 à N)",
+            "example": 1
+          },
+          "echeanceAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Limite de paiement, avec fuseau"
+          },
+          "ouverte": {
+            "type": "boolean",
+            "description": "Échéance ouverte au paiement (due à ce jour)"
+          },
+          "cotisationId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Cotisation retenue sur l'échéance (null si aucune)"
+          },
+          "statutCotisation": {
+            "type": "string",
+            "description": "Statut de la cotisation (null = aucune)",
+            "enum": [
+              "EN_ATTENTE",
+              "VALIDE",
+              "EN_RETARD",
+              "REFUSE"
+            ]
+          },
+          "montant": {
+            "type": "number",
+            "description": "Montant (null si aucune cotisation)"
+          },
+          "ponctualite": {
+            "type": "string",
+            "description": "Ponctualité sur cette échéance",
+            "enum": [
+              "A_TEMPS",
+              "EN_RETARD",
+              "NON_DECLAREE"
+            ]
           }
         }
       },
@@ -9152,6 +10255,87 @@
             "type": "integer",
             "format": "int64",
             "description": "Nombre de cotisations validées prises en compte dans le total"
+          }
+        }
+      },
+      "SimulationCalendrierResponse": {
+        "type": "object",
+        "description": "Calendrier simulé : tours, échéances de cotisation (400 au plus listées)",
+        "properties": {
+          "nombreTours": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Nombre total de tours",
+            "example": 10
+          },
+          "cotisationsParTour": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Cotisations (échéances) par tour retenues (B32)",
+            "example": 4
+          },
+          "jackpotParTour": {
+            "type": "number",
+            "description": "Jackpot brut prévu par tour (et par gagnant) : montant × membres × cotisations ÷ gagnants ; absent sans montant",
+            "example": 200000
+          },
+          "premiereEcheance": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Première échéance de cotisation",
+            "example": "2026-11-14T23:59:00Z"
+          },
+          "derniereEcheance": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Dernière échéance de cotisation",
+            "example": "2026-12-11T23:59:00Z"
+          },
+          "rythme": {
+            "type": "string",
+            "description": "Rythme lisible",
+            "example": "tous les 3 jours, avant 23h59"
+          },
+          "echeances": {
+            "type": "array",
+            "description": "Toutes les échéances de cotisation, dans l'ordre (400 au plus)",
+            "items": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          "tours": {
+            "type": "array",
+            "description": "Tours et leurs échéances (400 tours au plus)",
+            "items": {
+              "$ref": "#/components/schemas/TourSimule"
+            }
+          }
+        }
+      },
+      "TourSimule": {
+        "type": "object",
+        "properties": {
+          "numero": {
+            "type": "integer",
+            "format": "int32",
+            "example": 1
+          },
+          "dateDebut": {
+            "type": "string",
+            "format": "date"
+          },
+          "dateFin": {
+            "type": "string",
+            "format": "date",
+            "description": "Jour de la dernière échéance du tour"
+          },
+          "echeances": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "date-time"
+            }
           }
         }
       },
@@ -9281,6 +10465,47 @@
             "description": "Fréquence",
             "example": "MENSUEL"
           },
+          "rythmeIntervalle": {
+            "type": "integer",
+            "format": "int32",
+            "description": "« Tous les N … » (B26)",
+            "example": 1
+          },
+          "rythmeUnite": {
+            "type": "string",
+            "description": "Unité du rythme (B26)",
+            "enum": [
+              "JOUR",
+              "SEMAINE",
+              "MOIS"
+            ],
+            "example": "MOIS"
+          },
+          "jourEcheance": {
+            "type": "string",
+            "description": "Jour d'échéance (LUNDI…DIMANCHE, 1…31, DERNIER)",
+            "example": 30
+          },
+          "heureEcheance": {
+            "type": "string",
+            "description": "Heure limite de paiement HH:mm (Dakar)",
+            "example": "23:59"
+          },
+          "cotisationsParTour": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Cotisations (échéances) par tour (B32)",
+            "example": 4
+          },
+          "declenchementJackpot": {
+            "type": "string",
+            "description": "Remise du jackpot possible (B32)",
+            "enum": [
+              "FIN_DU_TOUR",
+              "TOUS_PAYES"
+            ],
+            "example": "FIN_DU_TOUR"
+          },
           "montantLibre": {
             "type": "boolean",
             "description": "true = montant libre (EVENEMENTIELLE)"
@@ -9392,7 +10617,11 @@
               "PRIORITE_JACKPOT_ACCORDEE",
               "PRIORITE_JACKPOT_REFUSEE",
               "ORDRE_BENEFICIAIRE_MODIFIE",
-              "GAGNANTS_A_DESIGNER"
+              "GAGNANTS_A_DESIGNER",
+              "REGLES_MODIFIEES",
+              "COTISATIONS_MANQUANTES",
+              "JACKPOT_PRET",
+              "COMPLEMENT_A_REMETTRE"
             ]
           },
           "title": {
@@ -9443,7 +10672,7 @@
       },
       "CotisationDue": {
         "type": "object",
-        "description": "Ma cotisation attendue sur le tour en cours",
+        "description": "Ma cotisation attendue sur le tour en cours, à l'échéance courante du tour (B32)",
         "properties": {
           "montant": {
             "type": "number",
@@ -9461,7 +10690,36 @@
           "dateLimite": {
             "type": "string",
             "format": "date",
-            "description": "Date limite (= fin du tour en cours)"
+            "description": "Date limite de l'échéance courante (= fin du tour s'il n'en a qu'une)"
+          },
+          "echeanceId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Échéance courante du tour (à payer par défaut)"
+          },
+          "numeroEcheance": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Rang de l'échéance courante (1 à N)",
+            "example": 2
+          },
+          "nombreEcheances": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Nombre d'échéances du tour",
+            "example": 4
+          },
+          "echeanceAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Limite de paiement de l'échéance courante, avec fuseau",
+            "example": "2026-11-29T20:00:00Z"
+          },
+          "echeancesEnRetard": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Échéances échues du tour sans déclaration retenue (à régulariser avec echeanceId)",
+            "example": 1
           },
           "statut": {
             "type": "string",
@@ -9517,6 +10775,67 @@
             "type": "string",
             "format": "date",
             "description": "Fin du tour"
+          },
+          "echeanceAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Limite de paiement du tour (B26), avec fuseau",
+            "example": "2026-11-30T23:59:00Z"
+          },
+          "nombreEcheances": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Nombre d'échéances de cotisation du tour (B32)",
+            "example": 4
+          },
+          "montantJackpotPrevu": {
+            "type": "number",
+            "description": "Jackpot brut prévu du tour (montant × membres ACTIFS × échéances, tous gagnants confondus, B32) – null si montant libre sans plancher",
+            "example": 200000
+          },
+          "tousPayes": {
+            "type": "boolean",
+            "description": "Chaque membre ACTIF a payé (VALIDÉ) chaque échéance du tour (B32)",
+            "example": false
+          }
+        }
+      },
+      "EcheanceARegulariser": {
+        "type": "object",
+        "description": "Échéance impayée d'un tour déjà remis, encore payable (B33)",
+        "properties": {
+          "cycleId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "UUID du tour (à passer dans `cycleId`)"
+          },
+          "numeroCycle": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Numéro du tour",
+            "example": 2
+          },
+          "echeanceId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "UUID de l'échéance (à passer dans `echeanceId`)"
+          },
+          "numeroEcheance": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Rang de l'échéance dans le tour",
+            "example": 3
+          },
+          "echeanceAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Limite de paiement dépassée, avec fuseau",
+            "example": "2026-10-31T23:59:00Z"
+          },
+          "montant": {
+            "type": "number",
+            "description": "Montant attendu en FCFA",
+            "example": 5000
           }
         }
       },
@@ -9619,6 +10938,47 @@
             "description": "Fréquence de cotisation",
             "example": "MENSUEL"
           },
+          "rythmeIntervalle": {
+            "type": "integer",
+            "format": "int32",
+            "description": "« Tous les N … » (B26)",
+            "example": 1
+          },
+          "rythmeUnite": {
+            "type": "string",
+            "description": "Unité du rythme (B26)",
+            "enum": [
+              "JOUR",
+              "SEMAINE",
+              "MOIS"
+            ],
+            "example": "MOIS"
+          },
+          "jourEcheance": {
+            "type": "string",
+            "description": "Jour d'échéance (LUNDI…DIMANCHE, 1…31, DERNIER)",
+            "example": 30
+          },
+          "heureEcheance": {
+            "type": "string",
+            "description": "Heure limite de paiement HH:mm (Dakar)",
+            "example": "23:59"
+          },
+          "cotisationsParTour": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Cotisations (échéances) par tour (B32)",
+            "example": 4
+          },
+          "declenchementJackpot": {
+            "type": "string",
+            "description": "Remise du jackpot possible (B32)",
+            "enum": [
+              "FIN_DU_TOUR",
+              "TOUS_PAYES"
+            ],
+            "example": "FIN_DU_TOUR"
+          },
           "nomEvenement": {
             "type": "string",
             "description": "Nom de l'événement (EVENEMENTIELLE)"
@@ -9669,7 +11029,7 @@
           "toursPayes": {
             "type": "integer",
             "format": "int64",
-            "description": "Nombre de tours où ma cotisation est VALIDÉE",
+            "description": "Nombre de tours entièrement payés : ma cotisation VALIDÉE sur chaque échéance du tour (B32)",
             "example": 4
           },
           "toursTotal": {
@@ -9681,6 +11041,13 @@
           "cycleEnCours": {
             "$ref": "#/components/schemas/CycleEnCours",
             "description": "Tour EN_COURS – null si aucun"
+          },
+          "echeancesARegulariser": {
+            "type": "array",
+            "description": "Échéances de tours déjà remis que je n'ai pas payées (B33, ROTATIVE, depuis mon adhésion) : elles restent payables en désignant `cycleId` et `echeanceId`. Liste vide si rien",
+            "items": {
+              "$ref": "#/components/schemas/EcheanceARegulariser"
+            }
           },
           "cotisationDue": {
             "$ref": "#/components/schemas/CotisationDue",
@@ -9784,7 +11151,7 @@
           },
           "montantEstime": {
             "type": "number",
-            "description": "Montant brut estimé par gagnant (montant × membres ACTIFS ÷ gagnants par tour), avant commissions",
+            "description": "Montant brut estimé par gagnant sur le tour complet (montant × membres ACTIFS × cotisations par tour ÷ gagnants par tour, B32), avant commissions",
             "example": 60000
           }
         }
@@ -9974,6 +11341,12 @@
             "description": "Date de fin prévue du cycle",
             "example": "2024-07-31"
           },
+          "echeanceAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Limite de paiement du tour (B26), avec fuseau",
+            "example": "2026-11-30T23:59:00Z"
+          },
           "beneficiaireNom": {
             "type": "string",
             "description": "Prénom + nom du bénéficiaire désigné – null si pas encore désigné",
@@ -9996,19 +11369,41 @@
           },
           "montantAttendu": {
             "type": "number",
-            "description": "Montant attendu sur ce tour (montant par membre × membres ACTIFS), en FCFA – null si montant libre sans plancher",
+            "description": "Montant attendu sur le tour complet (montant par membre × membres ACTIFS × échéances du tour, B32), en FCFA – null si montant libre sans plancher",
             "example": 60000
+          },
+          "montantJackpotPrevu": {
+            "type": "number",
+            "description": "Jackpot brut prévu du tour (= montantAttendu, B32)",
+            "example": 60000
+          },
+          "tousPayes": {
+            "type": "boolean",
+            "description": "Chaque membre ACTIF a une cotisation VALIDÉE sur chaque échéance du tour (B32)",
+            "example": false
+          },
+          "nombreEcheances": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Nombre d'échéances de cotisation du tour (B32)",
+            "example": 4
+          },
+          "numeroEcheanceCourante": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Numéro de l'échéance courante (payée par défaut) – null si aucune",
+            "example": 2
           },
           "membresAyantPaye": {
             "type": "integer",
             "format": "int64",
-            "description": "Membres dont la cotisation du tour est VALIDÉE",
+            "description": "Membres dont la cotisation de l'échéance courante est VALIDÉE (B32)",
             "example": 8
           },
           "membresEnAttente": {
             "type": "integer",
             "format": "int64",
-            "description": "Membres ayant déclaré un paiement EN_ATTENTE de validation",
+            "description": "Membres dont la cotisation de l'échéance courante est EN_ATTENTE de validation (B32)",
             "example": 1
           },
           "membresActifs": {
@@ -10150,6 +11545,47 @@
             "type": "string",
             "description": "Fréquence de cotisation",
             "example": "MENSUEL"
+          },
+          "rythmeIntervalle": {
+            "type": "integer",
+            "format": "int32",
+            "description": "« Tous les N … » (B26)",
+            "example": 1
+          },
+          "rythmeUnite": {
+            "type": "string",
+            "description": "Unité du rythme (B26)",
+            "enum": [
+              "JOUR",
+              "SEMAINE",
+              "MOIS"
+            ],
+            "example": "MOIS"
+          },
+          "jourEcheance": {
+            "type": "string",
+            "description": "Jour d'échéance (LUNDI…DIMANCHE, 1…31, DERNIER)",
+            "example": 30
+          },
+          "heureEcheance": {
+            "type": "string",
+            "description": "Heure limite de paiement HH:mm (Dakar)",
+            "example": "23:59"
+          },
+          "cotisationsParTour": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Cotisations (échéances) par tour (B32)",
+            "example": 4
+          },
+          "declenchementJackpot": {
+            "type": "string",
+            "description": "Remise du jackpot possible (B32)",
+            "enum": [
+              "FIN_DU_TOUR",
+              "TOUS_PAYES"
+            ],
+            "example": "FIN_DU_TOUR"
           },
           "dateDebut": {
             "type": "string",
