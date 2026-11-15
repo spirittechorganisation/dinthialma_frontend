@@ -30,10 +30,11 @@ export const cotisationService = {
 
   // ─── Récap d'un cycle (paginé, membres SORTI exclus) ──────────────────────────
   // Accès : créateur de la tontine + SUPER_ADMIN. Tri backend : ordreJackpot ASC, createdAt ASC
-  getRecapCycle: async (tontineId: string, cycleId: string, page = 0, size = 20): Promise<PageResponse<CycleRecapLigne>> => {
+  // echeanceId (B32) : échéance de référence des champs de cotisation ; absente = échéance en cours
+  getRecapCycle: async (tontineId: string, cycleId: string, page = 0, size = 20, echeanceId?: string): Promise<PageResponse<CycleRecapLigne>> => {
     const response = await api.get<CustomResponse<RawPage<CycleRecapLigne>>>(
       `/v1/tontines/${tontineId}/cotisations/recap/${cycleId}`,
-      { params: { page, size } }
+      { params: { page, size, ...(echeanceId ? { echeanceId } : {}) } }
     )
     return toPage(response.data.data)
   },

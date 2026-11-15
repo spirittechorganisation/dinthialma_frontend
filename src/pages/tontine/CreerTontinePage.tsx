@@ -2,9 +2,11 @@
  * T9 — Créer une tontine (gabarit « question unique » de Wave).
  *
  * 1. « Pour quoi cotisez-vous ? » → fixe le type (rotative / événementielle), un nom et un rythme proposés
- * 2. « Combien et à quel rythme ? » (+ date et montant libre pour un événement)
- * 3. « Combien de membres ? » (rotative) + « Plus d'options »
- * 4. Récapitulatif en une phrase + nom modifiable → création → écran de succès
+ * 2. « Combien et à quel rythme ? » + jour et heure limites (+ date et montant libre pour un événement)
+ * 3. « Combien de membres ? » (rotative) + taille du jackpot (cotisations par tour) + « Plus d'options »
+ * 4. Récapitulatif en une phrase + commission + nom modifiable → création → écran de succès
+ * Les dates affichées viennent de la simulation du backend (mêmes règles qu'à l'activation).
+ * La commission part dans la même requête que la tontine (tout ou rien).
  * Après création, la session est renouvelée pour obtenir les droits de gestionnaire sans reconnexion.
  */
 import { useMemo, useState } from 'react'
@@ -16,19 +18,23 @@ import {
 } from 'lucide-react'
 import { ScreenHeader } from '@/components/layout/ScreenHeader'
 import { AmountPad, BigAmount } from '@/components/pay/AmountPad'
-import { useCreateTontine, useCreateCommission } from '@/hooks/useTontines'
+import { useCreateTontine, useSimulation } from '@/hooks/useTontines'
 import { TYPES_COMMISSION } from '@/lib/commissions'
-import { toast } from 'sonner'
 import { useCodeList } from '@/hooks/useCodeList'
 import { useAuth } from '@/hooks/useAuth'
 import { useOnline } from '@/hooks/useOnline'
-import { formatF, formatDateCourte } from '@/lib/format'
-import { rythmePhrase, datesTourSuggerees, FREQUENCES_DEFAUT, ORDRES_DEFAUT, ORDRE_LABEL, capital } from '@/lib/tontineLabels'
+import { formatF, formatDateCourte, formatEcheance } from '@/lib/format'
+import {
+  rythmeDe, rythmePhraseDe, dureeTour, echeancePhrase, jourEcheanceValide, aujourdhuiIso,
+  RYTHME_PAR_DEFAUT, HEURE_ECHEANCE_DEFAUT, DECLENCHEMENTS, ORDRES_DEFAUT, ORDRE_LABEL, capital, type Rythme,
+} from '@/lib/tontineLabels'
 import { Stepper } from '@/components/ui/Stepper'
 import { RythmeSlider } from '@/components/ui/RythmeSlider'
+import { EcheancePicker } from '@/components/tontine/EcheancePicker'
+import { CalendrierApercu } from '@/components/tontine/CalendrierApercu'
 import { messageErreur } from '@/lib/apiError'
 import { ModeCycle } from '@/types/common'
-import { TontineType, type CreateTontineRequest, type Commission } from '@/types/tontine'
+import { TontineType, type CreateTontineRequest, type Commission, type DeclenchementJackpot } from '@/types/tontine'
 
 type Objectif =
   | 'classique' | 'quartier' | 'famille' | 'travail' | 'marche'
@@ -82,20 +88,23 @@ export function CreerTontinePage() {
   const online = useOnline()
   const { refreshSession } = useAuth()
   const { mutate: creer, isPending } = useCreateTontine()
-  const { mutateAsync: creerCommission } = useCreateCommission()
-  const { data: freqList } = useCodeList('FREQUENCE_TONTINE')
   const { data: ordreList } = useCodeList('ORDRE_BENEFICIAIRE')
-  const frequences = freqList?.length ? freqList.map((f) => f.value) : FREQUENCES_DEFAUT
   const ordres = ordreList?.length ? ordreList.map((o) => o.value) : ORDRES_DEFAUT
 
-  const aujourdhui = datesTourSuggerees('JOURNALIERE').debut
+  const aujourdhui = aujourdhuiIso()
   const [etape, setEtape] = useState(1)
   const [objectif, setObjectif] = useState<Objectif | null>(null)
   const [type, setType] = useState<TontineType>(TontineType.ROTATIVE)
   const [nom, setNom] = useState('')
   const [montant, setMontant] = useState(5000)
-  const [frequence, setFrequence] = useState('MENSUEL')
+  const [rythme, setRythme] = useState<Rythme>(RYTHME_PAR_DEFAUT)
+  // Jour limite ('' = aucun) et heure limite de paiement
+  const [jour, setJour] = useState('')
+  const [heure, setHeure] = useState(HEURE_ECHEANCE_DEFAUT)
   const [membres, setMembres] = useState(10)
+  // Rotative : nombre de cotisations avant chaque remise du jackpot (1 = jackpot à chaque cotisation)
+  const [parTour, setParTour] = useState(1)
+  const [declenchement, setDeclenchement] = useState<DeclenchementJackpot>('FIN_DU_TOUR')
   const [dateDebut, setDateDebut] = useState(aujourdhui)
   const [gagnants, setGagnants] = useState(1)
   const [ordre, setOrdre] = useState('ROTATION')
@@ -120,14 +129,19 @@ export function CreerTontinePage() {
     setObjectif(o.id)
     setType(o.type)
     setNom(o.nom)
-    setFrequence(frequences.includes(o.frequence) ? o.frequence : frequences[0])
+    changerRythme(rythmeDe({ frequence: o.frequence }) ?? RYTHME_PAR_DEFAUT)
     if (!ordres.includes(ordre)) setOrdre(ordres[0])
+  }
+
+  // Un jour limite dépend de l'unité (lundi…dimanche, ou 1…31) : on l'efface s'il ne convient plus
+  const changerRythme = (r: Rythme) => {
+    setRythme(r)
+    if (!jourEcheanceValide(r.unite, jour)) setJour('')
   }
 
   const erreurEtape = useMemo((): string | null => {
     if (etape === 1) return objectif ? null : 'Choisissez un objectif.'
     if (etape === 2) {
-      if (!frequence) return 'Choisissez un rythme.'
       if (isEvent) {
         if (!dateEvenement) return "Indiquez la date de l'événement."
         if (dateEvenement <= dateDebut) return "La date de l'événement doit être après le début."
@@ -150,12 +164,25 @@ export function CreerTontinePage() {
         const v = Number(commissionValeur.replace(',', '.'))
         if (!commissionValeur || !Number.isFinite(v) || v <= 0) return 'Indiquez la commission, ou choisissez « Aucune ».'
         if (commissionType === 'POURCENTAGE_JACKPOT' && v > 100) return 'La commission ne peut pas dépasser 100 %.'
-        if (commissionType === 'FRAIS_FIXES_PAR_CYCLE' && !isEvent && v >= montant * membres) return 'Les frais par tour doivent être inférieurs au jackpot.'
+        if (commissionType === 'FRAIS_FIXES_PAR_CYCLE' && !isEvent && v >= montant * membres * parTour) return 'Les frais par tour doivent être inférieurs au jackpot.'
       }
       return null
     }
     return null
-  }, [etape, objectif, frequence, isEvent, dateEvenement, dateDebut, montantLibre, montant, membres, gagnants, nom, commissionType, commissionValeur])
+  }, [etape, objectif, isEvent, dateEvenement, dateDebut, montantLibre, montant, membres, gagnants, parTour, nom, commissionType, commissionValeur])
+
+  // Calendrier calculé par le backend dès que le rythme est connu (étape 2 et suivantes)
+  const simulable = etape >= 2 && !!dateDebut && (!isEvent || dateEvenement > dateDebut)
+  const simulation = useSimulation(simulable ? {
+    rythmeIntervalle: rythme.intervalle,
+    rythmeUnite: rythme.unite,
+    ...(jour ? { jourEcheance: jour } : {}),
+    heureEcheance: heure,
+    dateDebut,
+    tontineType: type,
+    ...(isEvent ? { dateEcheance: dateEvenement } : { nombreMembres: membres, nombreGagnants: gagnants, cotisationsParTour: parTour }),
+    ...(!(isEvent && montantLibre) && montant > 0 ? { montant } : {}),
+  } : null)
 
   const suivant = () => {
     if (erreurEtape) { setError(erreurEtape); return }
@@ -175,8 +202,17 @@ export function CreerTontinePage() {
       tontineType: type,
       nom: nom.trim(),
       description: description.trim() || undefined,
-      frequence,
+      // Rythme libre (B26) ; l'ancien code est joint quand il existe
+      rythmeIntervalle: rythme.intervalle,
+      rythmeUnite: rythme.unite,
+      frequence: rythme.code ?? undefined,
+      jourEcheance: jour || undefined,
+      heureEcheance: heure,
       dateDebut,
+    }
+    // Commission enregistrée avec la tontine : si elle est refusée, rien n'est créé (B30)
+    if (commissionType) {
+      payload.commissions = [{ type: commissionType, valeur: Number(commissionValeur.replace(',', '.')) }]
     }
     if (isEvent) {
       payload.dateEcheance = dateEvenement
@@ -190,18 +226,12 @@ export function CreerTontinePage() {
       payload.nombreGagnants = gagnants
       payload.ordreBeneficiaire = ordre
       payload.modeCycle = modeCycle
+      payload.cotisationsParTour = parTour
+      payload.declenchementJackpot = declenchement
     }
     creer(payload, {
       onSuccess: async (t) => {
         await refreshSession() // B12 : droits de gestionnaire sans reconnexion (sans effet si échec)
-        // Commission : appel séparé (l'API ne la prend pas à la création). Un échec ne bloque pas la tontine créée.
-        if (commissionType) {
-          try {
-            await creerCommission({ tontineId: t.id, request: { type: commissionType, valeur: Number(commissionValeur.replace(',', '.')) } })
-          } catch {
-            toast.error("Tontine créée, mais la commission n'a pas été enregistrée. Ajoutez-la dans les Réglages.")
-          }
-        }
         setCreeeId(t.id)
       },
       onError: (err) => {
@@ -231,15 +261,19 @@ export function CreerTontinePage() {
   }
 
   // ─── Étapes ──────────────────────────────────────────────────────────────
-  const rythmeTexte = rythmePhrase(frequence)
-  const jackpot = Math.round((montant * membres) / Math.max(1, gagnants))
+  const rythmeTexte = rythmePhraseDe(rythme)
+  // « le dimanche, avant 20h » ; vide si rien d'imposé
+  const limiteTexte = echeancePhrase({ rythmeUnite: rythme.unite, jourEcheance: jour, heureEcheance: heure })
+  // Calcul local (même formule que le backend) : le montant suit le doigt, sans attendre le réseau
+  const jackpot = Math.round((montant * membres * parTour) / Math.max(1, gagnants))
+  const dureeDuTour = dureeTour(rythme, parTour)
   const commissionNombre = Number(commissionValeur.replace(',', '.'))
   const commissionLigne: string | null = !commissionType || !(commissionNombre > 0)
     ? null
     : commissionType === 'POURCENTAGE_JACKPOT'
       ? isEvent
         ? `Vous prenez ${commissionNombre} % de la cagnotte, déduits à la distribution finale.`
-        : `Vous prenez ${commissionNombre} % du jackpot, soit ${formatF(Math.round((montant * membres * commissionNombre) / 100))} par tour.`
+        : `Vous prenez ${commissionNombre} % du jackpot, soit ${formatF(Math.round((montant * membres * parTour * commissionNombre) / 100))} par tour.`
       : commissionType === 'FRAIS_FIXES_PAR_CYCLE'
         ? `Vous prenez ${formatF(commissionNombre)} par tour, déduits du jackpot.`
         : `Chaque membre paie ${formatF(commissionNombre)} de frais d'adhésion en rejoignant la tontine.`
@@ -247,13 +281,15 @@ export function CreerTontinePage() {
   // Phrase du récapitulatif (étape 4, et panneau « en direct » sur desktop)
   const phrase = isEvent ? (
     <>
-      Chacun cotise <b>{montantLibre ? (Number(minimum) > 0 ? `librement (minimum ${formatF(Number(minimum))})` : 'librement') : `${formatF(montant)} ${rythmeTexte}`}</b>
-      {dateEvenement ? <> jusqu'au <b>{formatDateCourte(dateEvenement)}</b></> : null}.
+      Chacun cotise <b>{montantLibre ? (Number(minimum) > 0 ? `librement (minimum ${formatF(Number(minimum))})` : 'librement') : formatF(montant)} {rythmeTexte}</b>
+      {limiteTexte ? `, ${limiteTexte}` : ''}
+      {dateEvenement ? <>, jusqu'au <b>{formatDateCourte(dateEvenement)}</b></> : null}.
       La cagnotte est partagée entre tous à la fin.
     </>
   ) : (
     <>
-      <b>{membres} membres</b> cotisent <b>{formatF(montant)}</b> {rythmeTexte}. {capital(rythmeTexte)}, <b>{gagnants} membre{gagnants > 1 ? 's' : ''}</b> reçoi{gagnants > 1 ? 'vent' : 't'} <b>{formatF(jackpot)}</b>.
+      <b>{membres} membres</b> cotisent <b>{formatF(montant)}</b> {rythmeTexte}{limiteTexte ? `, ${limiteTexte}` : ''}.{' '}
+      {parTour > 1 ? `Toutes les ${parTour} cotisations` : capital(rythmeTexte)}, <b>{gagnants} membre{gagnants > 1 ? 's' : ''}</b> reçoi{gagnants > 1 ? 'vent' : 't'} <b>{formatF(jackpot)}</b>{gagnants > 1 ? ' chacun' : ''}.
     </>
   )
 
@@ -377,16 +413,11 @@ export function CreerTontinePage() {
             )}
 
             <section className="bg-white rounded-3xl shadow-sm p-4">
-              <RythmeSlider
-                value={frequence}
-                onChange={setFrequence}
-                disponibles={frequences}
-                isEvent={isEvent}
-                montant={montant}
-                montantLibre={montantLibre}
-                dateDebut={dateDebut}
-                dateEvenement={dateEvenement}
-              />
+              <RythmeSlider value={rythme} onChange={changerRythme} />
+            </section>
+
+            <section className="bg-white rounded-3xl shadow-sm p-4">
+              <EcheancePicker unite={rythme.unite} jour={jour} onJour={setJour} heure={heure} onHeure={setHeure} />
             </section>
 
             {isEvent && (
@@ -401,6 +432,8 @@ export function CreerTontinePage() {
                 </label>
               </section>
             )}
+
+            {isEvent && <CalendrierApercu simulation={simulation.data} isEvent chargement={simulable && simulation.isLoading} />}
           </div>
         )}
 
@@ -412,8 +445,23 @@ export function CreerTontinePage() {
             </section>
             <label className="block bg-white rounded-3xl shadow-sm p-4">
               <span className="text-sm font-semibold text-neutral-700">Date de début</span>
-              <input type="date" value={dateDebut} onChange={(e) => setDateDebut(e.target.value)} className="mt-1 w-full h-12 px-4 rounded-2xl bg-neutral-100 text-[16px]" />
+              <input type="date" value={dateDebut} min={aujourdhui} onChange={(e) => setDateDebut(e.target.value)} className="mt-1 w-full h-12 px-4 rounded-2xl bg-neutral-100 text-[16px]" />
             </label>
+
+            {/* Le jackpot : plus il y a de cotisations par tour, plus il est gros */}
+            <section className="bg-yellow-50 rounded-3xl shadow-sm p-5">
+              <p className="text-center text-xs font-semibold tracking-[0.14em] uppercase text-yellow-800">Jackpot{gagnants > 1 ? ' par gagnant' : ''}</p>
+              <p className="mt-1 text-center text-[34px] leading-tight font-extrabold tabular-nums text-neutral-900" aria-live="polite">{formatF(jackpot)}</p>
+              <p className="text-center text-sm text-neutral-600">
+                {parTour > 1 ? `remis toutes les ${parTour} cotisations · un tour dure ${dureeDuTour}` : `remis ${rythmeTexte}`}
+              </p>
+              <div className="mt-4 bg-white rounded-2xl p-3">
+                <Stepper value={parTour} min={1} max={60} onChange={setParTour} label={parTour > 1 ? 'cotisations par tour' : 'cotisation par tour'} small />
+              </div>
+              <p className="mt-3 text-center text-sm text-neutral-600">Touchez + pour un jackpot plus gros, remis moins souvent.</p>
+            </section>
+
+            <CalendrierApercu simulation={simulation.data} isEvent={false} chargement={simulable && simulation.isLoading} />
 
             <section className="bg-white rounded-3xl shadow-sm">
               <button onClick={() => setOptionsOpen((v) => !v)} aria-expanded={optionsOpen} className="w-full h-14 px-4 flex items-center justify-between text-left font-medium text-neutral-800">
@@ -447,6 +495,18 @@ export function CreerTontinePage() {
                       ))}
                     </div>
                   </div>
+                  <div>
+                    <p className="text-sm font-semibold text-neutral-700">Remise du jackpot</p>
+                    <div className="mt-2 grid grid-cols-2 gap-2">
+                      {DECLENCHEMENTS.map((d) => (
+                        <button key={d.value} aria-pressed={declenchement === d.value} onClick={() => setDeclenchement(d.value)}
+                          className={clsx('h-11 rounded-full text-sm font-semibold', declenchement === d.value ? 'bg-primary-700 text-white' : 'bg-neutral-100 text-neutral-700')}>
+                          {d.label}
+                        </button>
+                      ))}
+                    </div>
+                    <p className="mt-2 text-sm text-neutral-500">{DECLENCHEMENTS.find((d) => d.value === declenchement)?.detail}</p>
+                  </div>
                   <label className="block">
                     <span className="text-sm font-semibold text-neutral-700">Description (facultatif)</span>
                     <textarea value={description} onChange={(e) => setDescription(e.target.value.slice(0, 300))} rows={2}
@@ -465,6 +525,8 @@ export function CreerTontinePage() {
               <p className="text-[17px] leading-relaxed text-neutral-900">{phrase}</p>
               <p className="mt-2 text-sm text-neutral-500">
                 Début le {formatDateCourte(dateDebut)}
+                {simulation.data?.premiereEcheance ? ` · 1ʳᵉ cotisation avant ${formatEcheance(simulation.data.premiereEcheance)}` : ''}
+                {!isEvent && simulation.data?.nombreTours ? ` · ${simulation.data.nombreTours} tours` : ''}
                 {!isEvent && ` · ${ORDRE_LABEL[ordre] ?? ordre} · tours ${modeCycle === ModeCycle.MANUEL ? 'démarrés par vous' : 'automatiques'}`}
                 {` · ${commissionType && commissionNombre > 0 ? `commission ${commissionType === 'POURCENTAGE_JACKPOT' ? `${commissionNombre} %` : formatF(commissionNombre)}` : 'sans commission'}`}
               </p>
@@ -555,6 +617,10 @@ export function CreerTontinePage() {
                   <p className="mt-4 text-[15px] leading-relaxed text-neutral-800">{phrase}</p>
                   <dl className="mt-4 space-y-2 text-sm">
                     <LigneRecap label="Début" value={formatDateCourte(dateDebut)} />
+                    {limiteTexte && <LigneRecap label="À payer" value={limiteTexte} />}
+                    {simulation.data?.premiereEcheance && <LigneRecap label="1ʳᵉ cotisation" value={`avant ${formatEcheance(simulation.data.premiereEcheance)}`} />}
+                    {!isEvent && etape >= 3 && <LigneRecap label="Jackpot" value={`${formatF(jackpot)}${parTour > 1 ? ` · ${parTour} cotisations` : ''}`} />}
+                    {!isEvent && etape >= 3 && !!simulation.data?.nombreTours && <LigneRecap label="Durée" value={`${simulation.data.nombreTours} tours`} />}
                     {isEvent && <LigneRecap label="Événement" value={dateEvenement ? formatDateCourte(dateEvenement) : '—'} />}
                     {!isEvent && etape >= 3 && <LigneRecap label="Ordre" value={ORDRE_LABEL[ordre] ?? ordre} />}
                     {!isEvent && etape >= 3 && <LigneRecap label="Tours" value={modeCycle === ModeCycle.MANUEL ? 'Démarrés par vous' : 'Automatiques'} />}

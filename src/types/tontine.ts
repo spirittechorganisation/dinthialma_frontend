@@ -6,14 +6,46 @@ export enum TontineType {
   EVENEMENTIELLE = 'EVENEMENTIELLE',
 }
 
+// ─── Rythme, échéance et remise (B26, B32, B33) ───────────────────────────────
+export type RythmeUnite = 'JOUR' | 'SEMAINE' | 'MOIS'
+/** FIN_DU_TOUR : à la dernière échéance du tour ; TOUS_PAYES : dès que tout le monde a payé */
+export type DeclenchementJackpot = 'FIN_DU_TOUR' | 'TOUS_PAYES'
+/** Que faire quand il manque de l'argent au moment de remettre le jackpot */
+export type ModeRemise = 'ATTENDRE' | 'DISPONIBLE' | 'AVANCE_COMMISSION' | 'AVANCE_GESTIONNAIRE' | 'CAISSE'
+
+export interface RappelsEcheance {
+  /** Rappel la veille à 18h00 */
+  veille?: boolean
+  /** Rappel N heures avant l'échéance (0 = aucun, 1 à 24) */
+  heuresAvant?: number
+}
+
+/** Champs de rythme communs aux tontines, résumés et invitations */
+export interface RythmeTontine {
+  /** « Tous les N … » */
+  rythmeIntervalle?: number | null
+  rythmeUnite?: RythmeUnite | null
+  /** SEMAINE : LUNDI…DIMANCHE ; MOIS : "1"…"31" ou "DERNIER" ; absent = aucun jour imposé */
+  jourEcheance?: string | null
+  /** HH:mm, heure de Dakar (défaut 23:59) */
+  heureEcheance?: string | null
+  /** Rotative : nombre de cotisations par tour (défaut 1) */
+  cotisationsParTour?: number | null
+  declenchementJackpot?: DeclenchementJackpot | null
+}
+
 // ─── Réponse tontine ──────────────────────────────────────────────────────────
-export interface Tontine {
+export interface Tontine extends RythmeTontine {
   id: string
   tontineType: TontineType
   nom: string
   description?: string
   montant: number
+  /** Code historique ; « PERSONNALISEE » quand le rythme n'a pas de code (voir rythmeIntervalle / rythmeUnite) */
   frequence: string
+  rappels?: RappelsEcheance | null
+  /** Rotative : option de remise par défaut */
+  modeRemise?: ModeRemise | null
   /** null pour EVENEMENTIELLE */
   ordreBeneficiaire?: string | null
   /** null pour EVENEMENTIELLE */
@@ -44,10 +76,21 @@ export interface CreateTontineRequest {
   tontineType: TontineType
   nom: string
   description?: string
-  frequence: string
+  /** Code historique, facultatif : rythmeIntervalle + rythmeUnite priment */
+  frequence?: string
+  rythmeIntervalle?: number
+  rythmeUnite?: RythmeUnite
+  jourEcheance?: string
+  heureEcheance?: string
+  rappels?: RappelsEcheance
   dateDebut: string
   // ROTATIVE uniquement
   montant?: number
+  cotisationsParTour?: number
+  declenchementJackpot?: DeclenchementJackpot
+  modeRemise?: ModeRemise
+  /** B30 : commissions enregistrées avec la tontine (tout ou rien) */
+  commissions?: CreateCommissionRequest[]
   ordreBeneficiaire?: string
   modeCycle?: ModeCycle
   nombreMembres?: number
@@ -65,6 +108,16 @@ export interface UpdateTontineRequest {
   description?: string
   montant?: number
   frequence?: string
+  /** Rythme : modifiable en BROUILLON seulement */
+  rythmeIntervalle?: number
+  rythmeUnite?: RythmeUnite
+  /** "" = aucun jour imposé */
+  jourEcheance?: string
+  heureEcheance?: string
+  rappels?: RappelsEcheance
+  cotisationsParTour?: number
+  declenchementJackpot?: DeclenchementJackpot
+  modeRemise?: ModeRemise
   ordreBeneficiaire?: string
   dateDebut?: string
   nombreMembres?: number
@@ -96,4 +149,47 @@ export interface CreateCommissionRequest {
 export interface UpdateCommissionRequest {
   valeur?: number
   description?: string
+}
+
+// ─── Échéance et rappels, modifiables en cours de tontine (PATCH /tontines/{id}/echeance) ─
+export interface ModifierEcheanceRequest {
+  /** "" = aucun jour imposé ; absent = inchangé */
+  jourEcheance?: string
+  heureEcheance?: string
+  rappels?: RappelsEcheance
+}
+
+// ─── Simulation du calendrier (GET /tontines/simulation) ─────────────────────
+export interface SimulationParams {
+  rythmeIntervalle: number
+  rythmeUnite: RythmeUnite
+  jourEcheance?: string
+  heureEcheance?: string
+  dateDebut: string
+  tontineType: TontineType
+  nombreMembres?: number
+  nombreGagnants?: number
+  cotisationsParTour?: number
+  montant?: number
+  dateEcheance?: string
+}
+
+export interface TourSimule {
+  numero: number
+  dateDebut: string
+  dateFin: string
+  echeances: string[]
+}
+
+export interface SimulationCalendrier {
+  nombreTours: number
+  cotisationsParTour: number
+  /** Brut, par gagnant ; absent sans montant */
+  jackpotParTour?: number
+  premiereEcheance?: string
+  derniereEcheance?: string
+  /** « tous les 3 jours, avant 23h59 » */
+  rythme?: string
+  echeances: string[]
+  tours: TourSimule[]
 }

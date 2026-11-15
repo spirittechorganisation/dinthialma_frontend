@@ -5,7 +5,7 @@
  *
  * Le backend omet les champs `null` : un champ absent est normalisé en `null` par meService.
  */
-import type { Tontine } from './tontine'
+import type { Tontine, RythmeUnite } from './tontine'
 import type { Cotisation } from './cotisation'
 import type { CotisationStatut, MembreStatut, TontineStatut } from './common'
 
@@ -34,11 +34,29 @@ export interface CotisationDue {
   montantLibre: boolean
   montantMinimum: number | null
   dateLimite: string
+  /** Échéance courante du tour (B32) : celle qui est payée par défaut */
+  echeanceId: string | null
+  numeroEcheance: number | null
+  nombreEcheances: number | null
+  /** Limite de paiement avec l'heure ; null si le backend ne la fournit pas */
+  echeanceAt: string | null
+  /** Échéances passées du tour en cours restées impayées */
+  echeancesEnRetard: number
   statut: StatutCotisationDue
   /** Cotisation active sur ce tour (null si à payer) */
   cotisationId: string | null
   /** Après un refus : statut A_PAYER + motif du dernier refus */
   motifDernierRefus: string | null
+}
+
+/** Échéance d'un tour déjà remis que je n'ai pas payée : reste payable (B33) */
+export interface EcheanceARegulariser {
+  cycleId: string
+  numeroCycle: number
+  echeanceId: string
+  numeroEcheance: number
+  echeanceAt: string
+  montant: number
 }
 
 export interface CotisantTontineSummary {
@@ -47,6 +65,10 @@ export interface CotisantTontineSummary {
   tontineType: Tontine['tontineType']
   statut: TontineStatut
   frequence: string | null
+  rythmeIntervalle: number | null
+  rythmeUnite: RythmeUnite | null
+  cotisationsParTour: number
+  echeancesARegulariser: EcheanceARegulariser[]
   monMembreId: string | null
   monStatutMembre: MembreStatut | null
   ordreJackpot: number | null
@@ -93,6 +115,11 @@ export interface GestionTontineSummary {
     cycleId: string
     numeroCycle: number
     dateFin: string
+    nombreEcheances: number
+    /** Échéance courante (1 à N) ; null si aucune */
+    numeroEcheanceCourante: number | null
+    /** Tout le monde a payé chaque échéance : le jackpot peut être remis */
+    tousPayes: boolean
     /** Cotisations VALIDÉES uniquement */
     montantCollecte: number
     montantEnAttente: number

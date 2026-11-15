@@ -11,14 +11,19 @@ import { ScreenHeader } from '@/components/layout/ScreenHeader'
 import { Stepper } from '@/components/ui/Stepper'
 import { RythmeSlider } from '@/components/ui/RythmeSlider'
 import { useTontineVue } from '@/hooks/useTontineVue'
-import { useUpdateTontine } from '@/hooks/useTontines'
+import { useUpdateTontine, useSimulation } from '@/hooks/useTontines'
+import { EcheancePicker } from '@/components/tontine/EcheancePicker'
+import { CalendrierApercu } from '@/components/tontine/CalendrierApercu'
 import { useCodeList } from '@/hooks/useCodeList'
 import { useOnline } from '@/hooks/useOnline'
 import { formatF } from '@/lib/format'
-import { FREQUENCES_DEFAUT, ORDRES_DEFAUT, ORDRE_LABEL } from '@/lib/tontineLabels'
+import {
+  rythmeDe, dureeTour, jourEcheanceValide, RYTHME_PAR_DEFAUT, HEURE_ECHEANCE_DEFAUT, DECLENCHEMENTS, ORDRES_DEFAUT, ORDRE_LABEL,
+  type Rythme,
+} from '@/lib/tontineLabels'
 import { messageErreur } from '@/lib/apiError'
 import { TontineStatut } from '@/types/common'
-import { TontineType, type UpdateTontineRequest } from '@/types/tontine'
+import { TontineType, type UpdateTontineRequest, type DeclenchementJackpot } from '@/types/tontine'
 
 const champ = 'mt-1 w-full h-12 px-4 rounded-2xl bg-neutral-100 text-[16px] outline-none focus:ring-2 focus:ring-primary-600'
 const isoJour = (v: string | null | undefined) => (v ? v.slice(0, 10) : '')
@@ -30,14 +35,12 @@ export function ModifierTontinePage() {
   const v = useTontineVue(id)
   const t = v.tontine
   const { mutate: modifier, isPending } = useUpdateTontine()
-  const { data: freqList } = useCodeList('FREQUENCE_TONTINE')
   const { data: ordreList } = useCodeList('ORDRE_BENEFICIAIRE')
-  const frequences = freqList?.length ? freqList.map((f) => f.value) : FREQUENCES_DEFAUT
   const ordres = ordreList?.length ? ordreList.map((o) => o.value) : ORDRES_DEFAUT
 
   const [f, setF] = useState({
-    nom: '', description: '', montant: '', frequence: '', dateDebut: '',
-    membres: 2, gagnants: 1, ordre: 'ROTATION',
+    nom: '', description: '', montant: '', rythme: RYTHME_PAR_DEFAUT as Rythme, jour: '', heure: HEURE_ECHEANCE_DEFAUT, dateDebut: '',
+    membres: 2, gagnants: 1, ordre: 'ROTATION', parTour: 1, declenchement: 'FIN_DU_TOUR' as DeclenchementJackpot,
     dateEvenement: '', montantLibre: false, minimum: '',
   })
   const [pret, setPret] = useState(false)
@@ -50,7 +53,11 @@ export function ModifierTontinePage() {
       nom: t.nom,
       description: t.description ?? '',
       montant: t.montant ? String(t.montant) : '',
-      frequence: t.frequence,
+      rythme: rythmeDe(t) ?? RYTHME_PAR_DEFAUT,
+      jour: t.jourEcheance ?? '',
+      heure: (t.heureEcheance ?? HEURE_ECHEANCE_DEFAUT).slice(0, 5),
+      parTour: Math.max(1, t.cotisationsParTour ?? 1),
+      declenchement: t.declenchementJackpot ?? 'FIN_DU_TOUR',
       dateDebut: isoJour(t.dateDebut),
       membres: t.nombreMembres || 2,
       gagnants: t.nombreGagnants || 1,
@@ -61,6 +68,21 @@ export function ModifierTontinePage() {
     })
     setPret(true)
   }, [t, pret])
+
+  // Calendrier calculé par le backend avec les valeurs en cours de saisie
+  const typeTontine = t?.tontineType
+  const evenement = typeTontine === TontineType.EVENEMENTIELLE
+  const simulable = pret && !!typeTontine && !!f.dateDebut && (!evenement || f.dateEvenement > f.dateDebut)
+  const simulation = useSimulation(simulable && typeTontine ? {
+    rythmeIntervalle: f.rythme.intervalle,
+    rythmeUnite: f.rythme.unite,
+    ...(f.jour ? { jourEcheance: f.jour } : {}),
+    heureEcheance: f.heure,
+    dateDebut: f.dateDebut,
+    tontineType: typeTontine,
+    ...(evenement ? { dateEcheance: f.dateEvenement } : { nombreMembres: f.membres, nombreGagnants: f.gagnants, cotisationsParTour: f.parTour }),
+    ...(!(evenement && f.montantLibre) && Number(f.montant) > 0 ? { montant: Number(f.montant) } : {}),
+  } : null)
 
   if (v.isLoading || (t && !pret)) {
     return <Shell><div className="space-y-4" aria-busy="true">{[0, 1, 2].map((i) => <div key={i} className="h-28 rounded-3xl bg-white animate-pulse" />)}</div></Shell>
@@ -79,7 +101,6 @@ export function ModifierTontinePage() {
   const verifier = (): string | null => {
     const n = f.nom.trim()
     if (n.length < 2 || n.length > 150) return 'Le nom doit faire entre 2 et 150 caractères.'
-    if (!f.frequence) return 'Choisissez un rythme.'
     if (!f.dateDebut) return 'Indiquez la date de début.'
     if (isEvent) {
       if (!f.dateEvenement || f.dateEvenement <= f.dateDebut) return "La date de l'événement doit être après le début."
@@ -98,7 +119,12 @@ export function ModifierTontinePage() {
     const req: UpdateTontineRequest = {
       nom: f.nom.trim(),
       description: f.description.trim() || undefined,
-      frequence: f.frequence,
+      rythmeIntervalle: f.rythme.intervalle,
+      rythmeUnite: f.rythme.unite,
+      frequence: f.rythme.code ?? undefined,
+      // "" retire le jour imposé
+      jourEcheance: f.jour,
+      heureEcheance: f.heure,
       dateDebut: f.dateDebut,
     }
     if (isEvent) {
@@ -112,6 +138,8 @@ export function ModifierTontinePage() {
       req.nombreMembres = f.membres
       req.nombreGagnants = f.gagnants
       req.ordreBeneficiaire = f.ordre
+      req.cotisationsParTour = f.parTour
+      req.declenchementJackpot = f.declenchement
     }
     modifier({ id, request: req }, {
       onSuccess: () => { toast.success('Modifications enregistrées'); navigate(`/tontine/${id}/reglages`, { replace: true }) },
@@ -165,15 +193,10 @@ export function ModifierTontinePage() {
             </label>
           )}
           <RythmeSlider
-            value={f.frequence}
-            onChange={(x) => set('frequence', x)}
-            disponibles={frequences}
-            isEvent={isEvent}
-            montant={montant}
-            montantLibre={f.montantLibre}
-            dateDebut={f.dateDebut}
-            dateEvenement={f.dateEvenement}
+            value={f.rythme}
+            onChange={(r) => { setF((x) => ({ ...x, rythme: r, jour: jourEcheanceValide(r.unite, x.jour) ? x.jour : '' })); setError(null) }}
           />
+          <EcheancePicker unite={f.rythme.unite} jour={f.jour} onJour={(x) => set('jour', x)} heure={f.heure} onHeure={(x) => set('heure', x)} />
           <div className={clsx('grid gap-3', isEvent ? 'grid-cols-2' : 'grid-cols-1')}>
             <label className="block">
               <span className="text-sm font-semibold text-neutral-700">Début</span>
@@ -186,6 +209,7 @@ export function ModifierTontinePage() {
               </label>
             )}
           </div>
+          <CalendrierApercu simulation={simulation.data} isEvent={isEvent} chargement={simulable && simulation.isLoading} />
         </section>
 
         {!isEvent && (
@@ -199,8 +223,22 @@ export function ModifierTontinePage() {
               <Stepper value={f.gagnants} min={1} max={Math.max(1, f.membres - 1)} onChange={(x) => set('gagnants', x)} label={f.gagnants > 1 ? 'gagnants' : 'gagnant'} small />
             </div>
             <div>
+              <p className="text-sm font-semibold text-neutral-700 mb-2">Cotisations avant chaque jackpot</p>
+              <Stepper value={f.parTour} min={1} max={60} onChange={(x) => set('parTour', x)} label={f.parTour > 1 ? 'cotisations par tour' : 'cotisation par tour'} small />
+              {montant > 0 && (
+                <p className="mt-2 text-sm text-neutral-500">
+                  Jackpot de <b className="text-neutral-800">{formatF(Math.round((montant * f.membres * f.parTour) / Math.max(1, f.gagnants)))}</b>
+                  {f.gagnants > 1 ? ' par gagnant' : ''}{f.parTour > 1 ? ` · un tour dure ${dureeTour(f.rythme, f.parTour)}` : ''}
+                </p>
+              )}
+            </div>
+            <div>
               <p className="text-sm font-semibold text-neutral-700">Ordre des gagnants</p>
               {pills(ordres, f.ordre, (x) => set('ordre', x), (x) => ORDRE_LABEL[x] ?? x)}
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-neutral-700">Remise du jackpot</p>
+              {pills(DECLENCHEMENTS.map((d) => d.value), f.declenchement, (x) => set('declenchement', x as DeclenchementJackpot), (x) => DECLENCHEMENTS.find((d) => d.value === x)?.label ?? x)}
             </div>
           </section>
         )}

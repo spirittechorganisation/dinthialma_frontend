@@ -37,6 +37,23 @@ export function formatDateHeure(iso: string | null | undefined): string {
   return `${formatDateCourte(iso)} · ${d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`
 }
 
+/**
+ * Limite de paiement : « dim. 22 nov. » ; l'heure n'est ajoutée que si ce n'est pas la fin de journée
+ * (« dim. 22 nov. à 20h »). Heure de Dakar, comme le backend.
+ */
+export function formatEcheance(iso: string | null | undefined): string {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  const tz = 'Africa/Dakar'
+  const sameYear = d.getFullYear() === new Date().getFullYear()
+  const jour = d.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short', ...(sameYear ? {} : { year: 'numeric' }), timeZone: tz })
+  // Une date seule (yyyy-mm-dd) n'a pas d'heure à afficher
+  if (iso.length <= 10) return jour
+  const [h, m] = d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: tz }).split(':')
+  if (h === '23' && m === '59') return jour
+  return `${jour} à ${Number(h)}h${m !== '00' ? m : ''}`
+}
+
 /** Lecture/écriture localStorage protégées (navigation privée, stockage bloqué). */
 export function safeGet(key: string): string | null {
   try { return localStorage.getItem(key) } catch { return null }

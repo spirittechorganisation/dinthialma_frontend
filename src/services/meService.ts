@@ -11,11 +11,11 @@ import { tontineService } from './tontineService'
 import { cotisationService } from './cotisationService'
 import { dashboardService } from './dashboardService'
 import { toPage, type CustomResponse, type RawPage, type PageResponse, type CotisationStatut } from '@/types/common'
-import type { Tontine } from '@/types/tontine'
+import type { Tontine, RythmeUnite } from '@/types/tontine'
 import type { Cotisation } from '@/types/cotisation'
 import type { TontineStats } from '@/types/dashboard'
 import type {
-  MaTontine, MonRole, CotisantSummary, CotisantTontineSummary, CotisationDue,
+  MaTontine, MonRole, CotisantSummary, CotisantTontineSummary, CotisationDue, EcheanceARegulariser,
   GestionSummary, GestionTontineSummary, CotisationAValider,
   ActiviteItem, ActiviteType, ModeAccueil, MesJackpots, JackpotRecu, JackpotAVenir, ModeAttribution,
 } from '@/types/me'
@@ -49,7 +49,9 @@ function avecRole(t: Tontine): MaTontine {
 // ─── Formes brutes des réponses /me (champs absents possibles) ───────────────
 interface RawCotisantTontine {
   tontineId: string; nom: string; tontineType: Tontine['tontineType']; statut: CotisantTontineSummary['statut']
-  frequence?: string; monMembreId?: string; monStatutMembre?: CotisantTontineSummary['monStatutMembre']
+  frequence?: string; rythmeIntervalle?: number; rythmeUnite?: RythmeUnite; cotisationsParTour?: number
+  echeancesARegulariser?: Partial<EcheanceARegulariser>[]
+  monMembreId?: string; monStatutMembre?: CotisantTontineSummary['monStatutMembre']
   ordreJackpot?: number; aRecuJackpot?: boolean
   totalCotiseValide?: number; totalEnAttente?: number; toursPayes?: number; toursTotal?: number
   totalJackpotsRecus?: number; nombreJackpotsRecus?: number
@@ -57,6 +59,7 @@ interface RawCotisantTontine {
   cotisationDue?: {
     montant?: number; montantLibre?: boolean; montantMinimum?: number; dateLimite: string
     statut: CotisationDue['statut']; cotisationId?: string; motifDernierRefus?: string
+    echeanceId?: string; numeroEcheance?: number; nombreEcheances?: number; echeanceAt?: string; echeancesEnRetard?: number
   }
   gestionnaire?: { firstName?: string; lastName?: string; phone?: string }
 }
@@ -103,6 +106,14 @@ export const meService = {
       tontineType: t.tontineType,
       statut: t.statut,
       frequence: ouNull(t.frequence),
+      rythmeIntervalle: numOuNull(t.rythmeIntervalle),
+      rythmeUnite: ouNull(t.rythmeUnite),
+      cotisationsParTour: Math.max(1, num(t.cotisationsParTour) || 1),
+      // Retards sur des tours déjà remis : toujours payables (B33), le plus ancien d'abord
+      echeancesARegulariser: (t.echeancesARegulariser ?? [])
+        .filter((e): e is EcheanceARegulariser => !!e.cycleId && !!e.echeanceId)
+        .map((e) => ({ ...e, numeroCycle: num(e.numeroCycle), numeroEcheance: num(e.numeroEcheance), montant: num(e.montant) }))
+        .sort((a, b) => +new Date(a.echeanceAt) - +new Date(b.echeanceAt)),
       monMembreId: ouNull(t.monMembreId),
       monStatutMembre: ouNull(t.monStatutMembre),
       ordreJackpot: numOuNull(t.ordreJackpot),
@@ -122,6 +133,11 @@ export const meService = {
         montantLibre: !!t.cotisationDue.montantLibre,
         montantMinimum: numOuNull(t.cotisationDue.montantMinimum),
         dateLimite: t.cotisationDue.dateLimite,
+        echeanceId: ouNull(t.cotisationDue.echeanceId),
+        numeroEcheance: numOuNull(t.cotisationDue.numeroEcheance),
+        nombreEcheances: numOuNull(t.cotisationDue.nombreEcheances),
+        echeanceAt: ouNull(t.cotisationDue.echeanceAt),
+        echeancesEnRetard: num(t.cotisationDue.echeancesEnRetard),
         statut: t.cotisationDue.statut,
         cotisationId: ouNull(t.cotisationDue.cotisationId),
         motifDernierRefus: ouNull(t.cotisationDue.motifDernierRefus),
@@ -172,6 +188,9 @@ export const meService = {
           cycleId: c.cycleId,
           numeroCycle: c.numeroCycle,
           dateFin: c.dateFin,
+          nombreEcheances: Math.max(1, num(c.nombreEcheances) || 1),
+          numeroEcheanceCourante: numOuNull(c.numeroEcheanceCourante),
+          tousPayes: !!c.tousPayes,
           montantCollecte: num(c.montantCollecte),
           montantEnAttente: num(c.montantEnAttente),
           montantAttendu: numOuNull(c.montantAttendu),

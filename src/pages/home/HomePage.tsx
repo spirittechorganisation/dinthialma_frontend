@@ -174,6 +174,20 @@ export function HomePage() {
           disabled={!online} disabledReason={offlineReason}
         />
       )
+    } else if (lignes.some((t) => t.cycleEnCours?.tousPayes && t.tontineType === 'ROTATIVE')) {
+      // Tout le monde a payé : il ne reste qu'à remettre le jackpot
+      const prets = lignes.filter((t) => t.cycleEnCours?.tousPayes && t.tontineType === 'ROTATIVE')
+      const p0 = prets[0]
+      actionCard = (
+        <ActionCard
+          icon={<Trophy size={22} />} tone="ok"
+          title={prets.length > 1 ? `${prets.length} jackpots prêts à remettre` : 'Jackpot prêt à remettre'}
+          subtitle={`${p0.nom} · tout le monde a payé`}
+          actionLabel="Remettre"
+          onAction={() => navigate(`/tontine/${p0.tontineId}/tours/${p0.cycleEnCours!.cycleId}`)}
+          disabled={!online} disabledReason={offlineReason}
+        />
+      )
     } else {
       // Rien à valider : pas de carte (l'accueil reste épuré)
       actionCard = null
@@ -182,6 +196,8 @@ export function HomePage() {
     const dues = (cotisant.data?.aPayer ?? []).filter((t) => !tontineId || t.tontineId === tontineId)
     const enAttente = (cotisant.data?.tontines ?? [])
       .filter((t) => (!tontineId || t.tontineId === tontineId) && t.cotisationDue?.statut === 'EN_ATTENTE')
+    const enRetard = (cotisant.data?.tontines ?? [])
+      .filter((t) => (!tontineId || t.tontineId === tontineId) && (t.echeancesARegulariser.length > 0 || (t.cotisationDue?.echeancesEnRetard ?? 0) > 0))
     if (dues.length === 1) {
       const d = dues[0]
       const due = d.cotisationDue!
@@ -189,7 +205,7 @@ export function HomePage() {
         <ActionCard
           icon={<Send size={22} />} tone="urgent"
           title={due.montantLibre && due.montant == null ? 'Cotisation à payer' : `À payer ${formatF(due.montant)}`}
-          subtitle={`${d.nom} · ${dueDetail(due.dateLimite)}`}
+          subtitle={`${d.nom}${due.nombreEcheances && due.nombreEcheances > 1 && due.numeroEcheance ? ` · cotisation ${due.numeroEcheance}/${due.nombreEcheances}` : ''} · ${dueDetail(due.echeanceAt ?? due.dateLimite)}`}
           actionLabel="Payer" onAction={() => openPay(d.tontineId)}
           disabled={!online} disabledReason={offlineReason}
         />
@@ -199,8 +215,19 @@ export function HomePage() {
         <ActionCard
           icon={<Send size={22} />} tone="urgent"
           title={`${dues.length} cotisations à payer`}
-          subtitle={`La plus proche : ${dues[0].nom} · ${dueDetail(dues[0].cotisationDue?.dateLimite)}`}
+          subtitle={`La plus proche : ${dues[0].nom} · ${dueDetail(dues[0].cotisationDue?.echeanceAt ?? dues[0].cotisationDue?.dateLimite)}`}
           actionLabel="Payer" onAction={() => setPayPickerOpen(true)}
+          disabled={!online} disabledReason={offlineReason}
+        />
+      )
+    } else if (enRetard.length > 0) {
+      const n = enRetard.reduce((s, t) => s + t.echeancesARegulariser.length + (t.cotisationDue?.echeancesEnRetard ?? 0), 0)
+      actionCard = (
+        <ActionCard
+          icon={<Send size={22} />} tone="urgent"
+          title={`${n} cotisation${n > 1 ? 's' : ''} en retard`}
+          subtitle={enRetard.length === 1 ? enRetard[0].nom : `${enRetard.length} tontines`}
+          actionLabel="Payer" onAction={() => navigate(enRetard.length === 1 ? `/payer/${enRetard[0].tontineId}` : '/payer')}
           disabled={!online} disabledReason={offlineReason}
         />
       )
@@ -292,7 +319,7 @@ export function HomePage() {
   const payOptions = (cotisant.data?.aPayer ?? []).map((t) => ({
     id: t.tontineId,
     nom: t.nom,
-    detail: `${t.cotisationDue?.montant != null ? formatF(t.cotisationDue.montant) : 'Montant libre'} · ${dueDetail(t.cotisationDue?.dateLimite)}`,
+    detail: `${t.cotisationDue?.montant != null ? formatF(t.cotisationDue.montant) : 'Montant libre'} · ${dueDetail(t.cotisationDue?.echeanceAt ?? t.cotisationDue?.dateLimite)}`,
   }))
 
   // ─── Desktop (≥ 1024 px) : tableau de bord web ───────────────────────────

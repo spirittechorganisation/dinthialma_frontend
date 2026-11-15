@@ -1,5 +1,6 @@
 import api from './api'
-import { Cycle, OpenCycleRequest, DesignerGagnantsRequest } from '@/types/cycle'
+import { Cycle, OpenCycleRequest, DesignerGagnantsRequest, PropositionTour, RemiseApercu } from '@/types/cycle'
+import type { ModeRemise } from '@/types/tontine'
 import { BeneficiaireHistoriqueItem } from '@/types/beneficiaire'
 import { PageResponse, CustomResponse, RawPage, toPage } from '@/types/common'
 
@@ -32,9 +33,30 @@ export const cycleService = {
   },
 
   // ─── Clôturer un cycle (EN_COURS → TERMINÉ) ──────────────────────────────────
-  cloturerCycle: async (tontineId: string, cycleId: string): Promise<Cycle> => {
+  // modeRemise facultatif (B33) : absent = réglage de la tontine
+  cloturerCycle: async (tontineId: string, cycleId: string, modeRemise?: ModeRemise): Promise<Cycle> => {
     const response = await api.put<CustomResponse<Cycle>>(
-      `/v1/tontines/${tontineId}/cycles/${cycleId}/cloturer`
+      `/v1/tontines/${tontineId}/cycles/${cycleId}/cloturer`,
+      modeRemise ? { modeRemise } : undefined
+    )
+    return response.data.data
+  },
+
+  // ─── Aperçu avant la remise du jackpot (rotative, tour en cours) ─────────────
+  // Collecté, manquant, retardataires et résultat de chaque option de remise. Sans effet en base.
+  getRemiseApercu: async (tontineId: string, cycleId: string): Promise<RemiseApercu> => {
+    const response = await api.get<CustomResponse<RemiseApercu>>(
+      `/v1/tontines/${tontineId}/cycles/${cycleId}/remise/apercu`
+    )
+    const d = response.data.data
+    return { ...d, retardataires: d?.retardataires ?? [], options: d?.options ?? [] }
+  },
+
+  // ─── Dates proposées pour le prochain tour (mode manuel) ─────────────────────
+  getProposition: async (tontineId: string, dateDebut?: string): Promise<PropositionTour> => {
+    const response = await api.get<CustomResponse<PropositionTour>>(
+      `/v1/tontines/${tontineId}/cycles/proposition`,
+      { params: dateDebut ? { dateDebut } : undefined }
     )
     return response.data.data
   },
