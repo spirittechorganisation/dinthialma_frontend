@@ -108,6 +108,8 @@ export interface GestionTontineSummary {
   cotisationsEnRetard: number
   /** Demandes d'adhésion en attente */
   demandesEnAttente: number
+  /** Demandes de priorité de jackpot en attente (ROTATIVE uniquement) */
+  prioritesEnAttente: number
   montantTotalValide: number
   /** ROTATIVE à ordre MANUEL avec un tour terminé sans gagnant */
   gagnantsADesigner: boolean

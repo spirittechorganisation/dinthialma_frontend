@@ -1,10 +1,42 @@
 import { usePWA } from '@/hooks/usePWA'
-import { X, Download, Share } from 'lucide-react'
+import { X, Download, Share, RefreshCw } from 'lucide-react'
 
 export function PWABanner() {
-  const { canInstall, isIOS, showIOSBanner, triggerInstall, dismissIOSBanner } = usePWA()
+  const {
+    canInstall, isIOS, showIOSBanner, triggerInstall, dismissIOSBanner,
+    miseAJourDisponible, appliquerMiseAJour,
+  } = usePWA()
 
-  // Bannière Android — bouton "Installer l'app"
+  // ─── Priorité 1 : mise à jour disponible ─────────────────────────────────
+  // Affiché dès qu'un nouveau build est prêt, même si l'app est installée.
+  // Bouton visible et persistant : l'utilisateur choisit quand recharger.
+  if (miseAJourDisponible) {
+    return (
+      <div
+        role="status"
+        aria-live="polite"
+        className="fixed bottom-20 md:bottom-4 left-4 right-4 md:left-auto md:right-4 md:w-80 z-50
+                   bg-primary-700 text-white rounded-2xl shadow-xl p-4 flex items-center gap-3 animate-slideUp"
+      >
+        <span className="w-10 h-10 rounded-xl bg-primary-600 flex items-center justify-center flex-shrink-0">
+          <RefreshCw size={18} className="text-white" />
+        </span>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-bold">Nouvelle version disponible</p>
+          <p className="text-xs text-primary-200 mt-0.5">Mettez à jour pour profiter des dernières améliorations.</p>
+        </div>
+        <button
+          onClick={appliquerMiseAJour}
+          className="flex-shrink-0 h-9 px-4 rounded-full bg-white text-primary-800 text-xs font-bold
+                     hover:bg-primary-50 active:scale-[0.97] transition"
+        >
+          Mettre à jour
+        </button>
+      </div>
+    )
+  }
+
+  // ─── Priorité 2 : installation Android ───────────────────────────────────
   if (canInstall) {
     return (
       <div className="fixed bottom-20 md:bottom-4 left-4 right-4 md:left-auto md:right-4 md:w-80 z-50 bg-white rounded-2xl shadow-xl border border-neutral-100 p-4 flex items-center gap-3 animate-slideUp">
@@ -33,7 +65,7 @@ export function PWABanner() {
     )
   }
 
-  // Bannière iOS — instructions manuelles
+  // ─── Priorité 3 : instructions iOS ───────────────────────────────────────
   if (isIOS && showIOSBanner) {
     return (
       <div className="fixed bottom-20 md:bottom-4 left-4 right-4 md:left-auto md:right-4 md:w-80 z-50 bg-white rounded-2xl shadow-xl border border-neutral-100 p-4 animate-slideUp">

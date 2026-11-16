@@ -22,6 +22,7 @@ import { userService } from '@/services/userService'
 import { securiteService } from '@/services/securiteService'
 import { useRegenererMonQr } from '@/hooks/useQr'
 import { usePublicConfig } from '@/hooks/usePublicConfig'
+import { InstallSheet } from '@/components/shared/InstallSheet'
 import { formatDateHeure } from '@/lib/format'
 import { clearAll } from '@/lib/tokenStorage'
 import { formatPhoneLocal, toLocalPhone } from '@/lib/phone'
@@ -29,14 +30,14 @@ import { messageErreur } from '@/lib/apiError'
 import { jeCotise, jeGere } from '@/types/me'
 import pkg from '../../../package.json'
 
-type Feuille = 'infos' | 'numero' | 'motdepasse' | 'sessions' | 'qr' | 'aide' | 'deconnexion' | 'changer' | 'ios' | null
+type Feuille = 'infos' | 'numero' | 'motdepasse' | 'sessions' | 'qr' | 'aide' | 'deconnexion' | 'changer' | 'installer' | null
 
 export function ParametresPage() {
   const navigate = useNavigate()
   const online = useOnline()
   const { logout, logoutComplet } = useAuth()
   const roles = useMesRoles()
-  const { canInstall, triggerInstall, isIOS, isInstalled } = usePWA()
+  const { modeInstall } = usePWA()
   const [hiddenPref, setHiddenPref] = useLocalPreference<'0' | '1'>('dinthialma_hide_amount', '0', ['0', '1'] as const)
   const [feuille, setFeuille] = useState<Feuille>(null)
   const { mutate: regenererQr, isPending: regenerationQr } = useRegenererMonQr()
@@ -113,8 +114,12 @@ export function ParametresPage() {
               className="w-6 h-6 accent-primary-700"
             />
           </label>
-          {!isInstalled && (canInstall || isIOS) && (
-            <Ligne icon={<Download size={20} />} label="Installer l'application" onClick={() => (canInstall ? triggerInstall() : setFeuille('ios'))} />
+          {modeInstall !== 'installed' && (
+            <Ligne
+              icon={<Download size={20} />}
+              label="Installer l'application"
+              onClick={() => setFeuille('installer')}
+            />
           )}
           <Ligne icon={<LogOut size={20} />} label="Se déconnecter" danger onClick={() => setFeuille('deconnexion')} />
         </Section>
@@ -150,12 +155,7 @@ export function ParametresPage() {
         </ol>
       </Modal>
 
-      <Modal isOpen={feuille === 'ios'} onClose={() => setFeuille(null)} title="Installer l'application" size="sm">
-        <ol className="space-y-2 text-neutral-700">
-          <li>1. Appuyez sur <b>Partager</b> en bas de Safari.</li>
-          <li>2. Choisissez <b>Sur l'écran d'accueil</b>.</li>
-        </ol>
-      </Modal>
+      <InstallSheet isOpen={feuille === 'installer'} onClose={() => setFeuille(null)} />
 
       <Modal isOpen={feuille === 'qr'} onClose={() => setFeuille(null)} title="Régénérer mon QR ?" size="sm">
         <p className="text-neutral-600">Utile si une photo de votre QR a circulé : l'ancien QR ne fonctionnera plus.</p>
