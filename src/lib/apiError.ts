@@ -35,6 +35,10 @@ export type ApiErrorCode =
   | 'REMISE_JACKPOT_INCOMPLETE' | 'MODE_REMISE_INDISPONIBLE'
   // Commissions (B30)
   | 'COMMISSION_ALREADY_EXISTS' | 'COMMISSION_PERCENTAGE_TOO_HIGH'
+  // Clôture de tontine (B33 / TERMINEE)
+  | 'TONTINE_NON_CLOTURABLE' | 'TONTINE_CLOTURE_A_CONFIRMER'
+  // Priorités de jackpot
+  | 'PRIORITE_NON_DISPONIBLE' | 'MEMBRE_NON_ELIGIBLE_JACKPOT' | 'PRIORITE_DEJA_ACTIVE'
   // Console
   | 'CODE_LIST_SYSTEM_VALUE'
   // Côté front
@@ -118,6 +122,13 @@ const TEXTES: Partial<Record<ApiErrorCode, string>> = {
   COTISATION_NOT_PENDING: 'Ce paiement a déjà été traité.',
   CYCLE_ALREADY_IN_PROGRESS: "Un tour est déjà en cours : clôturez-le d'abord.",
   CODE_LIST_SYSTEM_VALUE: 'Valeur système : suppression impossible.',
+  // Clôture tontine
+  TONTINE_NON_CLOTURABLE: "Cette tontine ne peut pas être clôturée pour le moment.",
+  TONTINE_CLOTURE_A_CONFIRMER: "Des points restent en suspens. Vérifiez et confirmez la clôture.",
+  // Priorités de jackpot
+  PRIORITE_NON_DISPONIBLE: "Aucun tour à venir n'est disponible pour une priorité.",
+  MEMBRE_NON_ELIGIBLE_JACKPOT: "Ce membre ne peut pas recevoir la priorité (a déjà reçu son jackpot).",
+  PRIORITE_DEJA_ACTIVE: "Une priorité est déjà accordée pour ce membre sur ce tour.",
 }
 
 /** Texte à afficher pour une erreur ; `repli` si ni texte front ni message serveur. */

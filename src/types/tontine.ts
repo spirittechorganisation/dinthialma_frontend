@@ -193,3 +193,40 @@ export interface SimulationCalendrier {
   echeances: string[]
   tours: TourSimule[]
 }
+
+// ─── Clôture de tontine (PUT /v1/tontines/{id}/cloturer) ─────────────────────
+
+export interface CloturerTontineRequest {
+  /** true = confirmer la clôture malgré les points en suspens (après 409 TONTINE_CLOTURE_A_CONFIRMER) */
+  forcer?: boolean
+}
+
+/** Détail d'un tour en suspens lors d'une tentative de clôture */
+export interface ClotureEnSuspensTour {
+  cycleId: string
+  numeroCycle: number
+  beneficiairePrenom?: string
+  beneficiaireNom?: string
+  montantJackpot?: number
+}
+
+export interface ClotureEnSuspensRetard {
+  membreId: string
+  prenom: string
+  nom: string
+  montantDu: number
+}
+
+/** Réponse 409 TONTINE_CLOTURE_A_CONFIRMER */
+export interface ClotureEnSuspensResponse {
+  /** Tours dont le jackpot n'a pas encore été remis au bénéficiaire */
+  toursNonRemis: ClotureEnSuspensTour[]
+  /** Tours sans gagnant désigné (ROTATIVE MANUEL) */
+  toursSansGagnant: ClotureEnSuspensTour[]
+  /** Membres avec cotisations EN_RETARD */
+  retards: ClotureEnSuspensRetard[]
+  /** Montants partiels à remettre au bénéficiaire (cotisations reçues après la clôture du tour) */
+  complements: ClotureEnSuspensTour[]
+  /** Nombre de paiements encore EN_ATTENTE de validation */
+  cotisationsAValider: number
+}

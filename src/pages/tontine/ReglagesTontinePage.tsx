@@ -9,7 +9,7 @@ import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { clsx } from 'clsx'
-import { Phone, Plus, Pencil, Trash2, RotateCw, CheckCircle2, Circle } from 'lucide-react'
+import { Phone, Plus, Pencil, Trash2, RotateCw, CheckCircle2, Circle, AlertTriangle, Star } from 'lucide-react'
 import { ScreenHeader } from '@/components/layout/ScreenHeader'
 import { Modal } from '@/components/ui/Modal'
 import { QrCard } from '@/components/home/QrCard'
@@ -17,7 +17,9 @@ import { useTontineVue } from '@/hooks/useTontineVue'
 import {
   useCommissions, useCreateCommission, useUpdateCommission, useDeleteCommission,
   useSuspendreTontine, useActiverTontine, useDeleteTontine, useModifierEcheance, useModifierReglages,
+  useCloturerTontine,
 } from '@/hooks/useTontines'
+import { usePriorites, useAccepterPriorite, useRefuserPriorite } from '@/hooks/usePriorites'
 import { EcheancePicker } from '@/components/tontine/EcheancePicker'
 import { Stepper } from '@/components/ui/Stepper'
 import { useOnline } from '@/hooks/useOnline'
@@ -30,8 +32,10 @@ import {
 import { useInvitationTontine, useRegenererInvitation, useRevoquerInvitation } from '@/hooks/useQr'
 import { messageErreur } from '@/lib/apiError'
 import { ModeCycle, TontineStatut } from '@/types/common'
-import { TontineType, type Commission, type Tontine, type RappelsEcheance, type ModeRemise } from '@/types/tontine'
+import { TontineType, type Commission, type Tontine, type RappelsEcheance, type ModeRemise, type ClotureEnSuspensResponse } from '@/types/tontine'
 import { TYPES_COMMISSION, valeurCommission } from '@/lib/commissions'
+import type { PrioriteJackpot } from '@/types/priorite'
+import { isAxiosError } from 'axios'
 
 const ORDRE: Record<string, string> = {
   ROTATION: 'Chacun son tour (ordre fixe)',
@@ -40,7 +44,7 @@ const ORDRE: Record<string, string> = {
 }
 
 
-type Sensible = 'suspendre' | 'relancer' | 'supprimer'
+type Sensible = 'suspendre' | 'relancer' | 'supprimer' | 'cloturer'
 
 /** Rappels en clair ; valeurs par défaut du backend : la veille + 3 h avant */
 function rappelsTexte(r: RappelsEcheance | null | undefined): string {
@@ -63,10 +67,12 @@ export function ReglagesTontinePage() {
   const [edition, setEdition] = useState<Commission | 'nouvelle' | null>(null)
   const [sensible, setSensible] = useState<Sensible | null>(null)
   const [echeanceOpen, setEcheanceOpen] = useState(false)
+  const [clotureEnSuspens, setClotureEnSuspens] = useState<ClotureEnSuspensResponse | null>(null)
   const { mutate: changerRemise, isPending: remisePending, variables: remiseEnvoyee } = useModifierReglages()
   const { mutate: suspendre, isPending: suspending } = useSuspendreTontine()
   const { mutate: activer, isPending: activating } = useActiverTontine()
   const { mutate: supprimer, isPending: deleting } = useDeleteTontine()
+  const { mutate: cloturer, isPending: cloturing } = useCloturerTontine()
   const { mutate: supprimerCommission } = useDeleteCommission()
   const invitationActive = gerant && t?.statut === TontineStatut.ACTIVE
   const invitation = useInvitationTontine(invitationActive ? id : null)
@@ -126,13 +132,34 @@ export function ReglagesTontinePage() {
     const ko = (err: unknown) => toast.error(messageErreur(err, "L'action a échoué. Réessayez."))
     if (sensible === 'suspendre') suspendre(id, { onSuccess: ok('Tontine suspendue'), onError: ko })
     else if (sensible === 'relancer') activer(id, { onSuccess: ok('Tontine relancée'), onError: ko })
+    else if (sensible === 'cloturer') {
+      cloturer({ id }, {
+        onSuccess: () => { toast.success('Tontine clôturée'); setSensible(null); navigate('/accueil') },
+        onError: (err) => {
+          if (isAxiosError(err) && err.response?.status === 409) {
+            const suspens = (err.response.data as { data?: ClotureEnSuspensResponse })?.data
+            if (suspens) { setClotureEnSuspens(suspens); setSensible(null); return }
+          }
+          ko(err)
+        },
+      })
+    }
     else supprimer(id, { onSuccess: () => { toast.success('Brouillon supprimé'); navigate('/accueil', { replace: true }) }, onError: ko })
+  }
+
+  const confirmerClotureForce = () => {
+    setClotureEnSuspens(null)
+    cloturer({ id, forcer: true }, {
+      onSuccess: () => { toast.success('Tontine clôturée'); navigate('/accueil') },
+      onError: (err) => toast.error(messageErreur(err, "La clôture a échoué. Réessayez.")),
+    })
   }
 
   const textesSensibles: Record<Sensible, { titre: string; texte: string; bouton: string; danger: boolean }> = {
     suspendre: { titre: 'Suspendre la tontine ?', texte: 'Les membres ne pourront plus cotiser tant qu\'elle est suspendue.', bouton: 'Suspendre', danger: true },
     relancer: { titre: 'Relancer la tontine ?', texte: 'Les membres pourront de nouveau cotiser.', bouton: 'Relancer', danger: false },
     supprimer: { titre: 'Supprimer le brouillon ?', texte: 'La tontine et ses réglages seront supprimés.', bouton: 'Supprimer', danger: true },
+    cloturer: { titre: 'Clôturer la tontine ?', texte: 'La tontine sera définitivement terminée. Aucun nouveau tour ne pourra être ouvert. Cette action est irréversible.', bouton: 'Clôturer', danger: true },
   }
 
   return (
@@ -296,6 +323,10 @@ export function ReglagesTontinePage() {
           </section>
         )}
 
+        {gerant && !isEvent && t.statut === TontineStatut.ACTIVE && (
+          <SectionPriorites tontineId={id} online={online} />
+        )}
+
         {gerant && (
           <Section titre="Actions sensibles">
             <div className="divide-y divide-neutral-100">
@@ -304,6 +335,9 @@ export function ReglagesTontinePage() {
               )}
               {t.statut === TontineStatut.SUSPENDUE && (
                 <button onClick={() => setSensible('relancer')} disabled={!online} className="w-full h-14 px-4 text-left font-medium text-primary-800 disabled:opacity-50">Relancer la tontine</button>
+              )}
+              {(t.statut === TontineStatut.ACTIVE || t.statut === TontineStatut.SUSPENDUE) && (
+                <button onClick={() => setSensible('cloturer')} disabled={!online || cloturing} className="w-full h-14 px-4 text-left font-medium text-red-700 disabled:opacity-50">Clôturer la tontine</button>
               )}
               {brouillon && (
                 <button onClick={() => setSensible('supprimer')} disabled={!online} className="w-full h-14 px-4 text-left font-medium text-red-700 disabled:opacity-50">Supprimer le brouillon</button>
@@ -332,10 +366,49 @@ export function ReglagesTontinePage() {
               <button onClick={() => setSensible(null)} className="h-12 rounded-full bg-neutral-100 font-semibold">Annuler</button>
               <button
                 onClick={executerSensible}
-                disabled={suspending || activating || deleting}
+                disabled={suspending || activating || deleting || cloturing}
                 className={clsx('h-12 rounded-full text-white font-bold disabled:opacity-50', textesSensibles[sensible].danger ? 'bg-red-600' : 'bg-primary-700')}
               >
-                {suspending || activating || deleting ? '…' : textesSensibles[sensible].bouton}
+                {suspending || activating || deleting || cloturing ? '…' : textesSensibles[sensible].bouton}
+              </button>
+            </div>
+          </>
+        )}
+      </Modal>
+
+      {/* Modal de confirmation clôture avec points en suspens */}
+      <Modal isOpen={!!clotureEnSuspens} onClose={() => setClotureEnSuspens(null)} title="Points en suspens" size="sm">
+        {clotureEnSuspens && (
+          <>
+            <div className="rounded-2xl bg-amber-50 border border-amber-200 p-3 mb-4 flex items-start gap-2">
+              <AlertTriangle size={18} className="text-amber-700 flex-shrink-0 mt-0.5" />
+              <p className="text-sm text-amber-900">La clôture est possible mais des éléments restent ouverts. Les tours déjà commencés peuvent encore être remis ; aucun nouveau tour ne s'ouvrira.</p>
+            </div>
+            <ul className="space-y-2 text-sm text-neutral-700">
+              {clotureEnSuspens.toursNonRemis.length > 0 && (
+                <li>• <strong>{clotureEnSuspens.toursNonRemis.length}</strong> tour{clotureEnSuspens.toursNonRemis.length > 1 ? 's' : ''} non remis</li>
+              )}
+              {clotureEnSuspens.toursSansGagnant.length > 0 && (
+                <li>• <strong>{clotureEnSuspens.toursSansGagnant.length}</strong> tour{clotureEnSuspens.toursSansGagnant.length > 1 ? 's' : ''} sans gagnant désigné</li>
+              )}
+              {clotureEnSuspens.retards.length > 0 && (
+                <li>• <strong>{clotureEnSuspens.retards.length}</strong> membre{clotureEnSuspens.retards.length > 1 ? 's' : ''} en retard</li>
+              )}
+              {clotureEnSuspens.complements.length > 0 && (
+                <li>• <strong>{clotureEnSuspens.complements.length}</strong> complément{clotureEnSuspens.complements.length > 1 ? 's' : ''} à remettre</li>
+              )}
+              {clotureEnSuspens.cotisationsAValider > 0 && (
+                <li>• <strong>{clotureEnSuspens.cotisationsAValider}</strong> paiement{clotureEnSuspens.cotisationsAValider > 1 ? 's' : ''} à valider</li>
+              )}
+            </ul>
+            <div className="mt-5 grid grid-cols-2 gap-3">
+              <button onClick={() => setClotureEnSuspens(null)} className="h-12 rounded-full bg-neutral-100 font-semibold">Annuler</button>
+              <button
+                onClick={confirmerClotureForce}
+                disabled={cloturing}
+                className="h-12 rounded-full bg-red-600 text-white font-bold disabled:opacity-50"
+              >
+                {cloturing ? '…' : 'Clôturer quand même'}
               </button>
             </div>
           </>
@@ -458,8 +531,97 @@ function CommissionSheet({ tontineId, commission, onClose }: { tontineId: string
   )
 }
 
-function Section({ titre, action, children }: { titre: string; action?: React.ReactNode; children: React.ReactNode }) {
+/**
+ * Section Priorités de jackpot (gestionnaire d'une tontine rotative active).
+ * Liste les demandes EN_ATTENTE avec boutons Accepter / Refuser.
+ * Bouton « Attribuer » permet d'assigner directement sans demande préalable.
+ */
+function SectionPriorites({ tontineId, online }: { tontineId: string; online: boolean }) {
+  const { data, isLoading } = usePriorites(tontineId, 'EN_ATTENTE')
+  const { mutate: accepter, isPending: accepting } = useAccepterPriorite(tontineId)
+  const { mutate: refuser, isPending: refusing } = useRefuserPriorite(tontineId)
+  const [aRefuser, setARefuser] = useState<PrioriteJackpot | null>(null)
+  const [motifRefus, setMotifRefus] = useState('')
+  const priorites = data?.content ?? []
+
+  const handleAccepter = (p: PrioriteJackpot) =>
+    accepter(p.id, {
+      onSuccess: () => toast.success(`Priorité de ${p.firstName} accordée`),
+      onError: (e) => toast.error(messageErreur(e, "L'action a échoué.")),
+    })
+
+  const handleRefuser = () => {
+    if (!aRefuser) return
+    refuser({ prioriteId: aRefuser.id, motif: motifRefus.trim() || undefined }, {
+      onSuccess: () => { toast.success(`Priorité de ${aRefuser.firstName} refusée`); setARefuser(null); setMotifRefus('') },
+      onError: (e) => toast.error(messageErreur(e, "Le refus a échoué.")),
+    })
+  }
+
+  if (isLoading || priorites.length === 0) return null
+
   return (
+    <>
+      <Section
+        titre="Priorités de jackpot"
+        action={<span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-100 text-amber-800 text-xs font-bold">{priorites.length}</span>}
+      >
+        <ul className="divide-y divide-neutral-100">
+          {priorites.map((p) => (
+            <li key={p.id} className="flex items-center gap-3 px-4 py-3 min-h-[72px]">
+              <Star size={18} className="text-amber-500 flex-shrink-0" />
+              <span className="min-w-0 flex-1">
+                <span className="block font-semibold text-neutral-900">{p.firstName} {p.lastName}</span>
+                {p.motif && <span className="block text-sm text-neutral-500 truncate">« {p.motif} »</span>}
+              </span>
+              <div className="flex items-center gap-1 flex-shrink-0">
+                <button
+                  onClick={() => { setARefuser(p); setMotifRefus('') }}
+                  disabled={!online || accepting || refusing}
+                  className="h-9 px-3 rounded-full text-xs font-semibold text-red-700 hover:bg-red-50 disabled:opacity-40"
+                >
+                  Refuser
+                </button>
+                <button
+                  onClick={() => handleAccepter(p)}
+                  disabled={!online || accepting || refusing}
+                  className="h-9 px-4 rounded-full bg-primary-700 text-white text-xs font-bold hover:bg-primary-800 disabled:opacity-40"
+                >
+                  Accorder
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </Section>
+
+      <Modal isOpen={!!aRefuser} onClose={() => setARefuser(null)} title="Refuser la priorité ?" size="sm">
+        {aRefuser && (
+          <>
+            <p className="text-neutral-600 mb-3">La demande de <strong>{aRefuser.firstName}</strong> sera refusée et il sera notifié.</p>
+            <label className="block">
+              <span className="text-sm font-semibold text-neutral-700">Motif (facultatif)</span>
+              <input
+                value={motifRefus}
+                onChange={(e) => setMotifRefus(e.target.value.slice(0, 200))}
+                placeholder="Explication pour le membre…"
+                className="mt-1 w-full h-12 px-4 rounded-2xl bg-neutral-100 text-[16px] outline-none focus:ring-2 focus:ring-primary-600"
+              />
+            </label>
+            <div className="mt-5 grid grid-cols-2 gap-3">
+              <button onClick={() => setARefuser(null)} className="h-12 rounded-full bg-neutral-100 font-semibold">Annuler</button>
+              <button onClick={handleRefuser} disabled={refusing} className="h-12 rounded-full bg-red-600 text-white font-bold disabled:opacity-50">
+                {refusing ? '…' : 'Refuser'}
+              </button>
+            </div>
+          </>
+        )}
+      </Modal>
+    </>
+  )
+}
+
+function Section({ titre, action, children }: { titre: string; action?: React.ReactNode; children: React.ReactNode }) {  return (
     <section>
       <div className="px-1 mb-2 flex items-center justify-between">
         <h2 className="text-sm font-semibold text-neutral-500">{titre}</h2>

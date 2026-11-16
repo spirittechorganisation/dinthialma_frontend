@@ -10,7 +10,7 @@ import { toast } from 'sonner'
 import { clsx } from 'clsx'
 import {
   ArrowLeft, Eye, EyeOff, UserPlus, Info, Users, RefreshCw, Settings, Trophy, ChevronRight,
-  CreditCard, ListChecks, Send, CalendarClock, Play, Lock, RotateCw, Clock, CheckCircle2, AlertTriangle, Download, XCircle,
+  CreditCard, ListChecks, Send, CalendarClock, Play, Lock, RotateCw, Clock, CheckCircle2, AlertTriangle, Download, XCircle, Star,
 } from 'lucide-react'
 import { InitialsAvatar } from '@/components/ui/Section'
 import { ChipRow, FilterChip } from '@/components/ui/ChipRow'
@@ -184,6 +184,9 @@ export function FicheTontinePage() {
               disabled: !due,
             },
             { label: 'Mon tour', icon: <CalendarClock size={20} />, onClick: () => navigate('/jackpots') },
+            ...(t.tontineType === 'ROTATIVE' && t.statut === 'ACTIVE'
+              ? [{ label: 'Priorité', icon: <Star size={20} />, onClick: () => navigate(`/tontine/${id}/priorites`) }]
+              : []),
           ]
         : []
 
