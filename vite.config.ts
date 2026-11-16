@@ -6,7 +6,7 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: 'autoUpdate',
+      registerType: 'prompt',
       includeAssets: ['icons/*.png'],
       manifest: {
         name: 'Dinthialma',
@@ -26,6 +26,9 @@ export default defineConfig({
         ],
       },
       workbox: {
+        // skipWaiting = false (prompt) : le SW attend que l'utilisateur confirme
+        skipWaiting: false,
+        clientsClaim: true,
         // Cache API calls pour offline graceful
         runtimeCaching: [
           {
