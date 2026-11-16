@@ -27,6 +27,10 @@ export enum NotificationType {
   PRIORITE_JACKPOT_DEMANDEE  = 'PRIORITE_JACKPOT_DEMANDEE',
   PRIORITE_JACKPOT_ACCORDEE  = 'PRIORITE_JACKPOT_ACCORDEE',
   PRIORITE_JACKPOT_REFUSEE   = 'PRIORITE_JACKPOT_REFUSEE',
+  /** Gestionnaire : la tontine réunit les conditions pour être clôturée */
+  TONTINE_PRETE_A_CLOTURER   = 'TONTINE_PRETE_A_CLOTURER',
+  /** Membres actifs : la tontine vient d'être clôturée (TERMINEE) */
+  TONTINE_CLOTUREE            = 'TONTINE_CLOTUREE',
 }
 
 export interface NotificationItem {

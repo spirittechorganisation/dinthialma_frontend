@@ -77,6 +77,24 @@ export function useSuspendreTontine() {
   })
 }
 
+/** Clôturer une tontine (ACTIVE ou SUSPENDUE → TERMINEE, irréversible).
+ *  409 TONTINE_CLOTURE_A_CONFIRMER si des points sont en suspens.
+ *  Dans ce cas, relancer avec forcer: true après confirmation utilisateur.
+ */
+export function useCloturerTontine() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, forcer }: { id: string; forcer?: boolean }) =>
+      tontineService.cloturerTontine(id, { forcer }),
+    onSuccess: (_, { id }) => {
+      queryClient.invalidateQueries({ queryKey: ['tontines'] })
+      queryClient.invalidateQueries({ queryKey: ['tontine', id] })
+      queryClient.invalidateQueries({ queryKey: ['me'] })
+      queryClient.invalidateQueries({ queryKey: ['cycles', id] })
+    },
+  })
+}
+
 /** Après un changement de règles : la fiche, mes listes et les tours à venir (replanifiés) */
 function invaliderTontine(queryClient: ReturnType<typeof useQueryClient>, id: string) {
   queryClient.invalidateQueries({ queryKey: ['tontines'] })

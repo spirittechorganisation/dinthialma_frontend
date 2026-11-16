@@ -1129,6 +1129,105 @@
         ]
       }
     },
+    "/v1/tontines/{id}/cloturer": {
+      "put": {
+        "tags": [
+          "Tontines"
+        ],
+        "summary": "Clôturer une tontine",
+        "description": "🔒 Rôles : créateur de la tontine, SUPER_ADMIN.\n\nPasse la tontine **ACTIVE** ou **SUSPENDUE** à **TERMINEE** (irréversible).\n\nS'il reste des tours non remis, des gagnants à désigner, des retards, des compléments ou des paiements à valider : 409 `TONTINE_CLOTURE_A_CONFIRMER` avec le détail dans `data` ; renvoyer la demande avec `forcer: true` pour confirmer.\n\n**Effets** : événementielle arrêtée avant son terme → distribution finale immédiate sur les cotisations validées (sous-cycles à venir retirés) ; demandes d'adhésion en attente refusées et priorités de jackpot actives annulées ; membres actifs notifiés (`TONTINE_CLOTUREE`).\n\n**Après la clôture** : un tour déjà commencé se remet encore et les retards s'encaissent toujours (suivi), mais plus aucun tour ne s'ouvre.",
+        "operationId": "cloturerTontine",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "UUID de la tontine",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "example": "550e8400-e29b-41d4-a716-446655440000"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CloturerTontineRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Tontine clôturée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TontineResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`TONTINE_NON_CLOTURABLE` : tontine en BROUILLON ou déjà TERMINEE",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "JWT manquant ou expiré",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Accès interdit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Tontine introuvable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`TONTINE_CLOTURE_A_CONFIRMER` : points en suspens dans `data`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClotureEnSuspensResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
     "/v1/tontines/{id}/activer": {
       "put": {
         "tags": [
@@ -7172,7 +7271,9 @@
               "ECHEANCE_NON_OUVERTE",
               "REGULARISATION_IMPOSSIBLE",
               "REMISE_JACKPOT_INCOMPLETE",
-              "MODE_REMISE_INDISPONIBLE"
+              "MODE_REMISE_INDISPONIBLE",
+              "TONTINE_CLOTURE_A_CONFIRMER",
+              "TONTINE_NON_CLOTURABLE"
             ]
           },
           "message": {
@@ -8164,6 +8265,138 @@
           }
         }
       },
+      "CloturerTontineRequest": {
+        "type": "object",
+        "description": "Corps facultatif de la clôture d'une tontine (B33). Sans corps, la clôture est refusée (409 `TONTINE_CLOTURE_A_CONFIRMER`) s'il reste des points en suspens.",
+        "properties": {
+          "forcer": {
+            "type": "boolean",
+            "description": "`true` : clôturer malgré les tours non remis, les retards ou les compléments restants (confirmation du gestionnaire après le 409).",
+            "example": true
+          }
+        }
+      },
+      "ClotureEnSuspensComplement": {
+        "type": "object",
+        "properties": {
+          "cycleId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "numeroCycle": {
+            "type": "integer",
+            "format": "int32",
+            "example": 2
+          },
+          "resteARecevoir": {
+            "type": "number",
+            "description": "Net encore dû aux bénéficiaires du tour.",
+            "example": 8000
+          },
+          "montantAvance": {
+            "type": "number",
+            "description": "Avance du gestionnaire encore à rembourser.",
+            "example": 0
+          }
+        }
+      },
+      "ClotureEnSuspensResponse": {
+        "type": "object",
+        "description": "Points en suspens d'une tontine à clôturer (B33), renvoyés dans `data` du 409 `TONTINE_CLOTURE_A_CONFIRMER`. Informations de suivi : la clôture reste possible avec `forcer: true`.",
+        "properties": {
+          "toursNonRemis": {
+            "type": "array",
+            "description": "Tours pas encore remis : en cours (EN_COURS) ou pas encore commencés (EN_ATTENTE). Événementielle : sous-cycles restants avant la distribution finale.",
+            "items": {
+              "$ref": "#/components/schemas/ClotureEnSuspensTour"
+            }
+          },
+          "toursSansGagnant": {
+            "type": "array",
+            "description": "Tours remis dont les gagnants restent à désigner (rotative).",
+            "items": {
+              "$ref": "#/components/schemas/ClotureEnSuspensTour"
+            }
+          },
+          "retards": {
+            "type": "array",
+            "description": "Membres actifs à qui il manque une cotisation validée sur une échéance passée (rotative).",
+            "items": {
+              "$ref": "#/components/schemas/ClotureEnSuspensRetard"
+            }
+          },
+          "complements": {
+            "type": "array",
+            "description": "Tours remis dont les bénéficiaires attendent encore un complément, ou dont l'avance du gestionnaire n'est pas remboursée (rotative).",
+            "items": {
+              "$ref": "#/components/schemas/ClotureEnSuspensComplement"
+            }
+          },
+          "cotisationsAValider": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Cotisations déclarées encore à valider ou à refuser.",
+            "example": 2
+          }
+        }
+      },
+      "ClotureEnSuspensRetard": {
+        "type": "object",
+        "properties": {
+          "membreId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "firstName": {
+            "type": "string"
+          },
+          "lastName": {
+            "type": "string"
+          },
+          "echeancesManquees": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Échéances passées sans cotisation validée.",
+            "example": 2
+          },
+          "montant": {
+            "type": "number",
+            "description": "Montant correspondant ; absent si le montant est libre.",
+            "example": 10000
+          }
+        }
+      },
+      "ClotureEnSuspensTour": {
+        "type": "object",
+        "properties": {
+          "cycleId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "numeroCycle": {
+            "type": "integer",
+            "format": "int32",
+            "example": 3
+          },
+          "statut": {
+            "type": "string",
+            "description": "Statut d'un cycle de tontine. EN_ATTENTE = programmé mais non démarré, EN_COURS = cotisations en cours, TERMINE = jackpot remis et cycle clôturé.",
+            "enum": [
+              "EN_ATTENTE",
+              "EN_COURS",
+              "TERMINE"
+            ]
+          },
+          "dateDebut": {
+            "type": "string",
+            "format": "date"
+          },
+          "dateFin": {
+            "type": "string",
+            "format": "date"
+          }
+        }
+      },
       "UpdateProfileRequest": {
         "type": "object",
         "description": "Corps de la requête de mise à jour du profil. La modification est propagée en DB et dans Keycloak.",
@@ -9144,7 +9377,9 @@
               "ECHEANCE_NON_OUVERTE",
               "REGULARISATION_IMPOSSIBLE",
               "REMISE_JACKPOT_INCOMPLETE",
-              "MODE_REMISE_INDISPONIBLE"
+              "MODE_REMISE_INDISPONIBLE",
+              "TONTINE_CLOTURE_A_CONFIRMER",
+              "TONTINE_NON_CLOTURABLE"
             ]
           },
           "message": {
@@ -10621,7 +10856,9 @@
               "REGLES_MODIFIEES",
               "COTISATIONS_MANQUANTES",
               "JACKPOT_PRET",
-              "COMPLEMENT_A_REMETTRE"
+              "COMPLEMENT_A_REMETTRE",
+              "TONTINE_PRETE_A_CLOTURER",
+              "TONTINE_CLOTUREE"
             ]
           },
           "title": {

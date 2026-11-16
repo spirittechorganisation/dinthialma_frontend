@@ -182,6 +182,7 @@ export const meService = {
         cotisationsEnAttente: num(s.cotisationsEnAttente),
         cotisationsEnRetard: num(s.cotisationsEnRetard),
         demandesEnAttente: num(s.demandesEnAttente),
+        prioritesEnAttente: num((s as { prioritesEnAttente?: unknown }).prioritesEnAttente),
         montantTotalValide: num(s.montantTotalValide),
         gagnantsADesigner: !!s.gagnantsADesigner,
         cycleEnCours: c ? {

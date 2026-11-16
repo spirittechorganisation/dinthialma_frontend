@@ -2,6 +2,7 @@ import api from './api'
 import {
   Tontine, CreateTontineRequest, UpdateTontineRequest, Commission, CreateCommissionRequest, UpdateCommissionRequest,
   ModifierEcheanceRequest, ModeRemise, SimulationParams, SimulationCalendrier,
+  CloturerTontineRequest,
 } from '@/types/tontine'
 import { PageResponse, CustomResponse, RawPage, toPage } from '@/types/common'
 
@@ -51,6 +52,13 @@ export const tontineService = {
   // ─── Suspendre une tontine (ACTIVE → SUSPENDUE) ──────────────────────────────
   suspendreTontine: async (id: string): Promise<Tontine> => {
     const response = await api.put<CustomResponse<Tontine>>(`/v1/tontines/${id}/suspendre`)
+    return response.data.data
+  },
+
+  // ─── Clôturer une tontine (ACTIVE ou SUSPENDUE → TERMINEE, irréversible) ─────
+  // 409 TONTINE_CLOTURE_A_CONFIRMER si des points sont en suspens → renvoyer avec forcer: true.
+  cloturerTontine: async (id: string, request: CloturerTontineRequest = {}): Promise<Tontine> => {
+    const response = await api.put<CustomResponse<Tontine>>(`/v1/tontines/${id}/cloturer`, request)
     return response.data.data
   },
 
