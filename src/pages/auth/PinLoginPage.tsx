@@ -20,6 +20,10 @@ export function PinLoginPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [shake, setShake] = useState(false)
 
+  const redirectAfterLogin = (roles: UserRole[]) => {
+    navigate(consommerRetour() ?? getHomePath(roles), { replace: true })
+  }
+
   useEffect(() => {
     if (user) redirectAfterLogin(user.roles)
   }, [user])
@@ -27,10 +31,6 @@ export function PinLoginPage() {
   useEffect(() => {
     if (!phone) navigate('/login', { replace: true })
   }, [phone])
-
-  const redirectAfterLogin = (roles: UserRole[]) => {
-    navigate(consommerRetour() ?? getHomePath(roles), { replace: true })
-  }
 
   const handleKey = async (key: string) => {
     if (isLoading) return

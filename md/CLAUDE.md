@@ -179,3 +179,36 @@ Les utilisateurs sans rôle requis voient une page 403.
 4. Tests unitaires avec Vitest
 5. Animations avec Framer Motion
 6. Internationalisation (i18n)
+
+
+## Chantier qualité/sécurité — état d'avancement (novembre 2026)
+
+### Branche principale : `feature/front-qualite-securite`
+Sous-branches :
+- `feature/front-dependances-urgentes` — spec 03, tâches 1–3
+- `feature/front-filet-de-tests` — spec 01
+- `feature/front-pipeline-ci-cd` — spec 03, tâches 4–7
+
+### Ordre d'exécution imposé
+1. Spec 03 : tâches 1.1, 1.2 → 2.1 → 3.1, 3.2
+2. Spec 01 en entier (1.1 → 5.3)
+3. Spec 03 : tâches 4, 5, 6, 7
+4. Spec 02 : uniquement quand spec 01 terminée et CI verte
+
+### Règles de travail
+- Une sous-tâche à la fois ; résumé à la fin ; attendre validation avant de continuer.
+- Pas de commit/push : l'utilisateur commite lui-même.
+- Pendant spec 01 : ne pas corriger les bugs trouvés, écrire le test sur le comportement actuel + `// BUG: …`.
+- Tests `[caractérisation]` : ne jamais les modifier pour les faire passer ; corriger le code si l'un casse.
+
+### Avancement spec 01 (filet de tests)
+- [x] 1.1 Installer vitest, @vitest/coverage-v8, jsdom, @testing-library/react/user-event/jest-dom, msw
+- [x] 1.2 Configurer Vitest (vitest.config.ts séparé, fuseau Africa/Dakar, VITE_API_URL=http://api.test)
+- [x] 1.3 Créer src/test/setup.ts (jest-dom, MSW lifecycle, mocks navigateur, mock PWA)
+- [x] 1.4 Outils partagés : msw/api.ts, server.ts, handlers/13 domaines, factories/6, auth.ts (JWT), render.tsx
+- [x] 1.5 ESLint 9 flat config (eslint.config.js) — 0 erreur 0 warning
+- [x] 1.6 Test de fumée (smoke.test.tsx) — 3/3 passent, coverage généré
+- [ ] 2.1–2.5 Tests unitaires des fonctions pures (src/lib)
+- [ ] 3.1–3.3 Tests d'intégration API + hooks
+- [ ] 4.1–4.11 Tests de caractérisation des écrans
+- [ ] 5.1–5.3 Seuils CI + documentation

@@ -1,0 +1,69 @@
+version: 2
+
+updates:
+  # ── npm ────────────────────────────────────────────────────────────────────
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "08:00"
+      timezone: "Africa/Dakar"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependances"
+      - "securite"
+    groups:
+      prod-mineures:
+        dependency-type: "production"
+        update-types:
+          - "minor"
+          - "patch"
+      dev-mineures:
+        dependency-type: "development"
+        update-types:
+          - "minor"
+          - "patch"
+    # Les majeures ne sont PAS groupées : chacune fait l'objet d'une PR séparée.
+    # Ordre de priorité des majeures : zod (6.1), vite (6.2), react-router (6.3).
+    ignore:
+      # Majeures réservées aux tâches 6.x de la spec 03 (après la spec 01)
+      - dependency-name: "zod"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "vite"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react-router"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react-router-dom"
+        update-types: ["version-update:semver-major"]
+
+  # ── GitHub Actions ─────────────────────────────────────────────────────────
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "08:00"
+      timezone: "Africa/Dakar"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependances"
+      - "securite"
+    groups:
+      actions-mineures:
+        update-types:
+          - "minor"
+          - "patch"
+
+  # ── Docker ─────────────────────────────────────────────────────────────────
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "08:00"
+      timezone: "Africa/Dakar"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependances"
+      - "securite"
