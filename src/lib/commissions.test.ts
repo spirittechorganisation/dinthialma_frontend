@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest'
 import { TYPES_COMMISSION, valeurCommission } from './commissions'
-import type { Commission } from '@/types/tontine'
 
 describe('TYPES_COMMISSION', () => {
   it('contient 3 types', () => {

@@ -5,7 +5,7 @@
  */
 import { describe, it, expect } from 'vitest'
 import { AxiosError } from 'axios'
-import { parseApiError, messageErreur, type ApiErrorCode } from './apiError'
+import { parseApiError, messageErreur } from './apiError'
 
 /** Fabrique une erreur Axios avec un body d'erreur backend */
 function errAxios(status: number, code?: string, message?: string, data?: Record<string, unknown>): AxiosError {

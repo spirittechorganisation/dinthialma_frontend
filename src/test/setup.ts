@@ -79,17 +79,25 @@ vi.mock('virtual:pwa-register/react', () => ({
 // ─── window.location.href (redirections après logout/401) ───────────────────
 // L'intercepteur Axios appelle window.location.href = '/login'.
 // jsdom lève une erreur sur cette assignation : on l'espionne à la place.
+// Les champs d'URL doivent rester cohérents (href absolu, protocol, host…) : axios et MSW
+// résolvent les URL de requête par rapport à `location` ; un href vide fait échouer
+// silencieusement toute requête avec « Invalid URL ».
 Object.defineProperty(window, 'location', {
   writable: true,
   configurable: true,
   value: {
-    href: '',
-    assign: vi.fn(),
-    replace: vi.fn(),
-    reload: vi.fn(),
+    href: 'http://localhost/',
+    protocol: 'http:',
+    host: 'localhost',
+    hostname: 'localhost',
+    port: '',
+    origin: 'http://localhost',
     pathname: '/',
     search: '',
     hash: '',
-    origin: 'http://localhost',
+    assign: vi.fn(),
+    replace: vi.fn(),
+    reload: vi.fn(),
+    toString: () => 'http://localhost/',
   },
 })
