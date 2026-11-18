@@ -32,7 +32,7 @@ RUN npm run build
 
 
 # ─── Stage 2 : Runtime ───────────────────────────────────────────
-FROM nginx:1.27-alpine AS runtime
+FROM nginx:1.31-alpine AS runtime
 
 LABEL org.opencontainers.image.title="Dinthialma Frontend"
 LABEL org.opencontainers.image.vendor="Spirit Tech Revolution"
