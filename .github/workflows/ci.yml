@@ -67,3 +67,52 @@ jobs:
       - name: Rapport complet (non bloquant)
         if: always()
         run: npm audit --omit=dev || true
+
+  # Déploiement « à blanc » : vérifie AVANT le merge ce que docker-publish.yml ne vérifie
+  # qu'au push sur main (incident du 18/11 : la #41 a cassé le déploiement sans signe avant).
+  # Les actions sont épinglées sur les MÊMES SHA que docker-publish.yml : toute mise à jour
+  # doit être faite dans les deux fichiers à la fois.
+  deploiement-a-blanc:
+    name: Déploiement à blanc (image Docker, sans push)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+
+      - name: Metadata
+        id: meta
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
+        with:
+          images: dinthialma-frontend-ci
+          tags: |
+            type=sha,prefix=sha-,format=short
+
+      - name: Build de l'image (sans push)
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          context: .
+          file: Dockerfile
+          push: false
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          platforms: linux/amd64
+          # Valeur publique fictive : aucun secret n'est nécessaire pour vérifier le build
+          build-args: |
+            VITE_API_URL=https://api.example.invalid
+            BUILD_DATE=${{ github.run_id }}
+          cache-from: type=gha,scope=buildkit-ci
+          cache-to: type=gha,mode=min,scope=buildkit-ci
+
+      # Sondes : ces actions ont besoin de secrets, elles ne sont donc pas exécutées.
+      # Le runner les télécharge quand même au démarrage du job (« Set up job ») :
+      # une action refusée par l'organisation ou une référence invalide fait échouer
+      # ce job ici, et non plus le déploiement sur main.
+      - name: Sonde – login Docker Hub (non exécutée)
+        if: ${{ false }}
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+
+      - name: Sonde – déploiement SSH (non exécutée)
+        if: ${{ false }}
+        uses: appleboy/ssh-action@7eaf76671a0d7eec5d98ee897acda4f968735a17 # v1.2.0
