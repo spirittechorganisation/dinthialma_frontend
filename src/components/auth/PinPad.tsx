@@ -93,6 +93,7 @@ export function PinPad({
  */
 export function usePinKeyboard(onKey: (key: string) => void, enabled = true) {
   const handler = useRef(onKey)
+  // eslint-disable-next-line react-hooks/refs -- pattern stable-ref intentionnel
   handler.current = onKey
 
   useEffect(() => {

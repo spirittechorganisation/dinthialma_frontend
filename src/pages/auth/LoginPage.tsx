@@ -45,6 +45,7 @@ export function LoginPage() {
   const navigate = useNavigate()
   const location = useLocation()
 
+  // eslint-disable-next-line react-hooks/refs -- lecture unique à l'initialisation (valeur stable)
   const memorise = useRef(numeroMemorise()).current
   const [numero, setNumero] = useState(memorise)
   const [etape, setEtape] = useState<Etape>(memorise ? 'motdepasse' : 'numero')

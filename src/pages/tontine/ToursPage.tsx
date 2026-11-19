@@ -1,4 +1,4 @@
-/**
+﻿/**
  * T6 — Tours d'une tontine : tour en cours épinglé, puis tous les tours.
  * Gestionnaire en mode manuel sans tour en cours : « Démarrer le tour suivant ».
  * Desktop : détail du tour (T7) dans un panneau à droite ; /tontine/:id/tours/:cycleId ouvre cette page avec le panneau.

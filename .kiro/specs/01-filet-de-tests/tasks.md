@@ -1,0 +1,148 @@
+# Plan d'implémentation — Filet de tests du frontend
+
+> Règles : lire `.kiro/steering/testing.md` avant chaque tâche. Ne modifier **aucun** fichier de `src/` hors `src/test/`
+> et les fichiers `*.test.ts(x)`, sauf mention contraire. Si un test révèle un bug, **ne pas le corriger** :
+> écrire le test sur le comportement actuel, ajouter `// BUG: …` et le signaler dans le résumé de la tâche.
+
+- [ ] 1. Mettre en place l'outillage de test
+- [x] 1.1 Installer les dépendances de test
+  - Ajouter en devDependencies : vitest, @vitest/coverage-v8, jsdom, @testing-library/react, @testing-library/user-event, @testing-library/jest-dom, msw (versions compatibles Vite 5 et React 18).
+  - Terminé quand : `npm ls vitest msw @testing-library/react` ne signale aucune erreur de dépendance.
+  - _Exigences : 1.1_
+- [x] 1.2 Configurer Vitest
+  - Section `test` dans `vite.config.ts` (ou `vitest.config.ts` fusionné avec la config Vite) : `environment: 'jsdom'`, `setupFiles: ['src/test/setup.ts']`, `include: ['src/**/*.{test,spec}.{ts,tsx}']`, `css: false`.
+  - `process.env.TZ = 'Africa/Dakar'` en tête de config ; `VITE_API_URL=http://api.test` pour les tests.
+  - Couverture v8 : inclure `src/**`, exclure `src/test/**`, `src/types/**`, `src/main.tsx`, `src/vite-env.d.ts`, `**/*.d.ts`.
+  - Scripts : `"test": "vitest run"`, `"test:watch": "vitest"`, `"test:coverage": "vitest run --coverage"`, `"typecheck": "tsc --noEmit"`.
+  - _Exigences : 1.1, 1.2_
+- [x] 1.3 Créer `src/test/setup.ts`
+  - Importer `@testing-library/jest-dom/vitest`.
+  - MSW : `beforeAll(server.listen({ onUnhandledRequest: 'error' }))`, `afterEach(server.resetHandlers, cleanup, localStorage.clear, sessionStorage.clear)`, `afterAll(server.close)`.
+  - Simuler : `window.matchMedia`, `navigator.share`, `navigator.clipboard`, `IntersectionObserver` si utilisé, le module `virtual:pwa-register/react` (utilisé par `usePWA`).
+  - _Exigences : 1.2, 1.3_
+- [x] 1.4 Créer les outils partagés de test
+  - `src/test/msw/api.ts` : constante `API`, helpers `ok(data)` (enveloppe `CustomResponse`), `page(items, { page, size, total })` (format Spring brut attendu par `toPage`), `erreur(status, code, message)` (format d'erreur lu par `lib/apiError`).
+  - `src/test/msw/server.ts` et `src/test/msw/handlers/` (un fichier par domaine : auth, me, tontines, cycles, cotisations, membres, validation, qr, priorites, notifications, codeList, users, dashboard, publicConfig) avec des réponses nominales.
+  - `src/test/factories/` : un constructeur typé par type principal de `src/types/` avec surcharge partielle.
+  - `src/test/auth.ts` : création de JWT de test non signés (rôles, téléphone, expiration) et `connecter(role)` qui remplit `tokenStorage`.
+  - `src/test/render.tsx` : `renderWithProviders(ui, { route = '/', path, auth })` → QueryClient neuf (`retry: false`), `MemoryRouter`, `AuthProvider` ; retourne aussi `user = userEvent.setup()` et le `queryClient`.
+  - _Exigences : 1.3, 1.4_
+- [x] 1.5 Installer et configurer ESLint
+  - Ajouter eslint (v9), @eslint/js, typescript-eslint, eslint-plugin-react-hooks, eslint-plugin-react-refresh, globals ; créer `eslint.config.js` (format « flat »).
+  - Le script actuel utilise `--ext` (ancien format, refusé par ESLint 9) : le remplacer par `"lint": "eslint . --max-warnings 0"`.
+  - Ignorer `dist/`, `dev-dist/`, `node_modules/`, `coverage/`.
+  - Corriger les erreurs **sans changer le comportement** ; si une règle demande une réécriture risquée, la désactiver localement avec un commentaire `// eslint-disable-next-line <règle> -- raison`.
+  - Terminé quand : `npm run lint` passe à 0 erreur et 0 avertissement.
+  - _Exigences : 1.5_
+- [x] 1.6 Écrire un test de fumée
+  - `src/test/smoke.test.tsx` : rendre l'application sur `/login` (non connecté) et vérifier que le formulaire de connexion s'affiche ; rendre `/accueil` connecté en membre avec les handlers par défaut et vérifier un élément de l'accueil.
+  - Terminé quand : `npm test` passe et `npm run test:coverage` produit un rapport.
+  - _Exigences : 1.1, 1.3, 1.4_
+
+- [ ] 2. Tests unitaires des fonctions pures (`src/lib`)
+- [x] 2.1 `format.ts`
+  - Montants : `formatMontant`, `formatFCFA`, `formatF`, `formatFcfaRecu` avec 0, null, undefined, négatif, grand nombre (vérifier l'espace de séparation exact produit aujourd'hui).
+  - Dates : `formatDateCourte`, `formatDateHeure`, `formatEcheance` avec date système fixée et dates ISO avec ou sans heure.
+  - `safeGet` / `safeSet` quand `localStorage` lève une exception.
+  - _Exigences : 2.1, 2.3_
+- [x] 2.2 `apiError.ts`
+  - `parseApiError` : erreur Axios avec `code` (chaque code de `ApiErrorCode`), sans `code` (repli sur le texte), erreur réseau, timeout, erreur non Axios, `undefined`.
+  - `messageErreur` : message du backend, message de repli par défaut et personnalisé.
+  - _Exigences : 2.1_
+- [x] 2.3 `tontineLabels.ts`
+  - `rythmeDe` (anciens champs `frequence` et nouveaux `rythmeIntervalle`/`rythmeUnite`), `rythmeLibre`, `dureeRythme`, `rythmeCourtDe`, `rythmePhraseDe`, `parRythme`, `dureeTour`.
+  - `jourEcheanceValide` (JOUR, SEMAINE, MOIS, valeurs invalides), `echeancePhrase`, `heureLisible`.
+  - `aujourdhuiIso`, `joursAvant`, `compteARebours` avec date système fixée (avant, jour même, après, null).
+  - `modeRemiseLabel`, `capital`, cohérence des constantes (`RYTHMES`, `DECLENCHEMENTS`, `MODES_REMISE`, `ORDRE_LABEL`).
+  - _Exigences : 2.1, 2.3_
+- [x] 2.4 `tokenStorage.ts`
+  - `normalizePhone` (+221, 221, espaces, tirets, numéro local), `storeSession` / `clearTokens` / `clearAll` (ce qui est gardé et ce qui est effacé), PIN configuré.
+  - `parseJwt` (jeton valide, invalide, absent), `isTokenExpired` avec date fixée, `getAuthUser` (rôles extraits), `detectClientType` / `getClientType` (user-agent mobile et bureau).
+  - _Exigences : 2.1, 2.3_
+- [ ] 2.5 Autres utilitaires
+  - `phone.ts`, `validation.ts`, `commissions.ts`, `paymentMethods.ts`, `homePath.ts`, `retour.ts`, `device.ts`.
+  - `exportCsv.ts` : échappement des guillemets, virgules et retours ligne, en-têtes, encodage.
+  - `share.ts` : avec et sans `navigator.share`, refus de l'utilisateur.
+  - `preferences.ts` : chargement (GET), synchronisation (PUT) avec temporisation de 1,5 s (faux timers + MSW), échec réseau.
+  - `queryClient.ts` : une mutation réussie invalide les requêtes `['me', …]`.
+  - Terminé quand : couverture des lignes de `src/lib` ≥ 90 % ; seuil ajouté dans la config.
+  - _Exigences : 2.1, 2.2, 2.3_
+
+- [ ] 3. Tests d'intégration de la couche API (MSW)
+- [ ] 3.1 Client HTTP `services/api.ts`
+  - Ajoute `Authorization: Bearer <jeton>` quand un jeton existe, rien sinon.
+  - 401 → un seul appel à `/v1/auth/refresh`, puis la requête est rejouée avec le nouveau jeton.
+  - Trois requêtes en 401 simultanées → un seul refresh, les trois sont rejouées.
+  - Refresh en échec ou absent → `clearAll()` et redirection vers `/login`.
+  - Routes `/v1/auth/login`, `register`, `refresh`, `logout` : pas de refresh sur 401.
+  - 403 → erreur remontée, aucune déconnexion.
+  - Paramètres tableaux sérialisés en `statut=A&statut=B`.
+  - _Exigences : 3.1_
+- [ ] 3.2 Services (tests en tableau : appel → requête attendue → valeur retournée)
+  - `authService`, `meService`, `tontineService`, `cycleService`, `cotisationService`, `membreService`, `validationService` (y compris `validerPlusieurs` et `refuser` avec motif), `qrService`, `prioriteService`, `notificationService`, `securiteService`, `userService`, `codeListService`, `dashboardService`.
+  - Pour chaque fonction : méthode, URL, paramètres de requête, corps, extraction de `data.data`, conversion de page avec `toPage`, propagation des erreurs.
+  - _Exigences : 3.2_
+- [ ] 3.3 Hooks React Query
+  - Pour chaque hook de mutation de `src/hooks/` : clés invalidées après succès (ex. `useActiverTontine` invalide `['tontines']` et `['tontine', id]`).
+  - `useSimulation` : pas d'appel tant que les paramètres sont `null`, annulation de la requête précédente si elle existe.
+  - `useAuth` : connexion (session stockée), déconnexion douce (PIN gardé) et complète, `refreshSession`, rôles exposés.
+  - `useOnline`, `useLocalPreference`, `useFavoris`, `usePublicConfig`.
+  - Terminé quand : couverture des lignes ≥ 80 % sur `src/services` et ≥ 70 % sur `src/hooks` ; seuils ajoutés.
+  - _Exigences : 3.3, 3.4_
+
+- [ ] 4. Tests de caractérisation des écrans critiques
+  - Chaque fichier : `describe('[caractérisation] <Écran>')`, au moins 1 test nominal + 2 tests d'erreur, corps des écritures vérifié.
+- [ ] 4.1 Authentification (`LoginPage`, `PinLoginPage`, `PinSetupPage`, `RegisterPage`, `ForgotPasswordPage`, `PinResetPage`)
+  - Connexion réussie → redirection selon le rôle ; mauvais identifiants ; compte pré-inscrit (403) → parcours d'activation (F04).
+  - PIN : soumission automatique à 6 chiffres, PIN faux, PIN verrouillé.
+  - Inscription en 3 étapes (téléphone → OTP → identité) avec corps envoyés à chaque étape.
+  - _Exigences : 4.1, 4.2, 4.4_
+- [ ] 4.2 Création de tontine (`CreerTontinePage`)
+  - Rotative en 4 étapes → corps POST `/v1/tontines` complet (type, nom, montant, rythme, jour et heure limites, membres, gagnants, cotisations par tour, déclenchement, commission).
+  - Événementielle en 3 étapes (date d'événement, montant libre, minimum).
+  - Chaque message d'erreur de validation des étapes 1 à 4 (objectif manquant, montant nul, membres hors 2–100, gagnants ≥ membres, nom trop court ou trop long, commission invalide, frais ≥ jackpot).
+  - Calendrier issu de la simulation affiché ; hors connexion → création impossible ; écran de succès ; erreur backend affichée.
+  - _Exigences : 4.1, 4.2, 4.4_
+- [ ] 4.3 Paiement (`PayerPage`, `RecuPage`)
+  - Choix de la tontine ; montant prérempli ; tour à plusieurs échéances (B32) ; régularisation d'une échéance passée (B33) ; moyen de paiement mémorisé.
+  - Erreurs : cotisation déjà déclarée (409), hors connexion, erreur serveur.
+  - Reçu : affichage, partage, modification si encore en attente.
+  - _Exigences : 4.1, 4.2, 4.4_
+- [ ] 4.4 Validation (`AValiderPage`)
+  - Liste groupée par tontine ; valider avec annulation possible pendant 5 s (faux timers) ; « Tout valider » avec échec partiel ; refuser avec motif obligatoire ; demandes d'adhésion acceptées et refusées.
+  - _Exigences : 4.1, 4.2, 4.4_
+- [ ] 4.5 Encaissement (`EncaisserPage`, `EncaisserDesktop`)
+  - Membres non payés en tête ; encaissement direct (corps vérifié) ; encaissement d'un retardataire après la remise.
+  - _Exigences : 4.1, 4.2, 4.4_
+- [ ] 4.6 Tour et remise du jackpot (`ToursPage`, `TourPage` et sa feuille `RemiseSheet`)
+  - Progression et pastilles d'échéances ; aperçu de remise et options (ATTENDRE refusée 409, DISPONIBLE, AVANCE_COMMISSION, AVANCE_GESTIONNAIRE) ; désignation des gagnants ; tirage au sort ; ouverture d'un tour en mode manuel.
+  - _Exigences : 4.1, 4.2, 4.4_
+- [ ] 4.7 Fiche et clôture (`FicheTontinePage`)
+  - Boutons selon le rôle (gestionnaire, membre) ; clôture : 1er appel → 409 `TONTINE_CLOTURE_A_CONFIRMER` avec la liste des points, confirmation → 2e appel avec `forcer: true` ; export CSV.
+  - _Exigences : 4.1, 4.2, 4.4_
+- [ ] 4.8 Réglages (`ReglagesTontinePage`, `ModifierTontinePage`)
+  - Modifier échéance et rappels (PATCH) ; option de remise par défaut ; commissions (ajout, modification, suppression) ; QR d'invitation régénéré et révoqué ; priorités accordées et refusées.
+  - _Exigences : 4.1, 4.2, 4.4_
+- [ ] 4.9 Accueil (`HomePage`)
+  - Bascule Je cotise / Je gère mémorisée ; montants masqués ; carte d'action urgente ; fil d'activité ; filtre par tontine.
+  - _Exigences : 4.1, 4.4_
+- [ ] 4.10 Navigation, gardes et PWA
+  - `ProtectedRoute` (redirection non connecté), `RoleRoute` (SUPER_ADMIN), redirection intelligente de `/` ; bandeau « Nouvelle version disponible » (module PWA simulé) ; bandeau hors connexion.
+  - _Exigences : 4.1, 4.4_
+- [ ] 4.11 Notifications (`NotificationsPage`)
+  - Navigation contextuelle : test en tableau sur les types de notification → route ouverte ; marquer lu, tout marquer lu.
+  - _Exigences : 4.1, 4.4_
+
+- [ ] 5. Verrouiller en CI et documenter
+- [ ] 5.1 Seuils de couverture définitifs
+  - Mesurer la couverture globale, fixer le seuil global à cette valeur arrondie à l'inférieur, garder les seuils par dossier (lib 90, services 80, hooks 70).
+  - _Exigences : 5.3_
+- [ ] 5.2 Workflow de CI
+  - Créer `.github/workflows/ci.yml` : `pull_request` vers `main`/`develop` et `push` hors `main` ; Node 24 (`node-version-file: .nvmrc`) avec cache npm ; `npm ci` → `npm run lint` → `npm run typecheck` → `npm run test:coverage` ; rapport de couverture en artefact ; `concurrency: { group: ci-${{ github.ref }}, cancel-in-progress: true }`.
+  - Dans `docker-publish.yml`, ajouter un job `qualite` identique et `needs: qualite` sur `build-push`.
+  - La spec `03-pipeline-et-dependances` (tâche 4) complète ensuite ce workflow (audit, secrets, image Docker) et le factorise.
+  - _Exigences : 5.1, 5.2_
+- [ ] 5.3 Documentation
+  - Section « Tests » du `README.md` : commandes, organisation de `src/test/`, comment écrire un test d'écran avec MSW, règle des tests `[caractérisation]`.
+  - Mettre à jour `.kiro/steering/testing.md` si des conventions ont évolué pendant la spec.
+  - _Exigences : 5.4_

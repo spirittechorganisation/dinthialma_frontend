@@ -27,6 +27,7 @@ export function AmountPad({ value, onChange, max = 100_000_000 }: AmountPadProps
 
   // Référence à jour pour l'écouteur clavier (évite de le réabonner à chaque frappe)
   const pressRef = useRef(press)
+  // eslint-disable-next-line react-hooks/refs -- pattern stable-ref intentionnel
   pressRef.current = press
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

@@ -90,7 +90,7 @@ export function HomePage() {
   const choixManuel = useRef(false)
   useEffect(() => {
     if (mode !== 'GERE' || choixManuel.current || !derniereGeree || derniereGeree === tontineId) return
-    if (tontinesDuMode.some((t) => t.id === derniereGeree)) setTontineId(derniereGeree)
+      if (tontinesDuMode.some((t) => t.id === derniereGeree)) setTontineId(derniereGeree)
   }, [mode, derniereGeree, tontineId, tontinesDuMode])
   const nouvelInscrit = !roles.isLoading && roles.tontines.length === 0
 

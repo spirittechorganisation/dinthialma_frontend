@@ -1,3 +1,6 @@
+// Fuseau Africa/Dakar pour tous les tests (doit être en tête, avant les imports)
+process.env.TZ = 'Africa/Dakar'
+
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
@@ -26,10 +29,8 @@ export default defineConfig({
         ],
       },
       workbox: {
-        // skipWaiting = false (prompt) : le SW attend que l'utilisateur confirme
         skipWaiting: false,
         clientsClaim: true,
-        // Cache API calls pour offline graceful
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,

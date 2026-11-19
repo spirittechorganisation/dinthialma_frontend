@@ -1,0 +1,1345 @@
+
+<!doctype html>
+<html lang="en">
+
+<head>
+    <title>Code coverage report for src/pages/parametres/ParametresPage.tsx</title>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="../../../prettify.css" />
+    <link rel="stylesheet" href="../../../base.css" />
+    <link rel="shortcut icon" type="image/x-icon" href="../../../favicon.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style type='text/css'>
+        .coverage-summary .sorter {
+            background-image: url(../../../sort-arrow-sprite.png);
+        }
+    </style>
+</head>
+    
+<body>
+<div class='wrapper'>
+    <div class='pad1'>
+        <h1><a href="../../../index.html">All files</a> / <a href="index.html">src/pages/parametres</a> ParametresPage.tsx</h1>
+        <div class='clearfix'>
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">0% </span>
+                <span class="quiet">Statements</span>
+                <span class='fraction'>0/149</span>
+            </div>
+        
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">0% </span>
+                <span class="quiet">Branches</span>
+                <span class='fraction'>0/139</span>
+            </div>
+        
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">0% </span>
+                <span class="quiet">Functions</span>
+                <span class='fraction'>0/67</span>
+            </div>
+        
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">0% </span>
+                <span class="quiet">Lines</span>
+                <span class='fraction'>0/130</span>
+            </div>
+        
+            
+        </div>
+        <p class="quiet">
+            Press <em>n</em> or <em>j</em> to go to the next uncovered block, <em>b</em>, <em>p</em> or <em>k</em> for the previous block.
+        </p>
+        <template id="filterTemplate">
+            <div class="quiet">
+                Filter:
+                <input type="search" id="fileSearch">
+            </div>
+        </template>
+    </div>
+    <div class='status-line low'></div>
+    <pre><table class="coverage">
+<tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
+<a name='L2'></a><a href='#L2'>2</a>
+<a name='L3'></a><a href='#L3'>3</a>
+<a name='L4'></a><a href='#L4'>4</a>
+<a name='L5'></a><a href='#L5'>5</a>
+<a name='L6'></a><a href='#L6'>6</a>
+<a name='L7'></a><a href='#L7'>7</a>
+<a name='L8'></a><a href='#L8'>8</a>
+<a name='L9'></a><a href='#L9'>9</a>
+<a name='L10'></a><a href='#L10'>10</a>
+<a name='L11'></a><a href='#L11'>11</a>
+<a name='L12'></a><a href='#L12'>12</a>
+<a name='L13'></a><a href='#L13'>13</a>
+<a name='L14'></a><a href='#L14'>14</a>
+<a name='L15'></a><a href='#L15'>15</a>
+<a name='L16'></a><a href='#L16'>16</a>
+<a name='L17'></a><a href='#L17'>17</a>
+<a name='L18'></a><a href='#L18'>18</a>
+<a name='L19'></a><a href='#L19'>19</a>
+<a name='L20'></a><a href='#L20'>20</a>
+<a name='L21'></a><a href='#L21'>21</a>
+<a name='L22'></a><a href='#L22'>22</a>
+<a name='L23'></a><a href='#L23'>23</a>
+<a name='L24'></a><a href='#L24'>24</a>
+<a name='L25'></a><a href='#L25'>25</a>
+<a name='L26'></a><a href='#L26'>26</a>
+<a name='L27'></a><a href='#L27'>27</a>
+<a name='L28'></a><a href='#L28'>28</a>
+<a name='L29'></a><a href='#L29'>29</a>
+<a name='L30'></a><a href='#L30'>30</a>
+<a name='L31'></a><a href='#L31'>31</a>
+<a name='L32'></a><a href='#L32'>32</a>
+<a name='L33'></a><a href='#L33'>33</a>
+<a name='L34'></a><a href='#L34'>34</a>
+<a name='L35'></a><a href='#L35'>35</a>
+<a name='L36'></a><a href='#L36'>36</a>
+<a name='L37'></a><a href='#L37'>37</a>
+<a name='L38'></a><a href='#L38'>38</a>
+<a name='L39'></a><a href='#L39'>39</a>
+<a name='L40'></a><a href='#L40'>40</a>
+<a name='L41'></a><a href='#L41'>41</a>
+<a name='L42'></a><a href='#L42'>42</a>
+<a name='L43'></a><a href='#L43'>43</a>
+<a name='L44'></a><a href='#L44'>44</a>
+<a name='L45'></a><a href='#L45'>45</a>
+<a name='L46'></a><a href='#L46'>46</a>
+<a name='L47'></a><a href='#L47'>47</a>
+<a name='L48'></a><a href='#L48'>48</a>
+<a name='L49'></a><a href='#L49'>49</a>
+<a name='L50'></a><a href='#L50'>50</a>
+<a name='L51'></a><a href='#L51'>51</a>
+<a name='L52'></a><a href='#L52'>52</a>
+<a name='L53'></a><a href='#L53'>53</a>
+<a name='L54'></a><a href='#L54'>54</a>
+<a name='L55'></a><a href='#L55'>55</a>
+<a name='L56'></a><a href='#L56'>56</a>
+<a name='L57'></a><a href='#L57'>57</a>
+<a name='L58'></a><a href='#L58'>58</a>
+<a name='L59'></a><a href='#L59'>59</a>
+<a name='L60'></a><a href='#L60'>60</a>
+<a name='L61'></a><a href='#L61'>61</a>
+<a name='L62'></a><a href='#L62'>62</a>
+<a name='L63'></a><a href='#L63'>63</a>
+<a name='L64'></a><a href='#L64'>64</a>
+<a name='L65'></a><a href='#L65'>65</a>
+<a name='L66'></a><a href='#L66'>66</a>
+<a name='L67'></a><a href='#L67'>67</a>
+<a name='L68'></a><a href='#L68'>68</a>
+<a name='L69'></a><a href='#L69'>69</a>
+<a name='L70'></a><a href='#L70'>70</a>
+<a name='L71'></a><a href='#L71'>71</a>
+<a name='L72'></a><a href='#L72'>72</a>
+<a name='L73'></a><a href='#L73'>73</a>
+<a name='L74'></a><a href='#L74'>74</a>
+<a name='L75'></a><a href='#L75'>75</a>
+<a name='L76'></a><a href='#L76'>76</a>
+<a name='L77'></a><a href='#L77'>77</a>
+<a name='L78'></a><a href='#L78'>78</a>
+<a name='L79'></a><a href='#L79'>79</a>
+<a name='L80'></a><a href='#L80'>80</a>
+<a name='L81'></a><a href='#L81'>81</a>
+<a name='L82'></a><a href='#L82'>82</a>
+<a name='L83'></a><a href='#L83'>83</a>
+<a name='L84'></a><a href='#L84'>84</a>
+<a name='L85'></a><a href='#L85'>85</a>
+<a name='L86'></a><a href='#L86'>86</a>
+<a name='L87'></a><a href='#L87'>87</a>
+<a name='L88'></a><a href='#L88'>88</a>
+<a name='L89'></a><a href='#L89'>89</a>
+<a name='L90'></a><a href='#L90'>90</a>
+<a name='L91'></a><a href='#L91'>91</a>
+<a name='L92'></a><a href='#L92'>92</a>
+<a name='L93'></a><a href='#L93'>93</a>
+<a name='L94'></a><a href='#L94'>94</a>
+<a name='L95'></a><a href='#L95'>95</a>
+<a name='L96'></a><a href='#L96'>96</a>
+<a name='L97'></a><a href='#L97'>97</a>
+<a name='L98'></a><a href='#L98'>98</a>
+<a name='L99'></a><a href='#L99'>99</a>
+<a name='L100'></a><a href='#L100'>100</a>
+<a name='L101'></a><a href='#L101'>101</a>
+<a name='L102'></a><a href='#L102'>102</a>
+<a name='L103'></a><a href='#L103'>103</a>
+<a name='L104'></a><a href='#L104'>104</a>
+<a name='L105'></a><a href='#L105'>105</a>
+<a name='L106'></a><a href='#L106'>106</a>
+<a name='L107'></a><a href='#L107'>107</a>
+<a name='L108'></a><a href='#L108'>108</a>
+<a name='L109'></a><a href='#L109'>109</a>
+<a name='L110'></a><a href='#L110'>110</a>
+<a name='L111'></a><a href='#L111'>111</a>
+<a name='L112'></a><a href='#L112'>112</a>
+<a name='L113'></a><a href='#L113'>113</a>
+<a name='L114'></a><a href='#L114'>114</a>
+<a name='L115'></a><a href='#L115'>115</a>
+<a name='L116'></a><a href='#L116'>116</a>
+<a name='L117'></a><a href='#L117'>117</a>
+<a name='L118'></a><a href='#L118'>118</a>
+<a name='L119'></a><a href='#L119'>119</a>
+<a name='L120'></a><a href='#L120'>120</a>
+<a name='L121'></a><a href='#L121'>121</a>
+<a name='L122'></a><a href='#L122'>122</a>
+<a name='L123'></a><a href='#L123'>123</a>
+<a name='L124'></a><a href='#L124'>124</a>
+<a name='L125'></a><a href='#L125'>125</a>
+<a name='L126'></a><a href='#L126'>126</a>
+<a name='L127'></a><a href='#L127'>127</a>
+<a name='L128'></a><a href='#L128'>128</a>
+<a name='L129'></a><a href='#L129'>129</a>
+<a name='L130'></a><a href='#L130'>130</a>
+<a name='L131'></a><a href='#L131'>131</a>
+<a name='L132'></a><a href='#L132'>132</a>
+<a name='L133'></a><a href='#L133'>133</a>
+<a name='L134'></a><a href='#L134'>134</a>
+<a name='L135'></a><a href='#L135'>135</a>
+<a name='L136'></a><a href='#L136'>136</a>
+<a name='L137'></a><a href='#L137'>137</a>
+<a name='L138'></a><a href='#L138'>138</a>
+<a name='L139'></a><a href='#L139'>139</a>
+<a name='L140'></a><a href='#L140'>140</a>
+<a name='L141'></a><a href='#L141'>141</a>
+<a name='L142'></a><a href='#L142'>142</a>
+<a name='L143'></a><a href='#L143'>143</a>
+<a name='L144'></a><a href='#L144'>144</a>
+<a name='L145'></a><a href='#L145'>145</a>
+<a name='L146'></a><a href='#L146'>146</a>
+<a name='L147'></a><a href='#L147'>147</a>
+<a name='L148'></a><a href='#L148'>148</a>
+<a name='L149'></a><a href='#L149'>149</a>
+<a name='L150'></a><a href='#L150'>150</a>
+<a name='L151'></a><a href='#L151'>151</a>
+<a name='L152'></a><a href='#L152'>152</a>
+<a name='L153'></a><a href='#L153'>153</a>
+<a name='L154'></a><a href='#L154'>154</a>
+<a name='L155'></a><a href='#L155'>155</a>
+<a name='L156'></a><a href='#L156'>156</a>
+<a name='L157'></a><a href='#L157'>157</a>
+<a name='L158'></a><a href='#L158'>158</a>
+<a name='L159'></a><a href='#L159'>159</a>
+<a name='L160'></a><a href='#L160'>160</a>
+<a name='L161'></a><a href='#L161'>161</a>
+<a name='L162'></a><a href='#L162'>162</a>
+<a name='L163'></a><a href='#L163'>163</a>
+<a name='L164'></a><a href='#L164'>164</a>
+<a name='L165'></a><a href='#L165'>165</a>
+<a name='L166'></a><a href='#L166'>166</a>
+<a name='L167'></a><a href='#L167'>167</a>
+<a name='L168'></a><a href='#L168'>168</a>
+<a name='L169'></a><a href='#L169'>169</a>
+<a name='L170'></a><a href='#L170'>170</a>
+<a name='L171'></a><a href='#L171'>171</a>
+<a name='L172'></a><a href='#L172'>172</a>
+<a name='L173'></a><a href='#L173'>173</a>
+<a name='L174'></a><a href='#L174'>174</a>
+<a name='L175'></a><a href='#L175'>175</a>
+<a name='L176'></a><a href='#L176'>176</a>
+<a name='L177'></a><a href='#L177'>177</a>
+<a name='L178'></a><a href='#L178'>178</a>
+<a name='L179'></a><a href='#L179'>179</a>
+<a name='L180'></a><a href='#L180'>180</a>
+<a name='L181'></a><a href='#L181'>181</a>
+<a name='L182'></a><a href='#L182'>182</a>
+<a name='L183'></a><a href='#L183'>183</a>
+<a name='L184'></a><a href='#L184'>184</a>
+<a name='L185'></a><a href='#L185'>185</a>
+<a name='L186'></a><a href='#L186'>186</a>
+<a name='L187'></a><a href='#L187'>187</a>
+<a name='L188'></a><a href='#L188'>188</a>
+<a name='L189'></a><a href='#L189'>189</a>
+<a name='L190'></a><a href='#L190'>190</a>
+<a name='L191'></a><a href='#L191'>191</a>
+<a name='L192'></a><a href='#L192'>192</a>
+<a name='L193'></a><a href='#L193'>193</a>
+<a name='L194'></a><a href='#L194'>194</a>
+<a name='L195'></a><a href='#L195'>195</a>
+<a name='L196'></a><a href='#L196'>196</a>
+<a name='L197'></a><a href='#L197'>197</a>
+<a name='L198'></a><a href='#L198'>198</a>
+<a name='L199'></a><a href='#L199'>199</a>
+<a name='L200'></a><a href='#L200'>200</a>
+<a name='L201'></a><a href='#L201'>201</a>
+<a name='L202'></a><a href='#L202'>202</a>
+<a name='L203'></a><a href='#L203'>203</a>
+<a name='L204'></a><a href='#L204'>204</a>
+<a name='L205'></a><a href='#L205'>205</a>
+<a name='L206'></a><a href='#L206'>206</a>
+<a name='L207'></a><a href='#L207'>207</a>
+<a name='L208'></a><a href='#L208'>208</a>
+<a name='L209'></a><a href='#L209'>209</a>
+<a name='L210'></a><a href='#L210'>210</a>
+<a name='L211'></a><a href='#L211'>211</a>
+<a name='L212'></a><a href='#L212'>212</a>
+<a name='L213'></a><a href='#L213'>213</a>
+<a name='L214'></a><a href='#L214'>214</a>
+<a name='L215'></a><a href='#L215'>215</a>
+<a name='L216'></a><a href='#L216'>216</a>
+<a name='L217'></a><a href='#L217'>217</a>
+<a name='L218'></a><a href='#L218'>218</a>
+<a name='L219'></a><a href='#L219'>219</a>
+<a name='L220'></a><a href='#L220'>220</a>
+<a name='L221'></a><a href='#L221'>221</a>
+<a name='L222'></a><a href='#L222'>222</a>
+<a name='L223'></a><a href='#L223'>223</a>
+<a name='L224'></a><a href='#L224'>224</a>
+<a name='L225'></a><a href='#L225'>225</a>
+<a name='L226'></a><a href='#L226'>226</a>
+<a name='L227'></a><a href='#L227'>227</a>
+<a name='L228'></a><a href='#L228'>228</a>
+<a name='L229'></a><a href='#L229'>229</a>
+<a name='L230'></a><a href='#L230'>230</a>
+<a name='L231'></a><a href='#L231'>231</a>
+<a name='L232'></a><a href='#L232'>232</a>
+<a name='L233'></a><a href='#L233'>233</a>
+<a name='L234'></a><a href='#L234'>234</a>
+<a name='L235'></a><a href='#L235'>235</a>
+<a name='L236'></a><a href='#L236'>236</a>
+<a name='L237'></a><a href='#L237'>237</a>
+<a name='L238'></a><a href='#L238'>238</a>
+<a name='L239'></a><a href='#L239'>239</a>
+<a name='L240'></a><a href='#L240'>240</a>
+<a name='L241'></a><a href='#L241'>241</a>
+<a name='L242'></a><a href='#L242'>242</a>
+<a name='L243'></a><a href='#L243'>243</a>
+<a name='L244'></a><a href='#L244'>244</a>
+<a name='L245'></a><a href='#L245'>245</a>
+<a name='L246'></a><a href='#L246'>246</a>
+<a name='L247'></a><a href='#L247'>247</a>
+<a name='L248'></a><a href='#L248'>248</a>
+<a name='L249'></a><a href='#L249'>249</a>
+<a name='L250'></a><a href='#L250'>250</a>
+<a name='L251'></a><a href='#L251'>251</a>
+<a name='L252'></a><a href='#L252'>252</a>
+<a name='L253'></a><a href='#L253'>253</a>
+<a name='L254'></a><a href='#L254'>254</a>
+<a name='L255'></a><a href='#L255'>255</a>
+<a name='L256'></a><a href='#L256'>256</a>
+<a name='L257'></a><a href='#L257'>257</a>
+<a name='L258'></a><a href='#L258'>258</a>
+<a name='L259'></a><a href='#L259'>259</a>
+<a name='L260'></a><a href='#L260'>260</a>
+<a name='L261'></a><a href='#L261'>261</a>
+<a name='L262'></a><a href='#L262'>262</a>
+<a name='L263'></a><a href='#L263'>263</a>
+<a name='L264'></a><a href='#L264'>264</a>
+<a name='L265'></a><a href='#L265'>265</a>
+<a name='L266'></a><a href='#L266'>266</a>
+<a name='L267'></a><a href='#L267'>267</a>
+<a name='L268'></a><a href='#L268'>268</a>
+<a name='L269'></a><a href='#L269'>269</a>
+<a name='L270'></a><a href='#L270'>270</a>
+<a name='L271'></a><a href='#L271'>271</a>
+<a name='L272'></a><a href='#L272'>272</a>
+<a name='L273'></a><a href='#L273'>273</a>
+<a name='L274'></a><a href='#L274'>274</a>
+<a name='L275'></a><a href='#L275'>275</a>
+<a name='L276'></a><a href='#L276'>276</a>
+<a name='L277'></a><a href='#L277'>277</a>
+<a name='L278'></a><a href='#L278'>278</a>
+<a name='L279'></a><a href='#L279'>279</a>
+<a name='L280'></a><a href='#L280'>280</a>
+<a name='L281'></a><a href='#L281'>281</a>
+<a name='L282'></a><a href='#L282'>282</a>
+<a name='L283'></a><a href='#L283'>283</a>
+<a name='L284'></a><a href='#L284'>284</a>
+<a name='L285'></a><a href='#L285'>285</a>
+<a name='L286'></a><a href='#L286'>286</a>
+<a name='L287'></a><a href='#L287'>287</a>
+<a name='L288'></a><a href='#L288'>288</a>
+<a name='L289'></a><a href='#L289'>289</a>
+<a name='L290'></a><a href='#L290'>290</a>
+<a name='L291'></a><a href='#L291'>291</a>
+<a name='L292'></a><a href='#L292'>292</a>
+<a name='L293'></a><a href='#L293'>293</a>
+<a name='L294'></a><a href='#L294'>294</a>
+<a name='L295'></a><a href='#L295'>295</a>
+<a name='L296'></a><a href='#L296'>296</a>
+<a name='L297'></a><a href='#L297'>297</a>
+<a name='L298'></a><a href='#L298'>298</a>
+<a name='L299'></a><a href='#L299'>299</a>
+<a name='L300'></a><a href='#L300'>300</a>
+<a name='L301'></a><a href='#L301'>301</a>
+<a name='L302'></a><a href='#L302'>302</a>
+<a name='L303'></a><a href='#L303'>303</a>
+<a name='L304'></a><a href='#L304'>304</a>
+<a name='L305'></a><a href='#L305'>305</a>
+<a name='L306'></a><a href='#L306'>306</a>
+<a name='L307'></a><a href='#L307'>307</a>
+<a name='L308'></a><a href='#L308'>308</a>
+<a name='L309'></a><a href='#L309'>309</a>
+<a name='L310'></a><a href='#L310'>310</a>
+<a name='L311'></a><a href='#L311'>311</a>
+<a name='L312'></a><a href='#L312'>312</a>
+<a name='L313'></a><a href='#L313'>313</a>
+<a name='L314'></a><a href='#L314'>314</a>
+<a name='L315'></a><a href='#L315'>315</a>
+<a name='L316'></a><a href='#L316'>316</a>
+<a name='L317'></a><a href='#L317'>317</a>
+<a name='L318'></a><a href='#L318'>318</a>
+<a name='L319'></a><a href='#L319'>319</a>
+<a name='L320'></a><a href='#L320'>320</a>
+<a name='L321'></a><a href='#L321'>321</a>
+<a name='L322'></a><a href='#L322'>322</a>
+<a name='L323'></a><a href='#L323'>323</a>
+<a name='L324'></a><a href='#L324'>324</a>
+<a name='L325'></a><a href='#L325'>325</a>
+<a name='L326'></a><a href='#L326'>326</a>
+<a name='L327'></a><a href='#L327'>327</a>
+<a name='L328'></a><a href='#L328'>328</a>
+<a name='L329'></a><a href='#L329'>329</a>
+<a name='L330'></a><a href='#L330'>330</a>
+<a name='L331'></a><a href='#L331'>331</a>
+<a name='L332'></a><a href='#L332'>332</a>
+<a name='L333'></a><a href='#L333'>333</a>
+<a name='L334'></a><a href='#L334'>334</a>
+<a name='L335'></a><a href='#L335'>335</a>
+<a name='L336'></a><a href='#L336'>336</a>
+<a name='L337'></a><a href='#L337'>337</a>
+<a name='L338'></a><a href='#L338'>338</a>
+<a name='L339'></a><a href='#L339'>339</a>
+<a name='L340'></a><a href='#L340'>340</a>
+<a name='L341'></a><a href='#L341'>341</a>
+<a name='L342'></a><a href='#L342'>342</a>
+<a name='L343'></a><a href='#L343'>343</a>
+<a name='L344'></a><a href='#L344'>344</a>
+<a name='L345'></a><a href='#L345'>345</a>
+<a name='L346'></a><a href='#L346'>346</a>
+<a name='L347'></a><a href='#L347'>347</a>
+<a name='L348'></a><a href='#L348'>348</a>
+<a name='L349'></a><a href='#L349'>349</a>
+<a name='L350'></a><a href='#L350'>350</a>
+<a name='L351'></a><a href='#L351'>351</a>
+<a name='L352'></a><a href='#L352'>352</a>
+<a name='L353'></a><a href='#L353'>353</a>
+<a name='L354'></a><a href='#L354'>354</a>
+<a name='L355'></a><a href='#L355'>355</a>
+<a name='L356'></a><a href='#L356'>356</a>
+<a name='L357'></a><a href='#L357'>357</a>
+<a name='L358'></a><a href='#L358'>358</a>
+<a name='L359'></a><a href='#L359'>359</a>
+<a name='L360'></a><a href='#L360'>360</a>
+<a name='L361'></a><a href='#L361'>361</a>
+<a name='L362'></a><a href='#L362'>362</a>
+<a name='L363'></a><a href='#L363'>363</a>
+<a name='L364'></a><a href='#L364'>364</a>
+<a name='L365'></a><a href='#L365'>365</a>
+<a name='L366'></a><a href='#L366'>366</a>
+<a name='L367'></a><a href='#L367'>367</a>
+<a name='L368'></a><a href='#L368'>368</a>
+<a name='L369'></a><a href='#L369'>369</a>
+<a name='L370'></a><a href='#L370'>370</a>
+<a name='L371'></a><a href='#L371'>371</a>
+<a name='L372'></a><a href='#L372'>372</a>
+<a name='L373'></a><a href='#L373'>373</a>
+<a name='L374'></a><a href='#L374'>374</a>
+<a name='L375'></a><a href='#L375'>375</a>
+<a name='L376'></a><a href='#L376'>376</a>
+<a name='L377'></a><a href='#L377'>377</a>
+<a name='L378'></a><a href='#L378'>378</a>
+<a name='L379'></a><a href='#L379'>379</a>
+<a name='L380'></a><a href='#L380'>380</a>
+<a name='L381'></a><a href='#L381'>381</a>
+<a name='L382'></a><a href='#L382'>382</a>
+<a name='L383'></a><a href='#L383'>383</a>
+<a name='L384'></a><a href='#L384'>384</a>
+<a name='L385'></a><a href='#L385'>385</a>
+<a name='L386'></a><a href='#L386'>386</a>
+<a name='L387'></a><a href='#L387'>387</a>
+<a name='L388'></a><a href='#L388'>388</a>
+<a name='L389'></a><a href='#L389'>389</a>
+<a name='L390'></a><a href='#L390'>390</a>
+<a name='L391'></a><a href='#L391'>391</a>
+<a name='L392'></a><a href='#L392'>392</a>
+<a name='L393'></a><a href='#L393'>393</a>
+<a name='L394'></a><a href='#L394'>394</a>
+<a name='L395'></a><a href='#L395'>395</a>
+<a name='L396'></a><a href='#L396'>396</a>
+<a name='L397'></a><a href='#L397'>397</a>
+<a name='L398'></a><a href='#L398'>398</a>
+<a name='L399'></a><a href='#L399'>399</a>
+<a name='L400'></a><a href='#L400'>400</a>
+<a name='L401'></a><a href='#L401'>401</a>
+<a name='L402'></a><a href='#L402'>402</a>
+<a name='L403'></a><a href='#L403'>403</a>
+<a name='L404'></a><a href='#L404'>404</a>
+<a name='L405'></a><a href='#L405'>405</a>
+<a name='L406'></a><a href='#L406'>406</a>
+<a name='L407'></a><a href='#L407'>407</a>
+<a name='L408'></a><a href='#L408'>408</a>
+<a name='L409'></a><a href='#L409'>409</a>
+<a name='L410'></a><a href='#L410'>410</a>
+<a name='L411'></a><a href='#L411'>411</a>
+<a name='L412'></a><a href='#L412'>412</a>
+<a name='L413'></a><a href='#L413'>413</a>
+<a name='L414'></a><a href='#L414'>414</a>
+<a name='L415'></a><a href='#L415'>415</a>
+<a name='L416'></a><a href='#L416'>416</a>
+<a name='L417'></a><a href='#L417'>417</a>
+<a name='L418'></a><a href='#L418'>418</a>
+<a name='L419'></a><a href='#L419'>419</a>
+<a name='L420'></a><a href='#L420'>420</a>
+<a name='L421'></a><a href='#L421'>421</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">/**
+ * A3 — Paramètres (gabarit « Paramètres » de Wave) : sections Compte · Partager · Aide · Sécurité · Application.
+ * Remplace l'ancienne page Profil.
+ */
+import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
+import { clsx } from 'clsx'
+import {
+  User, Phone, Users2, Share2, HelpCircle, KeyRound, Lock, EyeOff, Download, LogOut, ChevronRight, ShieldCheck, Smartphone, QrCode, MessageCircle, Mail,
+} from 'lucide-react'
+import { ScreenHeader } from '@/components/layout/ScreenHeader'
+import { InitialsAvatar } from '@/components/ui/Section'
+import { Modal } from '@/components/ui/Modal'
+import { useAuth } from '@/hooks/useAuth'
+import { useMesRoles } from '@/hooks/useMe'
+import { useLocalPreference } from '@/hooks/useLocalPreference'
+import { useOnline } from '@/hooks/useOnline'
+import { usePWA } from '@/hooks/usePWA'
+import { userService } from '@/services/userService'
+import { securiteService } from '@/services/securiteService'
+import { useRegenererMonQr } from '@/hooks/useQr'
+import { usePublicConfig } from '@/hooks/usePublicConfig'
+import { InstallSheet } from '@/components/shared/InstallSheet'
+import { formatDateHeure } from '@/lib/format'
+import { clearAll } from '@/lib/tokenStorage'
+import { formatPhoneLocal, toLocalPhone } from '@/lib/phone'
+import { messageErreur } from '@/lib/apiError'
+import { jeCotise, jeGere } from '@/types/me'
+import pkg from '../../../package.json'
+&nbsp;
+type Feuille = 'infos' | 'numero' | 'motdepasse' | 'sessions' | 'qr' | 'aide' | 'deconnexion' | 'changer' | 'installer' | null
+&nbsp;
+export function <span class="fstat-no" title="function not covered" >ParametresPage() {</span>
+  const navigate = <span class="cstat-no" title="statement not covered" >useNavigate()</span>
+  const online = <span class="cstat-no" title="statement not covered" >useOnline()</span>
+  const { logout, logoutComplet } = <span class="cstat-no" title="statement not covered" >useAuth()</span>
+  const roles = <span class="cstat-no" title="statement not covered" >useMesRoles()</span>
+  const { modeInstall } = <span class="cstat-no" title="statement not covered" >usePWA()</span>
+  const [hiddenPref, setHiddenPref] = <span class="cstat-no" title="statement not covered" >useLocalPreference&lt;'0' | '1'&gt;('dinthialma_hide_amount', '0', ['0', '1'] as const)</span>
+  const [feuille, setFeuille] = <span class="cstat-no" title="statement not covered" >useState&lt;Feuille&gt;(null)</span>
+  const { mutate: regenererQr, isPending: regenerationQr } = <span class="cstat-no" title="statement not covered" >useRegenererMonQr()</span>
+  const { data: config } = <span class="cstat-no" title="statement not covered" >usePublicConfig()</span>
+  const { data: profil, isLoading } = <span class="cstat-no" title="statement not covered" >useQuery({ queryKey: ['profile'], <span class="fstat-no" title="function not covered" >queryFn: () =&gt; <span class="cstat-no" title="statement not covered" >u</span>serService.getProfile() }</span>)</span>
+&nbsp;
+  const nom = <span class="cstat-no" title="statement not covered" >profil ? `${profil.firstName} ${profil.lastName}`.trim() : ''</span>
+  const nbGere = <span class="cstat-no" title="statement not covered" >roles.tontines.filter(jeGere).length</span>
+  const nbCotise = <span class="cstat-no" title="statement not covered" >roles.tontines.filter(jeCotise).length</span>
+  const resume = <span class="cstat-no" title="statement not covered" >[</span>
+    nbGere ? `Gestionnaire de ${nbGere} tontine${nbGere &gt; 1 ? 's' : ''}` : null,
+    nbCotise ? `Membre de ${nbCotise}` : null,
+  ].filter(Boolean).join(' · ')
+&nbsp;
+<span class="cstat-no" title="statement not covered" >  return (</span>
+    &lt;div className="min-h-[100dvh] bg-[#f2f3f5]"&gt;
+      &lt;ScreenHeader title="Paramètres" /&gt;
+      &lt;main className="px-4 pb-10 max-w-lg mx-auto space-y-5"&gt;
+        &lt;section className="bg-white rounded-3xl shadow-sm p-5 flex items-center gap-4"&gt;
+          {isLoading ? (
+            &lt;span className="w-16 h-16 rounded-full bg-neutral-100 animate-pulse" /&gt;
+          ) : (
+            &lt;InitialsAvatar name={nom || '?'} size={64} /&gt;
+          )}
+          &lt;div className="min-w-0"&gt;
+            &lt;p className="text-lg font-bold text-neutral-900 truncate"&gt;{nom || '—'}&lt;/p&gt;
+            &lt;p className="text-sm text-neutral-500"&gt;{formatPhoneLocal(profil?.phone)}&lt;/p&gt;
+            {resume &amp;&amp; &lt;p className="text-sm text-neutral-600 mt-0.5"&gt;{resume}&lt;/p&gt;}
+            {profil?.pinConfigured &amp;&amp; (
+              &lt;span className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-primary-50 px-2 py-0.5 text-[11px] font-semibold text-primary-800"&gt;
+                &lt;ShieldCheck size={12} /&gt; Code secret actif
+              &lt;/span&gt;
+            )}
+          &lt;/div&gt;
+        &lt;/section&gt;
+&nbsp;
+        &lt;Section titre="Compte"&gt;
+          &lt;Ligne icon={&lt;User size={20} /&gt;} label="Mes informations" <span class="fstat-no" title="function not covered" >onClick={() =&gt; <span class="cstat-no" title="statement not covered" >s</span>etFeuille('infos')} /&gt;</span>
+          &lt;Ligne icon={&lt;Phone size={20} /&gt;} label="Numéro de téléphone" valeur={formatPhoneLocal(profil?.phone)} <span class="fstat-no" title="function not covered" >onClick={() =&gt; <span class="cstat-no" title="statement not covered" >s</span>etFeuille('numero')} /&gt;</span>
+          &lt;Ligne icon={&lt;Users2 size={20} /&gt;} label="Changer de compte" <span class="fstat-no" title="function not covered" >onClick={() =&gt; <span class="cstat-no" title="statement not covered" >s</span>etFeuille('changer')} /&gt;</span>
+        &lt;/Section&gt;
+&nbsp;
+        &lt;Section titre="Partager"&gt;
+          &lt;Ligne icon={&lt;Share2 size={20} /&gt;} label="Inviter un proche à rejoindre Dinthialma" <span class="fstat-no" title="function not covered" >onClick={() =&gt; <span class="cstat-no" title="statement not covered" >n</span>avigate('/partager')} /&gt;</span>
+        &lt;/Section&gt;
+&nbsp;
+        &lt;Section titre="Aide"&gt;
+          &lt;Ligne icon={&lt;HelpCircle size={20} /&gt;} label="Comment ça marche" <span class="fstat-no" title="function not covered" >onClick={() =&gt; <span class="cstat-no" title="statement not covered" >s</span>etFeuille('aide')} /&gt;</span>
+          {config?.supportWhatsapp &amp;&amp; (
+            &lt;Ligne icon={&lt;MessageCircle size={20} /&gt;} label="Contacter l'assistance sur WhatsApp"
+<span class="fstat-no" title="function not covered" >              onClick={() =&gt; <span class="cstat-no" title="statement not covered" >w</span>indow.open(`https://wa.me/${config.supportWhatsapp!.replace(/\D/g, '')}`, '_blank', 'noopener')} /&gt;</span>
+          )}
+          {config?.supportEmail &amp;&amp; (
+            &lt;Ligne icon={&lt;Mail size={20} /&gt;} label="Écrire à l'assistance" valeur={config.supportEmail}
+<span class="fstat-no" title="function not covered" >              onClick={() =&gt; {</span> <span class="cstat-no" title="statement not covered" >window.location.href = `mailto:${config.supportEmail}` }</span>} /&gt;
+          )}
+        &lt;/Section&gt;
+&nbsp;
+        &lt;Section titre="Sécurité"&gt;
+          &lt;Ligne icon={&lt;KeyRound size={20} /&gt;} label={profil?.pinConfigured ? 'Modifier mon code secret' : 'Créer mon code secret'} <span class="fstat-no" title="function not covered" >onClick={() =&gt; <span class="cstat-no" title="statement not covered" >n</span>avigate('/pin/setup')} /&gt;</span>
+          &lt;Ligne icon={&lt;Lock size={20} /&gt;} label="Modifier mon mot de passe" <span class="fstat-no" title="function not covered" >onClick={() =&gt; <span class="cstat-no" title="statement not covered" >s</span>etFeuille('motdepasse')} /&gt;</span>
+          &lt;Ligne icon={&lt;Smartphone size={20} /&gt;} label="Appareils connectés" <span class="fstat-no" title="function not covered" >onClick={() =&gt; <span class="cstat-no" title="statement not covered" >s</span>etFeuille('sessions')} /&gt;</span>
+          &lt;Ligne icon={&lt;QrCode size={20} /&gt;} label="Régénérer mon QR membre" <span class="fstat-no" title="function not covered" >onClick={() =&gt; <span class="cstat-no" title="statement not covered" >s</span>etFeuille('qr')} /&gt;</span>
+        &lt;/Section&gt;
+&nbsp;
+        &lt;Section titre="Application"&gt;
+          &lt;label className="flex items-center gap-3 px-4 min-h-[56px]"&gt;
+            &lt;span className="text-neutral-600"&gt;&lt;EyeOff size={20} /&gt;&lt;/span&gt;
+            &lt;span className="flex-1 text-[15px] text-neutral-800"&gt;Masquer les montants&lt;/span&gt;
+            &lt;input
+              type="checkbox"
+              checked={hiddenPref === '1'}
+<span class="fstat-no" title="function not covered" >              onChange={(e</span>) =&gt; <span class="cstat-no" title="statement not covered" >setHiddenPref(e.target.checked ? '1' : '0')}</span>
+              className="w-6 h-6 accent-primary-700"
+            /&gt;
+          &lt;/label&gt;
+          {modeInstall !== 'installed' &amp;&amp; (
+            &lt;Ligne
+              icon={&lt;Download size={20} /&gt;}
+              label="Installer l'application"
+<span class="fstat-no" title="function not covered" >              onClick={() =&gt; <span class="cstat-no" title="statement not covered" >s</span>etFeuille('installer')}</span>
+            /&gt;
+          )}
+          &lt;Ligne icon={&lt;LogOut size={20} /&gt;} label="Se déconnecter" danger <span class="fstat-no" title="function not covered" >onClick={() =&gt; <span class="cstat-no" title="statement not covered" >s</span>etFeuille('deconnexion')} /&gt;</span>
+        &lt;/Section&gt;
+&nbsp;
+        &lt;p className="text-center text-xs text-neutral-400"&gt;Dinthialma · version {pkg.version}&lt;/p&gt;
+      &lt;/main&gt;
+&nbsp;
+      {/* Mes informations */}
+      {feuille === 'infos' &amp;&amp; profil &amp;&amp; (
+        &lt;InfosSheet
+          initial={{ firstName: profil.firstName, lastName: profil.lastName, email: profil.email ?? '' }}
+<span class="fstat-no" title="function not covered" >          onClose={() =&gt; <span class="cstat-no" title="statement not covered" >s</span>etFeuille(null)}</span>
+          online={online}
+        /&gt;
+      )}
+      {feuille === 'numero' &amp;&amp; &lt;NumeroSheet <span class="fstat-no" title="function not covered" >onClose={() =&gt; <span class="cstat-no" title="statement not covered" >s</span>etFeuille(null)} online={o</span>nline} /&gt;}
+      {feuille === 'motdepasse' &amp;&amp; &lt;MotDePasseSheet <span class="fstat-no" title="function not covered" >onClose={() =&gt; <span class="cstat-no" title="statement not covered" >s</span>etFeuille(null)} online={o</span>nline} /&gt;}
+      {feuille === 'sessions' &amp;&amp; &lt;SessionsSheet <span class="fstat-no" title="function not covered" >onClose={() =&gt; <span class="cstat-no" title="statement not covered" >s</span>etFeuille(null)} online={o</span>nline} /&gt;}
+&nbsp;
+      &lt;Modal isOpen={feuille === 'aide'} <span class="fstat-no" title="function not covered" >onClose={() =&gt; <span class="cstat-no" title="statement not covered" >s</span>etFeuille(null)} t</span>itle="Comment ça marche" size="sm"&gt;
+        &lt;ol className="space-y-4"&gt;
+          {[
+            ['Rejoignez ou créez', 'Un proche vous ajoute avec votre numéro, ou vous créez votre tontine.'],
+            ['Cotisez à chaque tour', 'Payez par Wave, Orange Money, Free Money ou en espèces, puis appuyez sur « J\'ai payé ».'],
+            ['Le gestionnaire valide', 'Vous recevez une alerte et un reçu.'],
+            ['Recevez le jackpot', 'Quand vient votre tour, la cagnotte est pour vous.'],
+          ].<span class="fstat-no" title="function not covered" >map(([</span>t, d], i) =&gt; (
+<span class="cstat-no" title="statement not covered" >            &lt;li key={t} className="flex gap-3"&gt;</span>
+              &lt;span className="w-8 h-8 rounded-full bg-primary-700 text-white font-bold flex items-center justify-center flex-shrink-0"&gt;{i + 1}&lt;/span&gt;
+              &lt;span&gt;&lt;b className="block text-neutral-900"&gt;{t}&lt;/b&gt;&lt;span className="text-sm text-neutral-600"&gt;{d}&lt;/span&gt;&lt;/span&gt;
+            &lt;/li&gt;
+          ))}
+        &lt;/ol&gt;
+      &lt;/Modal&gt;
+&nbsp;
+      &lt;InstallSheet isOpen={feuille === 'installer'} <span class="fstat-no" title="function not covered" >onClose={() =&gt; <span class="cstat-no" title="statement not covered" >s</span>etFeuille(null)} /&gt;</span>
+&nbsp;
+      &lt;Modal isOpen={feuille === 'qr'} <span class="fstat-no" title="function not covered" >onClose={() =&gt; <span class="cstat-no" title="statement not covered" >s</span>etFeuille(null)} t</span>itle="Régénérer mon QR ?" size="sm"&gt;
+        &lt;p className="text-neutral-600"&gt;Utile si une photo de votre QR a circulé : l'ancien QR ne fonctionnera plus.&lt;/p&gt;
+        &lt;div className="mt-5 grid grid-cols-2 gap-3"&gt;
+          &lt;button <span class="fstat-no" title="function not covered" >onClick={() =&gt; <span class="cstat-no" title="statement not covered" >s</span>etFeuille(null)} c</span>lassName="h-12 rounded-full bg-neutral-100 font-semibold"&gt;Annuler&lt;/button&gt;
+          &lt;button
+<span class="fstat-no" title="function not covered" >            onClick={() =&gt; <span class="cstat-no" title="statement not covered" >r</span>egenererQr(undefined, {</span>
+<span class="fstat-no" title="function not covered" >              onSuccess: () =&gt; {</span> <span class="cstat-no" title="statement not covered" >toast.success('Nouveau QR créé'); <span class="cstat-no" title="statement not covered" >s</span>etFeuille(null) }</span>,
+<span class="fstat-no" title="function not covered" >              onError: (e</span>rr) =&gt; <span class="cstat-no" title="statement not covered" >toast.error(messageErreur(err, 'La régénération a échoué.')),</span>
+            })}
+            disabled={regenerationQr || !online}
+            className="h-12 rounded-full bg-primary-700 text-white font-bold disabled:opacity-50"
+          &gt;
+            {regenerationQr ? '…' : 'Régénérer'}
+          &lt;/button&gt;
+        &lt;/div&gt;
+      &lt;/Modal&gt;
+&nbsp;
+      &lt;Modal isOpen={feuille === 'changer'} <span class="fstat-no" title="function not covered" >onClose={() =&gt; <span class="cstat-no" title="statement not covered" >s</span>etFeuille(null)} t</span>itle="Changer de compte ?" size="sm"&gt;
+        &lt;p className="text-neutral-600"&gt;Vous serez déconnecté et cet appareil sera oublié. Vous pourrez vous connecter avec un autre numéro.&lt;/p&gt;
+        &lt;div className="mt-5 grid grid-cols-2 gap-3"&gt;
+          &lt;button <span class="fstat-no" title="function not covered" >onClick={() =&gt; <span class="cstat-no" title="statement not covered" >s</span>etFeuille(null)} c</span>lassName="h-12 rounded-full bg-neutral-100 font-semibold"&gt;Annuler&lt;/button&gt;
+          &lt;button <span class="fstat-no" title="function not covered" >onClick={() =&gt; <span class="cstat-no" title="statement not covered" >l</span>ogoutComplet()} c</span>lassName="h-12 rounded-full bg-primary-700 text-white font-bold"&gt;Changer&lt;/button&gt;
+        &lt;/div&gt;
+      &lt;/Modal&gt;
+&nbsp;
+      &lt;Modal isOpen={feuille === 'deconnexion'} <span class="fstat-no" title="function not covered" >onClose={() =&gt; <span class="cstat-no" title="statement not covered" >s</span>etFeuille(null)} t</span>itle="Se déconnecter" size="sm"&gt;
+        &lt;div className="space-y-3"&gt;
+          &lt;button <span class="fstat-no" title="function not covered" >onClick={() =&gt; <span class="cstat-no" title="statement not covered" >l</span>ogout()} c</span>lassName="w-full rounded-2xl border-2 border-neutral-200 p-4 text-left"&gt;
+            &lt;b className="block text-neutral-900"&gt;Garder cet appareil&lt;/b&gt;
+            &lt;span className="text-sm text-neutral-600"&gt;Vous reviendrez avec votre code secret.&lt;/span&gt;
+          &lt;/button&gt;
+          &lt;button <span class="fstat-no" title="function not covered" >onClick={() =&gt; <span class="cstat-no" title="statement not covered" >l</span>ogoutComplet()} c</span>lassName="w-full rounded-2xl border-2 border-red-200 p-4 text-left"&gt;
+            &lt;b className="block text-red-700"&gt;Oublier cet appareil&lt;/b&gt;
+            &lt;span className="text-sm text-neutral-600"&gt;Recommandé sur un téléphone partagé. Il faudra votre mot de passe.&lt;/span&gt;
+          &lt;/button&gt;
+        &lt;/div&gt;
+      &lt;/Modal&gt;
+    &lt;/div&gt;
+  )
+}
+&nbsp;
+// ─── Feuilles ────────────────────────────────────────────────────────────────
+&nbsp;
+const champ = <span class="cstat-no" title="statement not covered" >'mt-1 w-full h-12 px-4 rounded-2xl bg-neutral-100 text-[16px] outline-none focus:ring-2 focus:ring-primary-600'</span>
+&nbsp;
+function <span class="fstat-no" title="function not covered" >InfosSheet({</span> initial, onClose, online }: { initial: { firstName: string; lastName: string; email: string }; onClose: () =&gt; void; online: boolean }) {
+  const qc = <span class="cstat-no" title="statement not covered" >useQueryClient()</span>
+  const [v, setV] = <span class="cstat-no" title="statement not covered" >useState(initial)</span>
+  const erreurs = <span class="cstat-no" title="statement not covered" >{</span>
+    firstName: v.firstName.trim().length &lt; 2 ? 'Au moins 2 caractères' : v.firstName.trim().length &gt; 50 ? '50 caractères maximum' : null,
+    lastName: v.lastName.trim().length &lt; 2 ? 'Au moins 2 caractères' : v.lastName.trim().length &gt; 50 ? '50 caractères maximum' : null,
+    email: v.email &amp;&amp; !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.email) ? 'Email invalide' : null,
+  }
+  const invalide = <span class="cstat-no" title="statement not covered" >Object.values(erreurs).some(Boolean)</span>
+  const { mutate, isPending } = <span class="cstat-no" title="statement not covered" >useMutation({</span>
+<span class="fstat-no" title="function not covered" >    mutationFn: () =&gt; <span class="cstat-no" title="statement not covered" >u</span>serService.updateProfile({ firstName: v.firstName.trim(), lastName: v.lastName.trim(), email: v.email.trim() || undefined }),</span>
+<span class="fstat-no" title="function not covered" >    onSuccess: () =&gt; {</span> <span class="cstat-no" title="statement not covered" >qc.invalidateQueries({ queryKey: ['profile'] }); <span class="cstat-no" title="statement not covered" >t</span>oast.success('Enregistré'); <span class="cstat-no" title="statement not covered" >o</span>nClose() }</span>,
+<span class="fstat-no" title="function not covered" >    onError: () =&gt; <span class="cstat-no" title="statement not covered" >t</span>oast.error("L'enregistrement a échoué"),</span>
+  })
+<span class="cstat-no" title="statement not covered" >  return (</span>
+    &lt;Modal isOpen onClose={onClose} title="Mes informations" size="sm"&gt;
+      &lt;div className="space-y-3"&gt;
+        {(['firstName', 'lastName'] as const).<span class="fstat-no" title="function not covered" >map((k</span>) =&gt; (
+<span class="cstat-no" title="statement not covered" >          &lt;label key={k} className="block"&gt;</span>
+            &lt;span className="text-sm font-semibold text-neutral-700"&gt;{k === 'firstName' ? 'Prénom' : 'Nom'}&lt;/span&gt;
+            &lt;input value={v[k]} <span class="fstat-no" title="function not covered" >onChange={(e</span>) =&gt; <span class="cstat-no" title="statement not covered" >setV({ ...v, [k]: e.target.value })} a</span>utoCapitalize="words" className={champ} /&gt;
+            {erreurs[k] &amp;&amp; &lt;span className="text-sm text-red-700"&gt;{erreurs[k]}&lt;/span&gt;}
+          &lt;/label&gt;
+        ))}
+        &lt;label className="block"&gt;
+          &lt;span className="text-sm font-semibold text-neutral-700"&gt;Email (facultatif)&lt;/span&gt;
+          &lt;input value={v.email} <span class="fstat-no" title="function not covered" >onChange={(e</span>) =&gt; <span class="cstat-no" title="statement not covered" >setV({ ...v, email: e.target.value })} t</span>ype="email" inputMode="email" className={champ} /&gt;
+          {erreurs.email &amp;&amp; &lt;span className="text-sm text-red-700"&gt;{erreurs.email}&lt;/span&gt;}
+        &lt;/label&gt;
+        &lt;button <span class="fstat-no" title="function not covered" >onClick={() =&gt; <span class="cstat-no" title="statement not covered" >m</span>utate()} d</span>isabled={invalide || isPending || !online} className="w-full h-14 rounded-full bg-primary-700 text-white text-[17px] font-bold disabled:opacity-50"&gt;
+          {isPending ? 'Enregistrement…' : 'Enregistrer'}
+        &lt;/button&gt;
+      &lt;/div&gt;
+    &lt;/Modal&gt;
+  )
+}
+&nbsp;
+function <span class="fstat-no" title="function not covered" >NumeroSheet({</span> onClose, online }: { onClose: () =&gt; void; online: boolean }) {
+  const [etape, setEtape] = <span class="cstat-no" title="statement not covered" >useState&lt;1 | 2&gt;(1)</span>
+  const [numero, setNumero] = <span class="cstat-no" title="statement not covered" >useState('')</span>
+  const [code, setCode] = <span class="cstat-no" title="statement not covered" >useState('')</span>
+  const [chargement, setChargement] = <span class="cstat-no" title="statement not covered" >useState(false)</span>
+  const [erreur, setErreur] = <span class="cstat-no" title="statement not covered" >useState&lt;string | null&gt;(null)</span>
+  const local = <span class="cstat-no" title="statement not covered" >toLocalPhone(numero)</span>
+  const e164 = <span class="cstat-no" title="statement not covered" >`+221${local}`</span>
+&nbsp;
+  const envoyer = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >async () =&gt; {</span></span>
+<span class="cstat-no" title="statement not covered" >    if (local.length !== 9) { <span class="cstat-no" title="statement not covered" >setErreur('Numéro à 9 chiffres'); <span class="cstat-no" title="statement not covered" >r</span>eturn }</span></span>
+<span class="cstat-no" title="statement not covered" >    setChargement(true); <span class="cstat-no" title="statement not covered" >s</span>etErreur(null)</span>
+<span class="cstat-no" title="statement not covered" >    try {</span>
+<span class="cstat-no" title="statement not covered" >      await userService.requestPhoneChange({ newPhone: e164 })</span>
+<span class="cstat-no" title="statement not covered" >      setEtape(2)</span>
+    } catch (err) {
+<span class="cstat-no" title="statement not covered" >      setErreur(messageErreur(err, "Impossible d'envoyer le code."))</span>
+    } finally { <span class="cstat-no" title="statement not covered" >setChargement(false) }</span>
+  }
+  const verifier = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >async () =&gt; {</span></span>
+<span class="cstat-no" title="statement not covered" >    if (!/^\d{6}$/.test(code)) { <span class="cstat-no" title="statement not covered" >setErreur('Code à 6 chiffres'); <span class="cstat-no" title="statement not covered" >r</span>eturn }</span></span>
+<span class="cstat-no" title="statement not covered" >    setChargement(true); <span class="cstat-no" title="statement not covered" >s</span>etErreur(null)</span>
+<span class="cstat-no" title="statement not covered" >    try {</span>
+<span class="cstat-no" title="statement not covered" >      await userService.verifyPhoneChange({ newPhone: e164, code })</span>
+<span class="cstat-no" title="statement not covered" >      toast.success('Numéro modifié — reconnectez-vous avec le nouveau numéro')</span>
+<span class="cstat-no" title="statement not covered" >      clearAll()</span>
+<span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >      setTimeout(() =&gt; {</span> <span class="cstat-no" title="statement not covered" >window.location.href = '/login' }</span>, 1200)</span>
+    } catch {
+<span class="cstat-no" title="statement not covered" >      setErreur('Code incorrect ou expiré.')</span>
+<span class="cstat-no" title="statement not covered" >      setChargement(false)</span>
+    }
+  }
+&nbsp;
+<span class="cstat-no" title="statement not covered" >  return (</span>
+    &lt;Modal isOpen onClose={onClose} title="Changer de numéro" size="sm"&gt;
+      {etape === 1 ? (
+        &lt;div className="space-y-3"&gt;
+          &lt;p className="text-sm text-neutral-600"&gt;Un code sera envoyé par SMS sur le nouveau numéro.&lt;/p&gt;
+          &lt;div className="flex gap-2"&gt;
+            &lt;span className="h-12 px-3 rounded-2xl bg-neutral-100 flex items-center font-semibold"&gt;+221&lt;/span&gt;
+            &lt;input value={numero} <span class="fstat-no" title="function not covered" >onChange={(e</span>) =&gt; <span class="cstat-no" title="statement not covered" >setNumero(e.target.value.replace(/[^\d ]/g, ''))} i</span>nputMode="tel" autoComplete="tel" placeholder="77 123 45 67" className="flex-1 h-12 px-4 rounded-2xl bg-neutral-100 text-[16px] outline-none focus:ring-2 focus:ring-primary-600" /&gt;
+          &lt;/div&gt;
+          {erreur &amp;&amp; &lt;p role="alert" className="text-sm text-red-700"&gt;{erreur}&lt;/p&gt;}
+          &lt;button onClick={envoyer} disabled={chargement || !online} className="w-full h-14 rounded-full bg-primary-700 text-white text-[17px] font-bold disabled:opacity-50"&gt;
+            {chargement ? 'Envoi…' : 'Recevoir le code'}
+          &lt;/button&gt;
+        &lt;/div&gt;
+      ) : (
+        &lt;div className="space-y-3"&gt;
+          &lt;p className="text-sm text-neutral-600"&gt;Code envoyé au &lt;b&gt;{formatPhoneLocal(local)}&lt;/b&gt;. Vous devrez ensuite vous reconnecter.&lt;/p&gt;
+          &lt;input value={code} <span class="fstat-no" title="function not covered" >onChange={(e</span>) =&gt; <span class="cstat-no" title="statement not covered" >setCode(e.target.value.replace(/\D/g, '').slice(0, 6))} i</span>nputMode="numeric" autoComplete="one-time-code" placeholder="123456" autoFocus className={clsx(champ, 'text-center tracking-[0.4em] text-xl')} aria-label="Code reçu par SMS" /&gt;
+          {erreur &amp;&amp; &lt;p role="alert" className="text-sm text-red-700"&gt;{erreur}&lt;/p&gt;}
+          &lt;button onClick={verifier} disabled={chargement || code.length !== 6} className="w-full h-14 rounded-full bg-primary-700 text-white text-[17px] font-bold disabled:opacity-50"&gt;
+            {chargement ? 'Vérification…' : 'Confirmer'}
+          &lt;/button&gt;
+          &lt;button <span class="fstat-no" title="function not covered" >onClick={() =&gt; {</span> <span class="cstat-no" title="statement not covered" >setEtape(1); <span class="cstat-no" title="statement not covered" >s</span>etCode('') }</span>} className="w-full h-11 text-sm font-semibold text-neutral-600"&gt;Modifier le numéro&lt;/button&gt;
+        &lt;/div&gt;
+      )}
+    &lt;/Modal&gt;
+  )
+}
+&nbsp;
+function <span class="fstat-no" title="function not covered" >MotDePasseSheet({</span> onClose, online }: { onClose: () =&gt; void; online: boolean }) {
+  const [ancien, setAncien] = <span class="cstat-no" title="statement not covered" >useState('')</span>
+  const [nouveau, setNouveau] = <span class="cstat-no" title="statement not covered" >useState('')</span>
+  const [autres, setAutres] = <span class="cstat-no" title="statement not covered" >useState(true)</span>
+  const [voir, setVoir] = <span class="cstat-no" title="statement not covered" >useState(false)</span>
+  const [chargement, setChargement] = <span class="cstat-no" title="statement not covered" >useState(false)</span>
+  const [erreur, setErreur] = <span class="cstat-no" title="statement not covered" >useState&lt;string | null&gt;(null)</span>
+&nbsp;
+  const valider = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >async () =&gt; {</span></span>
+<span class="cstat-no" title="statement not covered" >    if (!ancien) { <span class="cstat-no" title="statement not covered" >setErreur('Indiquez votre mot de passe actuel.'); <span class="cstat-no" title="statement not covered" >r</span>eturn }</span></span>
+<span class="cstat-no" title="statement not covered" >    if (nouveau.length &lt; 8) { <span class="cstat-no" title="statement not covered" >setErreur('Au moins 8 caractères.'); <span class="cstat-no" title="statement not covered" >r</span>eturn }</span></span>
+<span class="cstat-no" title="statement not covered" >    setChargement(true); <span class="cstat-no" title="statement not covered" >s</span>etErreur(null)</span>
+<span class="cstat-no" title="statement not covered" >    try {</span>
+<span class="cstat-no" title="statement not covered" >      await securiteService.changerMotDePasse(ancien, nouveau, autres)</span>
+<span class="cstat-no" title="statement not covered" >      toast.success(autres ? 'Mot de passe modifié · autres appareils déconnectés' : 'Mot de passe modifié')</span>
+<span class="cstat-no" title="statement not covered" >      onClose()</span>
+    } catch (err) {
+<span class="cstat-no" title="statement not covered" >      setErreur(messageErreur(err, "Le mot de passe n'a pas pu être modifié."))</span>
+    } finally { <span class="cstat-no" title="statement not covered" >setChargement(false) }</span>
+  }
+&nbsp;
+<span class="cstat-no" title="statement not covered" >  return (</span>
+    &lt;Modal isOpen onClose={onClose} title="Modifier mon mot de passe" size="sm"&gt;
+      &lt;div className="space-y-3"&gt;
+        &lt;input value={ancien} <span class="fstat-no" title="function not covered" >onChange={(e</span>) =&gt; <span class="cstat-no" title="statement not covered" >setAncien(e.target.value)} t</span>ype={voir ? 'text' : 'password'} autoComplete="current-password" placeholder="Mot de passe actuel" className={champ} aria-label="Mot de passe actuel" /&gt;
+        &lt;input value={nouveau} <span class="fstat-no" title="function not covered" >onChange={(e</span>) =&gt; <span class="cstat-no" title="statement not covered" >setNouveau(e.target.value)} t</span>ype={voir ? 'text' : 'password'} autoComplete="new-password" placeholder="Nouveau mot de passe (8 caractères min.)" className={champ} aria-label="Nouveau mot de passe" /&gt;
+        &lt;label className="flex items-center gap-2 text-sm text-neutral-700"&gt;
+          &lt;input type="checkbox" checked={voir} <span class="fstat-no" title="function not covered" >onChange={(e</span>) =&gt; <span class="cstat-no" title="statement not covered" >setVoir(e.target.checked)} c</span>lassName="w-5 h-5 accent-primary-700" /&gt; Afficher
+        &lt;/label&gt;
+        &lt;label className="flex items-start gap-2 text-sm text-neutral-700"&gt;
+          &lt;input type="checkbox" checked={autres} <span class="fstat-no" title="function not covered" >onChange={(e</span>) =&gt; <span class="cstat-no" title="statement not covered" >setAutres(e.target.checked)} c</span>lassName="mt-0.5 w-5 h-5 accent-primary-700" /&gt;
+          Déconnecter mes autres appareils
+        &lt;/label&gt;
+        {erreur &amp;&amp; &lt;p role="alert" className="text-sm text-red-700"&gt;{erreur}&lt;/p&gt;}
+        &lt;button onClick={valider} disabled={chargement || !online} className="w-full h-14 rounded-full bg-primary-700 text-white text-[17px] font-bold disabled:opacity-50"&gt;
+          {chargement ? 'Enregistrement…' : 'Enregistrer'}
+        &lt;/button&gt;
+      &lt;/div&gt;
+    &lt;/Modal&gt;
+  )
+}
+&nbsp;
+function <span class="fstat-no" title="function not covered" >SessionsSheet({</span> onClose, online }: { onClose: () =&gt; void; online: boolean }) {
+  const qc = <span class="cstat-no" title="statement not covered" >useQueryClient()</span>
+  const { data, isLoading, isError, refetch } = <span class="cstat-no" title="statement not covered" >useQuery({ queryKey: ['me', 'sessions'], <span class="fstat-no" title="function not covered" >queryFn: () =&gt; <span class="cstat-no" title="statement not covered" >s</span>ecuriteService.listSessions() }</span>)</span>
+  const { mutate: revoquer, isPending, variables } = <span class="cstat-no" title="statement not covered" >useMutation({</span>
+<span class="fstat-no" title="function not covered" >    mutationFn: (i</span>d: string) =&gt; <span class="cstat-no" title="statement not covered" >securiteService.revoquerSession(id),</span>
+<span class="fstat-no" title="function not covered" >    onSuccess: (_</span>, id) =&gt; {
+      const courante = <span class="cstat-no" title="statement not covered" >data?.<span class="fstat-no" title="function not covered" >find((s</span>) =&gt; <span class="cstat-no" title="statement not covered" >s.id === id)</span>?.courante</span>
+<span class="cstat-no" title="statement not covered" >      if (courante) {</span>
+        // Révoquer la session courante = se déconnecter : on vide l'état local
+<span class="cstat-no" title="statement not covered" >        clearAll()</span>
+<span class="cstat-no" title="statement not covered" >        window.location.href = '/login'</span>
+<span class="cstat-no" title="statement not covered" >        return</span>
+      }
+<span class="cstat-no" title="statement not covered" >      qc.invalidateQueries({ queryKey: ['me', 'sessions'] })</span>
+<span class="cstat-no" title="statement not covered" >      toast.success('Appareil déconnecté')</span>
+    },
+<span class="fstat-no" title="function not covered" >    onError: (e</span>rr) =&gt; <span class="cstat-no" title="statement not covered" >toast.error(messageErreur(err, 'La déconnexion a échoué.')),</span>
+  })
+&nbsp;
+<span class="cstat-no" title="statement not covered" >  return (</span>
+    &lt;Modal isOpen onClose={onClose} title="Appareils connectés" size="sm"&gt;
+      &lt;p className="text-sm text-neutral-600"&gt;Une seule session par type d'appareil (web, application) : une nouvelle connexion remplace l'ancienne.&lt;/p&gt;
+      {isLoading ? (
+        &lt;div className="mt-3 space-y-2" aria-busy="true"&gt;{[0, 1].<span class="fstat-no" title="function not covered" >map((i</span>) =&gt; <span class="cstat-no" title="statement not covered" >&lt;div key={i} className="h-16 rounded-2xl bg-neutral-100 animate-pulse" /&gt;)</span>}&lt;/div&gt;
+      ) : isError ? (
+        &lt;button <span class="fstat-no" title="function not covered" >onClick={() =&gt; <span class="cstat-no" title="statement not covered" >r</span>efetch()} c</span>lassName="mt-3 h-11 px-4 rounded-full bg-neutral-100 text-sm font-semibold"&gt;Réessayer&lt;/button&gt;
+      ) : (
+        &lt;ul className="mt-3 space-y-2"&gt;
+          {(data ?? []).<span class="fstat-no" title="function not covered" >map((s</span>) =&gt; (
+<span class="cstat-no" title="statement not covered" >            &lt;li key={s.id} className="flex items-center gap-3 rounded-2xl border border-neutral-200 px-3 py-3"&gt;</span>
+              &lt;span className="min-w-0 flex-1"&gt;
+                &lt;span className="block font-semibold text-neutral-900 truncate"&gt;{s.deviceInfo || (s.clientType === 'MOBILE' ? 'Application' : 'Navigateur')}&lt;/span&gt;
+                &lt;span className="block text-xs text-neutral-500"&gt;
+                  {s.clientType === 'MOBILE' ? 'Application' : 'Web'}
+                  {s.courante ? ' · cet appareil' : ''}
+                  {s.expiree ? ' · expirée' : s.derniereActivite ? ` · actif ${formatDateHeure(s.derniereActivite)}` : ''}
+                &lt;/span&gt;
+              &lt;/span&gt;
+              &lt;button
+<span class="fstat-no" title="function not covered" >                onClick={() =&gt; <span class="cstat-no" title="statement not covered" >r</span>evoquer(s.id)}</span>
+                disabled={!online || (isPending &amp;&amp; variables === s.id)}
+                className="h-9 px-3 rounded-full text-xs font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50"
+              &gt;
+                {s.courante ? 'Me déconnecter' : 'Déconnecter'}
+              &lt;/button&gt;
+            &lt;/li&gt;
+          ))}
+          {(data ?? []).length === 0 &amp;&amp; &lt;li className="text-sm text-neutral-500"&gt;Aucune session active.&lt;/li&gt;}
+        &lt;/ul&gt;
+      )}
+    &lt;/Modal&gt;
+  )
+}
+&nbsp;
+// ─── Mise en page ────────────────────────────────────────────────────────────
+&nbsp;
+function <span class="fstat-no" title="function not covered" >Section({</span> titre, children }: { titre: string; children: React.ReactNode }) {
+<span class="cstat-no" title="statement not covered" >  return (</span>
+    &lt;section&gt;
+      &lt;h2 className="px-1 mb-2 text-sm font-semibold text-neutral-500"&gt;{titre}&lt;/h2&gt;
+      &lt;div className="bg-white rounded-3xl shadow-sm divide-y divide-neutral-100 overflow-hidden"&gt;{children}&lt;/div&gt;
+    &lt;/section&gt;
+  )
+}
+&nbsp;
+function <span class="fstat-no" title="function not covered" >Ligne({</span> icon, label, valeur, onClick, danger }: { icon: JSX.Element; label: string; valeur?: string; onClick: () =&gt; void; danger?: boolean }) {
+<span class="cstat-no" title="statement not covered" >  return (</span>
+    &lt;button onClick={onClick} className="w-full flex items-center gap-3 px-4 min-h-[56px] text-left hover:bg-neutral-50"&gt;
+      &lt;span className={danger ? 'text-red-600' : 'text-neutral-600'}&gt;{icon}&lt;/span&gt;
+      &lt;span className={clsx('flex-1 text-[15px]', danger ? 'text-red-700 font-medium' : 'text-neutral-800')}&gt;{label}&lt;/span&gt;
+      {valeur &amp;&amp; &lt;span className="text-sm text-neutral-500"&gt;{valeur}&lt;/span&gt;}
+      {!danger &amp;&amp; &lt;ChevronRight size={18} className="text-neutral-300" /&gt;}
+    &lt;/button&gt;
+  )
+}
+&nbsp;</pre></td></tr></table></pre>
+
+                <div class='push'></div><!-- for sticky footer -->
+            </div><!-- /wrapper -->
+            <div class='footer quiet pad2 space-top1 center small'>
+                Code coverage generated by
+                <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
+                at 2026-11-17T10:12:28.036Z
+            </div>
+        <script src="../../../prettify.js"></script>
+        <script>
+            window.onload = function () {
+                prettyPrint();
+            };
+        </script>
+        <script src="../../../sorter.js"></script>
+        <script src="../../../block-navigation.js"></script>
+    </body>
+</html>
+    
