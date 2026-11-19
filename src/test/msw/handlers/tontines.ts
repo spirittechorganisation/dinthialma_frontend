@@ -13,6 +13,11 @@ export const tontinesHandlers = [
     const body = await request.json() as Record<string, unknown>
     return ok(uneTontine({ id: 't-new', nom: String(body.nom ?? 'Nouvelle') }))
   }),
+  // Avant `/v1/tontines/:id` : MSW prend la première route qui correspond, et « simulation »
+  // serait sinon lu comme un identifiant de tontine.
+  http.get(`${API}/v1/tontines/simulation`, () =>
+    ok({ nombreTours: 12, cotisationsParTour: 1, echeances: [], tours: [] }),
+  ),
   http.get(`${API}/v1/tontines/:id`, ({ params }) =>
     ok(uneTontine({ id: String(params.id), nom: 'Famille' })),
   ),
@@ -34,9 +39,6 @@ export const tontinesHandlers = [
   ),
   http.patch(`${API}/v1/tontines/:id/reglages`, ({ params }) =>
     ok(uneTontine({ id: String(params.id) })),
-  ),
-  http.get(`${API}/v1/tontines/simulation`, () =>
-    ok({ nombreTours: 12, cotisationsParTour: 1, echeances: [], tours: [] }),
   ),
   // Commissions
   http.get(`${API}/v1/tontines/:tontineId/commissions`, () => page([uneCommission()])),

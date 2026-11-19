@@ -14,6 +14,9 @@ export default mergeConfig(
       include: ['src/**/*.test.{ts,tsx}', 'src/**/*.spec.{ts,tsx}'],
       css: false,
       globals: false,
+      // Parcours d'écran complets (création de tontine, validation par lots) : 5 s par défaut ne
+      // suffisent pas quand toute la suite tourne en parallèle (échecs aléatoires le 19/11/2026).
+      testTimeout: 20_000,
       env: {
         VITE_API_URL: 'http://api.test',
       },

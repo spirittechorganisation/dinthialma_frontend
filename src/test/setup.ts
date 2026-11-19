@@ -8,9 +8,14 @@
  * - Simule le module virtuel vite-plugin-pwa (`virtual:pwa-register/react`).
  */
 import '@testing-library/jest-dom/vitest'
-import { cleanup } from '@testing-library/react'
+import { cleanup, configure } from '@testing-library/react'
 import { afterAll, afterEach, beforeAll, vi } from 'vitest'
 import { server } from './msw/server'
+
+// ─── Délai des findBy / waitFor ──────────────────────────────────────────────
+// 1 s par défaut : trop court pour un écran complet quand toute la suite tourne en parallèle
+// (échecs aléatoires constatés le 19/11/2026). Un test réellement cassé échoue quand même.
+configure({ asyncUtilTimeout: 5_000 })
 
 // ─── MSW ─────────────────────────────────────────────────────────────────────
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }))

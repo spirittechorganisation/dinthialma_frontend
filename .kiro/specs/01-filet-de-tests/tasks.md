@@ -103,11 +103,15 @@
   - PIN : soumission automatique à 6 chiffres, PIN faux, PIN verrouillé.
   - Inscription en 3 étapes (téléphone → OTP → identité) avec corps envoyés à chaque étape.
   - _Exigences : 4.1, 4.2, 4.4_
-- [ ] 4.2 Création de tontine (`CreerTontinePage`)
+- [x] 4.2 Création de tontine (`CreerTontinePage`)
   - Rotative en 4 étapes → corps POST `/v1/tontines` complet (type, nom, montant, rythme, jour et heure limites, membres, gagnants, cotisations par tour, déclenchement, commission).
   - Événementielle en 3 étapes (date d'événement, montant libre, minimum).
   - Chaque message d'erreur de validation des étapes 1 à 4 (objectif manquant, montant nul, membres hors 2–100, gagnants ≥ membres, nom trop court ou trop long, commission invalide, frais ≥ jackpot).
   - Calendrier issu de la simulation affiché ; hors connexion → création impossible ; écran de succès ; erreur backend affichée.
+  - _Fait (19/11/2026) : `CreerTontinePage.test.tsx` (31 tests), y compris paramètres de la simulation et renouvellement
+    de session. Trois messages sont inatteignables (bouton inactif ou saisie bornée) : objectif manquant, membres hors
+    2–100, nom de plus de 150 caractères ; le test fige le garde-fou à la place. Handlers MSW : `simulation` déclaré
+    avant `/v1/tontines/:id`._
   - _Exigences : 4.1, 4.2, 4.4_
 - [x] 4.3 Paiement (`PayerPage`, `RecuPage`)
   - Choix de la tontine ; montant prérempli ; tour à plusieurs échéances (B32) ; régularisation d'une échéance passée (B33) ; moyen de paiement mémorisé.
