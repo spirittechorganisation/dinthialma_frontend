@@ -41,6 +41,10 @@ COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY nginx/security-headers.conf /etc/nginx/security-headers.conf
 COPY --from=builder /app/dist /usr/share/nginx/html
 
+# Configuration nginx vérifiée dès le build : une erreur fait échouer l'image
+# (et donc le « déploiement à blanc » de la CI) au lieu de casser la production.
+RUN nginx -t
+
 EXPOSE 80
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
