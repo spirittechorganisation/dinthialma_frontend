@@ -73,7 +73,7 @@
   - _Exigences : 2.1, 2.2, 2.3_
 
 - [ ] 3. Tests d'intégration de la couche API (MSW)
-- [ ] 3.1 Client HTTP `services/api.ts`
+- [x] 3.1 Client HTTP `services/api.ts`
   - Ajoute `Authorization: Bearer <jeton>` quand un jeton existe, rien sinon.
   - 401 → un seul appel à `/v1/auth/refresh`, puis la requête est rejouée avec le nouveau jeton.
   - Trois requêtes en 401 simultanées → un seul refresh, les trois sont rejouées.
@@ -81,6 +81,8 @@
   - Routes `/v1/auth/login`, `register`, `refresh`, `logout` : pas de refresh sur 401.
   - 403 → erreur remontée, aucune déconnexion.
   - Paramètres tableaux sérialisés en `statut=A&statut=B`.
+  - _Fait (19/11/2026) : `src/services/api.test.ts`, 26 tests. BUG documenté : sans refresh token, `isRefreshing`
+    reste à true (sortie avant le `finally`) et les 401 suivants restent bloqués jusqu'au rechargement de la page._
   - _Exigences : 3.1_
 - [ ] 3.2 Services (tests en tableau : appel → requête attendue → valeur retournée)
   - `authService`, `meService`, `tontineService`, `cycleService`, `cotisationService`, `membreService`, `validationService` (y compris `validerPlusieurs` et `refuser` avec motif), `qrService`, `prioriteService`, `notificationService`, `securiteService`, `userService`, `codeListService`, `dashboardService`.
