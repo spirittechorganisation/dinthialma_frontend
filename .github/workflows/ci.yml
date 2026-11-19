@@ -1,0 +1,69 @@
+# Intégration continue : vérifie chaque PR avant le merge (spec 01 tâche 5.2, spec 03 tâche 4).
+#
+# Flux : sous-branche → develop → main. Ce workflow tourne sur toute PR vers develop
+# ou main, quel que soit le préfixe de la branche (feature/, fix/, chore/, dependabot/…).
+# Il ne déploie rien : le déploiement reste dans docker-publish.yml (push sur main).
+#
+# À compléter quand la branche feature/front-filet-de-tests (spec 01) sera mergée :
+#   - `npm run lint` (ESLint 9+ et eslint.config.js n'existent pas encore sur develop)
+#   - `npm run test:coverage` + rapport de couverture en artefact
+#   - `node-version-file: .nvmrc` (Node 24, tâche 3.1 de la spec 03)
+
+name: CI – Frontend
+
+on:
+  pull_request:
+    branches: [develop, main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualite:
+    name: Qualité (typage + build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          # Même version que l'image de build du Dockerfile (node:20-alpine)
+          node-version: 20
+          cache: npm
+
+      - name: Installation (lock respecté)
+        run: npm ci
+
+      - name: Vérification des types
+        run: npx tsc --noEmit
+
+      - name: Build de production
+        run: npm run build
+
+  securite:
+    name: Sécurité des dépendances
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 20
+
+      # Bloquant sur les vulnérabilités CRITIQUES des dépendances de production.
+      # Seuil provisoire : zod 3 porte une vulnérabilité élevée (GHSA-mrhx-c7xc-m3w5)
+      # corrigée par la montée en zod 4 (spec 03, tâche 6.1). Passer à
+      # --audit-level=high une fois cette tâche faite.
+      - name: Audit des dépendances de production (critique = bloquant)
+        run: npm audit --omit=dev --audit-level=critical
+
+      - name: Rapport complet (non bloquant)
+        if: always()
+        run: npm audit --omit=dev || true
