@@ -109,10 +109,13 @@
   - Chaque message d'erreur de validation des étapes 1 à 4 (objectif manquant, montant nul, membres hors 2–100, gagnants ≥ membres, nom trop court ou trop long, commission invalide, frais ≥ jackpot).
   - Calendrier issu de la simulation affiché ; hors connexion → création impossible ; écran de succès ; erreur backend affichée.
   - _Exigences : 4.1, 4.2, 4.4_
-- [ ] 4.3 Paiement (`PayerPage`, `RecuPage`)
+- [x] 4.3 Paiement (`PayerPage`, `RecuPage`)
   - Choix de la tontine ; montant prérempli ; tour à plusieurs échéances (B32) ; régularisation d'une échéance passée (B33) ; moyen de paiement mémorisé.
   - Erreurs : cotisation déjà déclarée (409), hors connexion, erreur serveur.
   - Reçu : affichage, partage, modification si encore en attente.
+  - _Fait (19/11/2026) : `PayerPage.test.tsx` (26 tests) et `RecuPage.test.tsx` (19 tests), y compris retards du tour
+    en cours, montant libre, validation / refus / modification par le gestionnaire. Outil partagé ajouté :
+    `src/test/router.tsx` (`<Emplacement />`, `<Depart />`)._
   - _Exigences : 4.1, 4.2, 4.4_
 - [ ] 4.4 Validation (`AValiderPage`)
   - Liste groupée par tontine ; valider avec annulation possible pendant 5 s (faux timers) ; « Tout valider » avec échec partiel ; refuser avec motif obligatoire ; demandes d'adhésion acceptées et refusées.
