@@ -4,7 +4,7 @@
 > et les fichiers `*.test.ts(x)`, sauf mention contraire. Si un test révèle un bug, **ne pas le corriger** :
 > écrire le test sur le comportement actuel, ajouter `// BUG: …` et le signaler dans le résumé de la tâche.
 
-- [ ] 1. Mettre en place l'outillage de test
+- [x] 1. Mettre en place l'outillage de test
 - [x] 1.1 Installer les dépendances de test
   - Ajouter en devDependencies : vitest, @vitest/coverage-v8, jsdom, @testing-library/react, @testing-library/user-event, @testing-library/jest-dom, msw (versions compatibles Vite 5 et React 18).
   - Terminé quand : `npm ls vitest msw @testing-library/react` ne signale aucune erreur de dépendance.
@@ -39,7 +39,7 @@
   - Terminé quand : `npm test` passe et `npm run test:coverage` produit un rapport.
   - _Exigences : 1.1, 1.3, 1.4_
 
-- [ ] 2. Tests unitaires des fonctions pures (`src/lib`)
+- [x] 2. Tests unitaires des fonctions pures (`src/lib`)
 - [x] 2.1 `format.ts`
   - Montants : `formatMontant`, `formatFCFA`, `formatF`, `formatFcfaRecu` avec 0, null, undefined, négatif, grand nombre (vérifier l'espace de séparation exact produit aujourd'hui).
   - Dates : `formatDateCourte`, `formatDateHeure`, `formatEcheance` avec date système fixée et dates ISO avec ou sans heure.
@@ -59,13 +59,17 @@
   - `normalizePhone` (+221, 221, espaces, tirets, numéro local), `storeSession` / `clearTokens` / `clearAll` (ce qui est gardé et ce qui est effacé), PIN configuré.
   - `parseJwt` (jeton valide, invalide, absent), `isTokenExpired` avec date fixée, `getAuthUser` (rôles extraits), `detectClientType` / `getClientType` (user-agent mobile et bureau).
   - _Exigences : 2.1, 2.3_
-- [ ] 2.5 Autres utilitaires
+- [x] 2.5 Autres utilitaires
   - `phone.ts`, `validation.ts`, `commissions.ts`, `paymentMethods.ts`, `homePath.ts`, `retour.ts`, `device.ts`.
   - `exportCsv.ts` : échappement des guillemets, virgules et retours ligne, en-têtes, encodage.
+    _Précision (19/11/2026) : le CSV est produit par le backend ; le front le télécharge tel quel. Le test vérifie donc
+    la requête (jeton, `format=csv`, paramètres), le nom du fichier (`Content-Disposition` encodé UTF-8, entre guillemets,
+    sans guillemets, repli), le contenu transmis sans modification, la libération de l'URL après 10 s et les erreurs._
   - `share.ts` : avec et sans `navigator.share`, refus de l'utilisateur.
   - `preferences.ts` : chargement (GET), synchronisation (PUT) avec temporisation de 1,5 s (faux timers + MSW), échec réseau.
   - `queryClient.ts` : une mutation réussie invalide les requêtes `['me', …]`.
   - Terminé quand : couverture des lignes de `src/lib` ≥ 90 % ; seuil ajouté dans la config.
+    _Fait : 98,87 % des lignes de `src/lib` (19/11/2026) ; seuil `'src/lib/**': { lines: 90 }` dans `vitest.config.ts`._
   - _Exigences : 2.1, 2.2, 2.3_
 
 - [ ] 3. Tests d'intégration de la couche API (MSW)
