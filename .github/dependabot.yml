@@ -1,12 +1,24 @@
 version: 2
 
+# Mises à jour automatiques des dépendances (spec 03, tâche 2.1).
+#
+# Flux : toutes les PR de Dependabot visent `develop` (branche par défaut du dépôt,
+# qui ne déploie rien). Elles arrivent ensuite sur `main` par la PR develop → main.
+# Les correctifs de sécurité visent eux aussi la branche par défaut, donc `develop`.
+#
+# Règle : aucune montée de version MAJEURE automatique pour les paquets sensibles.
+# Chaque majeure passe par sa tâche dédiée de la spec 03 (6.x), avec tests, build
+# et parcours manuel. Historique : vite 8 et zod 4 (17/11, annulés par #28),
+# @hookform/resolvers 7 (18/11, annulé par #51), appleboy/ssh-action 1.2.5
+# (18/11, annulé par #52).
+
 updates:
   # ── npm ────────────────────────────────────────────────────────────────────
   - package-ecosystem: "npm"
     directory: "/"
+    target-branch: "develop"
     schedule:
-      interval: "weekly"
-      day: "monday"
+      interval: "monthly"
       time: "08:00"
       timezone: "Africa/Dakar"
     open-pull-requests-limit: 5
@@ -14,6 +26,7 @@ updates:
       - "dependances"
       - "securite"
     groups:
+      # Mineures et correctifs regroupés : une PR par mois et par type
       prod-mineures:
         dependency-type: "production"
         update-types:
@@ -24,25 +37,58 @@ updates:
         update-types:
           - "minor"
           - "patch"
-    # Les majeures ne sont PAS groupées : chacune fait l'objet d'une PR séparée.
-    # Ordre de priorité des majeures : zod (6.1), vite (6.2), react-router (6.3).
+    # Les majeures non ignorées ci-dessous restent des PR séparées, une par paquet.
     ignore:
-      # Majeures réservées aux tâches 6.x de la spec 03 (après la spec 01)
+      # zod 4 et son adaptateur de formulaires : tâche 6.1
       - dependency-name: "zod"
         update-types: ["version-update:semver-major"]
+      - dependency-name: "@hookform/resolvers"
+        update-types: ["version-update:semver-major"]
+      # vite et son écosystème (à monter ensemble) : tâche 6.2
       - dependency-name: "vite"
         update-types: ["version-update:semver-major"]
+      - dependency-name: "@vitejs/plugin-react"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "vite-plugin-pwa"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "vitest"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@vitest/*"
+        update-types: ["version-update:semver-major"]
+      # React Router (déjà en v7 depuis la PR #37) : pas de v8 automatique — tâche 6.3
       - dependency-name: "react-router"
         update-types: ["version-update:semver-major"]
       - dependency-name: "react-router-dom"
+        update-types: ["version-update:semver-major"]
+      # TypeScript et typescript-eslint : tâche 6.4
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "typescript-eslint"
+        update-types: ["version-update:semver-major"]
+      # React 19 : hors périmètre actuel
+      - dependency-name: "react"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react-dom"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@types/react"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@types/react-dom"
+        update-types: ["version-update:semver-major"]
+      # Composants d'interface : changements d'API et d'icônes, tâche dédiée à prévoir
+      - dependency-name: "@headlessui/react"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "lucide-react"
+        update-types: ["version-update:semver-major"]
+      # Tailwind 4 : réécriture de la configuration, hors périmètre actuel
+      - dependency-name: "tailwindcss"
         update-types: ["version-update:semver-major"]
 
   # ── GitHub Actions ─────────────────────────────────────────────────────────
   - package-ecosystem: "github-actions"
     directory: "/"
+    target-branch: "develop"
     schedule:
-      interval: "weekly"
-      day: "monday"
+      interval: "monthly"
       time: "08:00"
       timezone: "Africa/Dakar"
     open-pull-requests-limit: 5
@@ -55,15 +101,20 @@ updates:
           - "minor"
           - "patch"
 
-  # ── Docker ─────────────────────────────────────────────────────────────────
+  # ── Docker (Dockerfile à la racine) ────────────────────────────────────────
   - package-ecosystem: "docker"
     directory: "/"
+    target-branch: "develop"
     schedule:
-      interval: "weekly"
-      day: "monday"
+      interval: "monthly"
       time: "08:00"
       timezone: "Africa/Dakar"
     open-pull-requests-limit: 5
     labels:
       - "dependances"
       - "securite"
+    ignore:
+      # Node : on reste sur une version LTS choisie à la main (passage à 24 : tâche 3.1).
+      # Sans cette règle, Dependabot proposerait la dernière majeure, même non LTS.
+      - dependency-name: "node"
+        update-types: ["version-update:semver-major"]
