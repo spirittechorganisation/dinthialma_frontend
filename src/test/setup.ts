@@ -64,6 +64,15 @@ class ObservateurSimule {
 window.IntersectionObserver = ObservateurSimule as unknown as typeof IntersectionObserver
 window.ResizeObserver = ObservateurSimule as unknown as typeof ResizeObserver
 
+// ─── Capture du pointeur (jsdom ne l'implémente pas) ─────────────────────────
+// sonner l'appelle quand on appuie sur un toast (ex. bouton « Annuler » d'une validation) :
+// sans ces méthodes, le clic lève une exception non gérée et fait échouer la suite.
+if (!Element.prototype.setPointerCapture) {
+  Element.prototype.setPointerCapture = () => {}
+  Element.prototype.releasePointerCapture = () => {}
+  Element.prototype.hasPointerCapture = () => false
+}
+
 // ─── virtual:pwa-register/react ──────────────────────────────────────────────
 // usePWA importe useRegisterSW depuis ce module virtuel de vite-plugin-pwa.
 // jsdom n'a pas de service worker : on simule le hook avec des valeurs neutres.

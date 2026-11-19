@@ -117,8 +117,10 @@
     en cours, montant libre, validation / refus / modification par le gestionnaire. Outil partagé ajouté :
     `src/test/router.tsx` (`<Emplacement />`, `<Depart />`)._
   - _Exigences : 4.1, 4.2, 4.4_
-- [ ] 4.4 Validation (`AValiderPage`)
+- [x] 4.4 Validation (`AValiderPage`)
   - Liste groupée par tontine ; valider avec annulation possible pendant 5 s (faux timers) ; « Tout valider » avec échec partiel ; refuser avec motif obligatoire ; demandes d'adhésion acceptées et refusées.
+  - _Fait (19/11/2026) : `AValiderPage.test.tsx` (32 tests), y compris envoi immédiat en quittant l'écran, balayage,
+    sélection desktop, lots de 100 et hors connexion. `setup.ts` : capture du pointeur simulée (toasts sonner)._
   - _Exigences : 4.1, 4.2, 4.4_
 - [ ] 4.5 Encaissement (`EncaisserPage`, `EncaisserDesktop`)
   - Membres non payés en tête ; encaissement direct (corps vérifié) ; encaissement d'un retardataire après la remise.
