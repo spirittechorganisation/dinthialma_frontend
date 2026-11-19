@@ -11,7 +11,7 @@
 # ===================================================================
 
 # ─── Stage 1 : Build ─────────────────────────────────────────────
-FROM node:20-alpine AS builder
+FROM node:24-alpine AS builder
 
 WORKDIR /app
 
@@ -38,6 +38,7 @@ LABEL org.opencontainers.image.title="Dinthialma Frontend"
 LABEL org.opencontainers.image.vendor="Spirit Tech Revolution"
 
 COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY nginx/security-headers.conf /etc/nginx/security-headers.conf
 COPY --from=builder /app/dist /usr/share/nginx/html
 
 EXPOSE 80

@@ -211,7 +211,7 @@ function FormulaireEncaissement({ tontineId, cycleId, echeanceId, numeroCycle, s
   const montantRef = useRef<HTMLInputElement>(null)
   const nom = nomDe(membre)
   const montant = Number(saisie.replace(/\D/g, '')) || 0
-  const affiche = useMemo(() => (saisie ? Number(saisie.replace(/\D/g, '')).toLocaleString('fr-FR').replace(/ | /g, ' ') : ''), [saisie])
+  const affiche = useMemo(() => (saisie ? Number(saisie.replace(/\D/g, '')).toLocaleString('fr-FR').replace(/\u202F|\u00A0/g, ' ') : ''), [saisie])
 
   // Le montant est prêt à être corrigé dès l'ouverture
   useEffect(() => { montantRef.current?.focus(); montantRef.current?.select() }, [])

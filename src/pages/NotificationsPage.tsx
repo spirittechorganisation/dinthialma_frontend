@@ -1,4 +1,4 @@
-/**
+﻿/**
  * A2 — Alertes : ce qui me concerne, avec l'écran où agir en 1 tap.
  * La destination dépend de mon rôle dans la tontine concernée (gestionnaire ou membre).
  * Les rappels de cotisation portent un bouton « Payer » directement dans l'alerte.
@@ -89,10 +89,10 @@ function destination(n: NotificationItem, t: MaTontine | undefined): string | nu
     case NotificationType.TOUR_PROCHE:
     case NotificationType.JACKPOT_DISTRIBUE:
     case NotificationType.DISTRIBUTION_FINALE:
-    // Gestionnaire : jackpot à remettre, complément à remettre, gagnant à désigner → le tour concerné
-    case NotificationType.JACKPOT_PRET:
+    case NotificationType.JACKPOT_PRET: // falls through
     case NotificationType.COMPLEMENT_A_REMETTRE:
     case NotificationType.GAGNANTS_A_DESIGNER:
+      // Gestionnaire : jackpot à remettre, complément à remettre, gagnant à désigner → le tour concerné
       return tour
     // Règles modifiées par le gestionnaire (échéance, rappels, ordre) → les règles de la tontine
     case NotificationType.REGLES_MODIFIEES:

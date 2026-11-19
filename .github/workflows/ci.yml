@@ -4,10 +4,9 @@
 # ou main, quel que soit le préfixe de la branche (feature/, fix/, chore/, dependabot/…).
 # Il ne déploie rien : le déploiement reste dans docker-publish.yml (push sur main).
 #
-# À compléter quand la branche feature/front-filet-de-tests (spec 01) sera mergée :
-#   - `npm run lint` (ESLint 9+ et eslint.config.js n'existent pas encore sur develop)
-#   - `npm run test:coverage` + rapport de couverture en artefact
-#   - `node-version-file: .nvmrc` (Node 24, tâche 3.1 de la spec 03)
+# Node : version lue dans .nvmrc (Node 24, tâche 3.1 de la spec 03), la même que
+# l'image de build du Dockerfile. Ne pas fixer de version ici : un écart avec .nvmrc
+# a fait échouer `npm ci` sur la PR #70 (Node 20 face aux dépendances Node 24).
 
 name: CI – Frontend
 
@@ -25,7 +24,7 @@ concurrency:
 
 jobs:
   qualite:
-    name: Qualité (typage + build)
+    name: Qualité (typage, lint, tests, build)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -33,15 +32,29 @@ jobs:
 
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          # Même version que l'image de build du Dockerfile (node:20-alpine)
-          node-version: 20
+          node-version-file: .nvmrc
           cache: npm
 
       - name: Installation (lock respecté)
         run: npm ci
 
       - name: Vérification des types
-        run: npx tsc --noEmit
+        run: npm run typecheck
+
+      - name: Lint (ESLint, zéro avertissement)
+        run: npm run lint
+
+      - name: Tests et couverture
+        run: npm run test:coverage
+
+      - name: Rapport de couverture
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: couverture-${{ github.run_id }}
+          path: coverage/
+          if-no-files-found: ignore
+          retention-days: 7
 
       - name: Build de production
         run: npm run build
@@ -55,7 +68,7 @@ jobs:
 
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: 20
+          node-version-file: .nvmrc
 
       # Bloquant sur les vulnérabilités CRITIQUES des dépendances de production.
       # Seuil provisoire : zod 3 porte une vulnérabilité élevée (GHSA-mrhx-c7xc-m3w5)
@@ -77,20 +90,20 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
       - name: Metadata
         id: meta
-        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
           images: dinthialma-frontend-ci
           tags: |
             type=sha,prefix=sha-,format=short
 
       - name: Build de l'image (sans push)
-        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
           file: Dockerfile
@@ -111,7 +124,7 @@ jobs:
       # ce job ici, et non plus le déploiement sur main.
       - name: Sonde – login Docker Hub (non exécutée)
         if: ${{ false }}
-        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
 
       - name: Sonde – déploiement SSH (non exécutée)
         if: ${{ false }}

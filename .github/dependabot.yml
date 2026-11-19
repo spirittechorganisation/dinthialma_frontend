@@ -10,7 +10,8 @@ version: 2
 # Chaque majeure passe par sa tâche dédiée de la spec 03 (6.x), avec tests, build
 # et parcours manuel. Historique : vite 8 et zod 4 (17/11, annulés par #28),
 # @hookform/resolvers 7 (18/11, annulé par #51), appleboy/ssh-action 1.2.5
-# (18/11, annulé par #52).
+# (18/11, annulé par #52 ; reproposé le 19/11 par #55, fermée), tailwind-merge 3
+# (19/11, #59 fermée : exige Tailwind 4).
 
 updates:
   # ── npm ────────────────────────────────────────────────────────────────────
@@ -79,8 +80,11 @@ updates:
         update-types: ["version-update:semver-major"]
       - dependency-name: "lucide-react"
         update-types: ["version-update:semver-major"]
-      # Tailwind 4 : réécriture de la configuration, hors périmètre actuel
+      # Tailwind 4 : réécriture de la configuration, hors périmètre actuel.
+      # tailwind-merge 3 ne fonctionne qu'avec Tailwind 4 : les deux montent ensemble.
       - dependency-name: "tailwindcss"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "tailwind-merge"
         update-types: ["version-update:semver-major"]
 
   # ── GitHub Actions ─────────────────────────────────────────────────────────
@@ -100,6 +104,13 @@ updates:
         update-types:
           - "minor"
           - "patch"
+    ignore:
+      # appleboy/ssh-action : la règle de l'organisation n'autorise qu'un SHA précis
+      # (v1.2.0). Toute PR automatique casse le workflow au démarrage (startup_failure,
+      # #41 annulée par #52, puis #55). Même règle que dinthialma_backend et spirit-infra.
+      # Montée manuelle : mettre à jour la règle de l'organisation, puis le SHA dans
+      # docker-publish.yml et ci.yml (job « Sondes »).
+      - dependency-name: "appleboy/ssh-action"
 
   # ── Docker (Dockerfile à la racine) ────────────────────────────────────────
   - package-ecosystem: "docker"
