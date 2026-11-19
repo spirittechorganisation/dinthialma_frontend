@@ -1,0 +1,107 @@
+version: 2
+
+# Mises à jour automatiques des dépendances (spec 03, tâche 2.1).
+# Règle : aucune montée de version MAJEURE automatique pour les paquets sensibles.
+# Chaque majeure passe par sa tâche dédiée de la spec 03 (6.x), avec tests, build
+# et parcours manuel. Le 17/11, vite 8 et zod 4 mergés via Dependabot ont cassé
+# le build (annulés par la PR #28).
+
+updates:
+  # ── npm ────────────────────────────────────────────────────────────────────
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "08:00"
+      timezone: "Africa/Dakar"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependances"
+      - "securite"
+    groups:
+      # Mineures et correctifs regroupés : une PR par semaine et par type
+      prod-mineures:
+        dependency-type: "production"
+        update-types:
+          - "minor"
+          - "patch"
+      dev-mineures:
+        dependency-type: "development"
+        update-types:
+          - "minor"
+          - "patch"
+    # Les majeures non ignorées ci-dessous restent des PR séparées, une par paquet.
+    ignore:
+      # zod 4 : tâche 6.1
+      - dependency-name: "zod"
+        update-types: ["version-update:semver-major"]
+      # vite et son écosystème (à monter ensemble) : tâche 6.2
+      - dependency-name: "vite"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@vitejs/plugin-react"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "vite-plugin-pwa"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "vitest"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@vitest/*"
+        update-types: ["version-update:semver-major"]
+      # React Router (déjà en v7 depuis la PR #37) : pas de v8 automatique — tâche 6.3
+      - dependency-name: "react-router"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react-router-dom"
+        update-types: ["version-update:semver-major"]
+      # TypeScript et typescript-eslint : tâche 6.4
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "typescript-eslint"
+        update-types: ["version-update:semver-major"]
+      # React 19 : hors périmètre actuel
+      - dependency-name: "react"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react-dom"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@types/react"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@types/react-dom"
+        update-types: ["version-update:semver-major"]
+      # Tailwind 4 : réécriture de la configuration, hors périmètre actuel
+      - dependency-name: "tailwindcss"
+        update-types: ["version-update:semver-major"]
+
+  # ── GitHub Actions ─────────────────────────────────────────────────────────
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "08:00"
+      timezone: "Africa/Dakar"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependances"
+      - "securite"
+    groups:
+      actions-mineures:
+        update-types:
+          - "minor"
+          - "patch"
+
+  # ── Docker (Dockerfile à la racine) ────────────────────────────────────────
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "08:00"
+      timezone: "Africa/Dakar"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependances"
+      - "securite"
+    ignore:
+      # Node : on reste sur une version LTS choisie à la main (passage à 24 : tâche 3.1).
+      # Sans cette règle, Dependabot proposerait la dernière majeure, même non LTS.
+      - dependency-name: "node"
+        update-types: ["version-update:semver-major"]
