@@ -51,19 +51,18 @@ Object.defineProperty(navigator, 'share', {
 // Ne pas redéfinir ici : userEvent.setup() en a besoin et lancerait
 // "Cannot redefine property: clipboard" si on l'a déjà verrouillé.
 
-// ─── IntersectionObserver ────────────────────────────────────────────────────
-window.IntersectionObserver = vi.fn().mockImplementation(() => ({
-  observe: vi.fn(),
-  unobserve: vi.fn(),
-  disconnect: vi.fn(),
-})) as unknown as typeof IntersectionObserver
-
-// ─── ResizeObserver ──────────────────────────────────────────────────────────
-window.ResizeObserver = vi.fn().mockImplementation(() => ({
-  observe: vi.fn(),
-  unobserve: vi.fn(),
-  disconnect: vi.fn(),
-})) as unknown as typeof ResizeObserver
+// ─── IntersectionObserver / ResizeObserver ──────────────────────────────────
+// Des classes (et non `vi.fn(() => …)`) : le code les instancie avec `new`, ce que Vitest 4
+// refuse pour un mock défini par une fonction fléchée (« is not a constructor »).
+// Headless UI (Dialog) crée un ResizeObserver à l'ouverture de chaque fenêtre modale.
+class ObservateurSimule {
+  observe = vi.fn()
+  unobserve = vi.fn()
+  disconnect = vi.fn()
+  takeRecords = vi.fn(() => [])
+}
+window.IntersectionObserver = ObservateurSimule as unknown as typeof IntersectionObserver
+window.ResizeObserver = ObservateurSimule as unknown as typeof ResizeObserver
 
 // ─── virtual:pwa-register/react ──────────────────────────────────────────────
 // usePWA importe useRegisterSW depuis ce module virtuel de vite-plugin-pwa.

@@ -4,7 +4,7 @@
 > et les fichiers `*.test.ts(x)`, sauf mention contraire. Si un test révèle un bug, **ne pas le corriger** :
 > écrire le test sur le comportement actuel, ajouter `// BUG: …` et le signaler dans le résumé de la tâche.
 
-- [ ] 1. Mettre en place l'outillage de test
+- [x] 1. Mettre en place l'outillage de test
 - [x] 1.1 Installer les dépendances de test
   - Ajouter en devDependencies : vitest, @vitest/coverage-v8, jsdom, @testing-library/react, @testing-library/user-event, @testing-library/jest-dom, msw (versions compatibles Vite 5 et React 18).
   - Terminé quand : `npm ls vitest msw @testing-library/react` ne signale aucune erreur de dépendance.
@@ -39,7 +39,7 @@
   - Terminé quand : `npm test` passe et `npm run test:coverage` produit un rapport.
   - _Exigences : 1.1, 1.3, 1.4_
 
-- [ ] 2. Tests unitaires des fonctions pures (`src/lib`)
+- [x] 2. Tests unitaires des fonctions pures (`src/lib`)
 - [x] 2.1 `format.ts`
   - Montants : `formatMontant`, `formatFCFA`, `formatF`, `formatFcfaRecu` avec 0, null, undefined, négatif, grand nombre (vérifier l'espace de séparation exact produit aujourd'hui).
   - Dates : `formatDateCourte`, `formatDateHeure`, `formatEcheance` avec date système fixée et dates ISO avec ou sans heure.
@@ -59,17 +59,21 @@
   - `normalizePhone` (+221, 221, espaces, tirets, numéro local), `storeSession` / `clearTokens` / `clearAll` (ce qui est gardé et ce qui est effacé), PIN configuré.
   - `parseJwt` (jeton valide, invalide, absent), `isTokenExpired` avec date fixée, `getAuthUser` (rôles extraits), `detectClientType` / `getClientType` (user-agent mobile et bureau).
   - _Exigences : 2.1, 2.3_
-- [ ] 2.5 Autres utilitaires
+- [x] 2.5 Autres utilitaires
   - `phone.ts`, `validation.ts`, `commissions.ts`, `paymentMethods.ts`, `homePath.ts`, `retour.ts`, `device.ts`.
   - `exportCsv.ts` : échappement des guillemets, virgules et retours ligne, en-têtes, encodage.
+    _Précision (19/11/2026) : le CSV est produit par le backend ; le front le télécharge tel quel. Le test vérifie donc
+    la requête (jeton, `format=csv`, paramètres), le nom du fichier (`Content-Disposition` encodé UTF-8, entre guillemets,
+    sans guillemets, repli), le contenu transmis sans modification, la libération de l'URL après 10 s et les erreurs._
   - `share.ts` : avec et sans `navigator.share`, refus de l'utilisateur.
   - `preferences.ts` : chargement (GET), synchronisation (PUT) avec temporisation de 1,5 s (faux timers + MSW), échec réseau.
   - `queryClient.ts` : une mutation réussie invalide les requêtes `['me', …]`.
   - Terminé quand : couverture des lignes de `src/lib` ≥ 90 % ; seuil ajouté dans la config.
+    _Fait : 98,87 % des lignes de `src/lib` (19/11/2026) ; seuil `'src/lib/**': { lines: 90 }` dans `vitest.config.ts`._
   - _Exigences : 2.1, 2.2, 2.3_
 
 - [ ] 3. Tests d'intégration de la couche API (MSW)
-- [ ] 3.1 Client HTTP `services/api.ts`
+- [x] 3.1 Client HTTP `services/api.ts`
   - Ajoute `Authorization: Bearer <jeton>` quand un jeton existe, rien sinon.
   - 401 → un seul appel à `/v1/auth/refresh`, puis la requête est rejouée avec le nouveau jeton.
   - Trois requêtes en 401 simultanées → un seul refresh, les trois sont rejouées.
@@ -77,6 +81,8 @@
   - Routes `/v1/auth/login`, `register`, `refresh`, `logout` : pas de refresh sur 401.
   - 403 → erreur remontée, aucune déconnexion.
   - Paramètres tableaux sérialisés en `statut=A&statut=B`.
+  - _Fait (19/11/2026) : `src/services/api.test.ts`, 26 tests. BUG documenté : sans refresh token, `isRefreshing`
+    reste à true (sortie avant le `finally`) et les 401 suivants restent bloqués jusqu'au rechargement de la page._
   - _Exigences : 3.1_
 - [ ] 3.2 Services (tests en tableau : appel → requête attendue → valeur retournée)
   - `authService`, `meService`, `tontineService`, `cycleService`, `cotisationService`, `membreService`, `validationService` (y compris `validerPlusieurs` et `refuser` avec motif), `qrService`, `prioriteService`, `notificationService`, `securiteService`, `userService`, `codeListService`, `dashboardService`.
@@ -103,10 +109,13 @@
   - Chaque message d'erreur de validation des étapes 1 à 4 (objectif manquant, montant nul, membres hors 2–100, gagnants ≥ membres, nom trop court ou trop long, commission invalide, frais ≥ jackpot).
   - Calendrier issu de la simulation affiché ; hors connexion → création impossible ; écran de succès ; erreur backend affichée.
   - _Exigences : 4.1, 4.2, 4.4_
-- [ ] 4.3 Paiement (`PayerPage`, `RecuPage`)
+- [x] 4.3 Paiement (`PayerPage`, `RecuPage`)
   - Choix de la tontine ; montant prérempli ; tour à plusieurs échéances (B32) ; régularisation d'une échéance passée (B33) ; moyen de paiement mémorisé.
   - Erreurs : cotisation déjà déclarée (409), hors connexion, erreur serveur.
   - Reçu : affichage, partage, modification si encore en attente.
+  - _Fait (19/11/2026) : `PayerPage.test.tsx` (26 tests) et `RecuPage.test.tsx` (19 tests), y compris retards du tour
+    en cours, montant libre, validation / refus / modification par le gestionnaire. Outil partagé ajouté :
+    `src/test/router.tsx` (`<Emplacement />`, `<Depart />`)._
   - _Exigences : 4.1, 4.2, 4.4_
 - [ ] 4.4 Validation (`AValiderPage`)
   - Liste groupée par tontine ; valider avec annulation possible pendant 5 s (faux timers) ; « Tout valider » avec échec partiel ; refuser avec motif obligatoire ; demandes d'adhésion acceptées et refusées.

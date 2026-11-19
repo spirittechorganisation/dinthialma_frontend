@@ -27,7 +27,11 @@ export default mergeConfig(
           'src/vite-env.d.ts',
           '**/*.d.ts',
         ],
-        thresholds: {},
+        // Seuils par dossier (spec 01, tâches 2.5, 3.3 et 5.1) : couverture des lignes.
+        // lib : mesurée à 98,87 % le 19/11/2026. services (80) et hooks (70) viendront avec les lots B et I.
+        thresholds: {
+          'src/lib/**': { lines: 90 },
+        },
       },
     },
   }),
