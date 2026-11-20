@@ -98,10 +98,14 @@
 
 - [ ] 4. Tests de caractérisation des écrans critiques
   - Chaque fichier : `describe('[caractérisation] <Écran>')`, au moins 1 test nominal + 2 tests d'erreur, corps des écritures vérifié.
-- [ ] 4.1 Authentification (`LoginPage`, `PinLoginPage`, `PinSetupPage`, `RegisterPage`, `ForgotPasswordPage`, `PinResetPage`)
+- [x] 4.1 Authentification (`LoginPage`, `PinLoginPage`, `PinSetupPage`, `RegisterPage`, `ForgotPasswordPage`, `PinResetPage`)
   - Connexion réussie → redirection selon le rôle ; mauvais identifiants ; compte pré-inscrit (403) → parcours d'activation (F04).
   - PIN : soumission automatique à 6 chiffres, PIN faux, PIN verrouillé.
   - Inscription en 3 étapes (téléphone → OTP → identité) avec corps envoyés à chaque étape.
+  - _Fait (20/11/2026) : un fichier par écran dans `src/pages/auth/` (83 tests, 100 % des lignes des 6 écrans) :
+    connexion en 2 étapes, numéro mémorisé, retour mémorisé, PIN au clavier physique, PIN expiré / verrouillé /
+    session perdue, changer de compte, création et réinitialisation du PIN, mot de passe oublié
+    (anti-énumération), validations et erreurs._
   - _Exigences : 4.1, 4.2, 4.4_
 - [x] 4.2 Création de tontine (`CreerTontinePage`)
   - Rotative en 4 étapes → corps POST `/v1/tontines` complet (type, nom, montant, rythme, jour et heure limites, membres, gagnants, cotisations par tour, déclenchement, commission).
@@ -184,12 +188,13 @@
 | C | 4.3 | `pages/pay/PayerPage.test.tsx`, `RecuPage.test.tsx` | +45 | pages/pay 95,68 % | `574aed5` · PR #76 |
 | D | 4.4 | `pages/gestion/AValiderPage.test.tsx` | +32 | `AValiderPage.tsx` 93,91 % | `cbefd09` |
 | E | 4.2 | `pages/tontine/CreerTontinePage.test.tsx` | +31 | `CreerTontinePage.tsx` 98,65 % | `ae4dff2` |
-| F | 4.6, 4.5 | `pages/tontine/ToursPage.test.tsx`, `TourPage.test.tsx`, `pages/gestion/EncaisserPage.test.tsx` | +77 | `ToursPage` 95,12 %, `TourPage` 91,66 %, `EncaisserPage` 100 %, `EncaisserDesktop` 96,77 % | à commiter |
+| F | 4.6, 4.5 | `pages/tontine/ToursPage.test.tsx`, `TourPage.test.tsx`, `pages/gestion/EncaisserPage.test.tsx` | +77 | `ToursPage` 95,12 %, `TourPage` 91,66 %, `EncaisserPage` 100 %, `EncaisserDesktop` 96,77 % | `09bec61` |
+| G | 4.1 | `pages/auth/*.test.tsx` (6 fichiers) | +83 | les 6 écrans à 100 %, `PinPad` et `AuthShell` 100 % | à commiter |
 
-**Total : 464 tests, couverture globale 39,13 %** (lib 98,87 %, services 57,51 %, hooks 47,9 %).
+**Total : 547 tests, couverture globale 47,06 %** (lib 98,87 %, services 61,11 %, hooks 53,48 %).
 
-Reste, dans l'ordre prévu : lot G (4.1 authentification) → H (4.7, 4.10, 4.8, 4.9, 4.11) →
-I (3.2 services, 3.3 hooks) → J (5.1 seuils, 5.2 reste, 5.3 documentation).
+Reste, dans l'ordre prévu : lot H (4.7, 4.10, 4.8, 4.9, 4.11) → I (3.2 services, 3.3 hooks) →
+J (5.1 seuils, 5.2 reste, 5.3 documentation).
 
 ### Évolutions de l'outillage pendant la spec (à reporter dans `testing.md` et le README, tâche 5.3)
 - `src/test/router.tsx` : `<Emplacement />` + `emplacement()` / `etatNavigation()` pour vérifier une redirection par la
@@ -238,6 +243,7 @@ qu'avec cette décision.
 | B6 | F | `pages/tontine/ToursPage.tsx` | Événement : titre de section « Tous les périodes » | « Toutes les périodes » | Faible (texte) | ☐ |
 | B7 | F | `pages/tontine/ToursPage.tsx` | Événement sans période : « Aucun période pour l'instant » | « Aucune période pour l'instant » | Faible (texte) | ☐ |
 | B8 | F | `pages/tontine/ToursPage.tsx` (`DemarrerTourSheet`) | Le bouton « Reprendre la date proposée » est dans le `<label>` « Fin » : dès qu'il apparaît, le libellé passe au bouton et le champ de date n'a plus de libellé | Bouton hors du `<label>` | Moyenne (accessibilité) | ☐ |
+| B9 | G | `pages/auth/PinResetPage.tsx` | Le numéro mémorisé est stocké sans « + » (« 221771234567 ») alors que la validation exige « +… » : en arrivant depuis « PIN oublié ? », « Recevoir le code SMS » n'affiche que « Numéro invalide » ; il faut retoucher le champ pour qu'il se normalise | Numéro prérempli accepté (préfixé par « + ») | **Élevée** (parcours de récupération bloqué en apparence) | ☐ |
 
 ### Comportements à confirmer (pas de `// BUG:`, choix produit ou dette)
 
@@ -258,3 +264,6 @@ qu'avec cette décision.
 | Q13 | F | `EncaisserPage` (choix de la tontine) | En cas d'erreur, le message dit « Impossible de charger les membres. » alors que ce sont les tontines qui n'ont pas pu être chargées | Texte à adapter ? | ☐ |
 | Q14 | F | `EncaisserPage` (mobile) | « Saisissez un montant. » ne s'affiche jamais sur mobile (bouton inactif à 0) ; sur desktop, il apparaît si on valide avec Entrée | Accepté ? | ☐ |
 | Q15 | F | `TourPage` (désignation) | Avec 1 gagnant, toucher un autre membre remplace le choix ; avec plusieurs, il faut décocher avant d'en choisir un autre | Comportement voulu ? | ☐ |
+| Q16 | G | `RegisterPage` | Email invalide : le champ `type="email"` sans `noValidate` laisse le navigateur bloquer l'envoi avec sa bulle native ; « Email invalide » (message de l'app) n'apparaît jamais | Ajouter `noValidate` pour des messages homogènes ? | ☐ |
+| Q17 | G | `PinSetupPage`, `PinResetPage`, `RegisterPage`, `ForgotPasswordPage` | Plusieurs erreurs serveur ont un message fixe au lieu du message traduit par code (ex. `PIN_TOO_SIMPLE` → « Erreur lors de la configuration », `OTP_EXPIRED` → « Code incorrect ou expiré », `PASSWORD_UNCHANGED` → « Erreur lors de la réinitialisation ») | Utiliser `messageErreur` partout ? | ☐ |
+| Q18 | G | `LoginPage` | Le numéro saisi n'est pas vérifié à l'étape 1 (volontaire : anti-énumération) ; un numéro inconnu n'est signalé qu'après le mot de passe | Confirmé comme choix de sécurité ? | ☐ |
