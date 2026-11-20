@@ -14,6 +14,9 @@ export default mergeConfig(
       include: ['src/**/*.test.{ts,tsx}', 'src/**/*.spec.{ts,tsx}'],
       css: false,
       globals: false,
+      // Parcours d'écran complets (création de tontine, validation par lots) : 5 s par défaut ne
+      // suffisent pas quand toute la suite tourne en parallèle (échecs aléatoires le 19/11/2026).
+      testTimeout: 20_000,
       env: {
         VITE_API_URL: 'http://api.test',
       },
@@ -27,7 +30,11 @@ export default mergeConfig(
           'src/vite-env.d.ts',
           '**/*.d.ts',
         ],
-        thresholds: {},
+        // Seuils par dossier (spec 01, tâches 2.5, 3.3 et 5.1) : couverture des lignes.
+        // lib : mesurée à 98,87 % le 19/11/2026. services (80) et hooks (70) viendront avec les lots B et I.
+        thresholds: {
+          'src/lib/**': { lines: 90 },
+        },
       },
     },
   }),

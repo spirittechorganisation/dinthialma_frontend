@@ -63,6 +63,9 @@ export default tseslint.config(
     rules: {
       // Les factories retournent souvent des objets partiels
       '@typescript-eslint/no-explicit-any': 'off',
+      // Le rechargement à chaud (Fast Refresh) ne concerne pas les tests : les outils partagés
+      // peuvent exporter composants et fonctions ensemble (ex. src/test/router.tsx)
+      'react-refresh/only-export-components': 'off',
     },
   },
 

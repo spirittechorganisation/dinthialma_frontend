@@ -8,9 +8,14 @@
  * - Simule le module virtuel vite-plugin-pwa (`virtual:pwa-register/react`).
  */
 import '@testing-library/jest-dom/vitest'
-import { cleanup } from '@testing-library/react'
+import { cleanup, configure } from '@testing-library/react'
 import { afterAll, afterEach, beforeAll, vi } from 'vitest'
 import { server } from './msw/server'
+
+// ─── Délai des findBy / waitFor ──────────────────────────────────────────────
+// 1 s par défaut : trop court pour un écran complet quand toute la suite tourne en parallèle
+// (échecs aléatoires constatés le 19/11/2026). Un test réellement cassé échoue quand même.
+configure({ asyncUtilTimeout: 5_000 })
 
 // ─── MSW ─────────────────────────────────────────────────────────────────────
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }))
@@ -51,19 +56,27 @@ Object.defineProperty(navigator, 'share', {
 // Ne pas redéfinir ici : userEvent.setup() en a besoin et lancerait
 // "Cannot redefine property: clipboard" si on l'a déjà verrouillé.
 
-// ─── IntersectionObserver ────────────────────────────────────────────────────
-window.IntersectionObserver = vi.fn().mockImplementation(() => ({
-  observe: vi.fn(),
-  unobserve: vi.fn(),
-  disconnect: vi.fn(),
-})) as unknown as typeof IntersectionObserver
+// ─── IntersectionObserver / ResizeObserver ──────────────────────────────────
+// Des classes (et non `vi.fn(() => …)`) : le code les instancie avec `new`, ce que Vitest 4
+// refuse pour un mock défini par une fonction fléchée (« is not a constructor »).
+// Headless UI (Dialog) crée un ResizeObserver à l'ouverture de chaque fenêtre modale.
+class ObservateurSimule {
+  observe = vi.fn()
+  unobserve = vi.fn()
+  disconnect = vi.fn()
+  takeRecords = vi.fn(() => [])
+}
+window.IntersectionObserver = ObservateurSimule as unknown as typeof IntersectionObserver
+window.ResizeObserver = ObservateurSimule as unknown as typeof ResizeObserver
 
-// ─── ResizeObserver ──────────────────────────────────────────────────────────
-window.ResizeObserver = vi.fn().mockImplementation(() => ({
-  observe: vi.fn(),
-  unobserve: vi.fn(),
-  disconnect: vi.fn(),
-})) as unknown as typeof ResizeObserver
+// ─── Capture du pointeur (jsdom ne l'implémente pas) ─────────────────────────
+// sonner l'appelle quand on appuie sur un toast (ex. bouton « Annuler » d'une validation) :
+// sans ces méthodes, le clic lève une exception non gérée et fait échouer la suite.
+if (!Element.prototype.setPointerCapture) {
+  Element.prototype.setPointerCapture = () => {}
+  Element.prototype.releasePointerCapture = () => {}
+  Element.prototype.hasPointerCapture = () => false
+}
 
 // ─── virtual:pwa-register/react ──────────────────────────────────────────────
 // usePWA importe useRegisterSW depuis ce module virtuel de vite-plugin-pwa.
