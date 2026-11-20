@@ -4,8 +4,9 @@
 # ===================================================================
 #
 # Secrets GitHub requis (Settings → Secrets and variables → Actions) :
-#   DOCKER_HUB_USERNAME    → ton username Docker Hub
-#   DOCKER_HUB_TOKEN       → token Docker Hub (Read/Write)
+#   DOCKER_HUB_USERNAME    → secret d'organisation : spirittechorganisation
+#   DOCKER_HUB_TOKEN       → secret d'organisation : jeton github-actions-ci (Read & Write),
+#                            utilisé uniquement par le job build-push (jamais sur le VPS)
 #   VPS_HOST               → 155.117.40.193
 #   VPS_USER               → administrator
 #   VPS_SSH_PRIVATE_KEY    → contenu de ~/.ssh/deploy_key
@@ -88,9 +89,9 @@ jobs:
             set -e
             cd /opt/dinthialma/backend
 
-            echo "=== Login Docker Hub ==="
-            echo "${{ secrets.DOCKER_HUB_TOKEN }}" | \
-              docker login -u "${{ secrets.DOCKER_HUB_USERNAME }}" --password-stdin
+            # Pas de docker login ici : le VPS est connecté une fois pour toutes au compte
+            # spirittechorganisation avec un jeton en LECTURE SEULE (SE53, 20/11/2026).
+            # Le jeton d'écriture de la CI ne transite plus par le serveur.
 
             echo "=== Pull nouvelle image frontend ==="
             docker compose -f docker/docker-compose.prod.yml --env-file docker/.env.prod pull frontend
