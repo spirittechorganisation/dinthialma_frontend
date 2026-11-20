@@ -78,6 +78,13 @@ if (!Element.prototype.setPointerCapture) {
   Element.prototype.hasPointerCapture = () => false
 }
 
+// ─── scrollIntoView (jsdom ne l'implémente pas) ──────────────────────────────
+// Utilisé pour garder une ligne visible (encaissement desktop, demande d'adhésion ciblée) :
+// sans lui, l'écran plante au premier rendu.
+if (!Element.prototype.scrollIntoView) {
+  Element.prototype.scrollIntoView = () => {}
+}
+
 // ─── virtual:pwa-register/react ──────────────────────────────────────────────
 // usePWA importe useRegisterSW depuis ce module virtuel de vite-plugin-pwa.
 // jsdom n'a pas de service worker : on simule le hook avec des valeurs neutres.

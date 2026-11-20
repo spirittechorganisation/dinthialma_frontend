@@ -126,11 +126,18 @@
   - _Fait (19/11/2026) : `AValiderPage.test.tsx` (32 tests), y compris envoi immédiat en quittant l'écran, balayage,
     sélection desktop, lots de 100 et hors connexion. `setup.ts` : capture du pointeur simulée (toasts sonner)._
   - _Exigences : 4.1, 4.2, 4.4_
-- [ ] 4.5 Encaissement (`EncaisserPage`, `EncaisserDesktop`)
+- [x] 4.5 Encaissement (`EncaisserPage`, `EncaisserDesktop`)
   - Membres non payés en tête ; encaissement direct (corps vérifié) ; encaissement d'un retardataire après la remise.
+  - _Fait (20/11/2026) : `pages/gestion/EncaisserPage.test.tsx` (32 tests) : choix de la tontine, « De qui ? »
+    (recherche nom / numéro), « Combien ? » (montant prévu, libre, référence et note), retard `?tour&echeance`,
+    erreurs, hors connexion ; version desktop (onglets, clavier ↓ / Entrée, montant au clavier)._
   - _Exigences : 4.1, 4.2, 4.4_
-- [ ] 4.6 Tour et remise du jackpot (`ToursPage`, `TourPage` et sa feuille `RemiseSheet`)
+- [x] 4.6 Tour et remise du jackpot (`ToursPage`, `TourPage` et sa feuille `RemiseSheet`)
   - Progression et pastilles d'échéances ; aperçu de remise et options (ATTENDRE refusée 409, DISPONIBLE, AVANCE_COMMISSION, AVANCE_GESTIONNAIRE) ; désignation des gagnants ; tirage au sort ; ouverture d'un tour en mode manuel.
+  - _Fait (20/11/2026) : `ToursPage.test.tsx` (19 tests : liste, panneau desktop, démarrer un tour avec proposition)
+    et `TourPage.test.tsx` (26 tests : progression, pastilles B32, remise complète / incomplète / attendre / aperçu
+    indisponible, clôture d'une période, désignation et tirage, vue membre). « ATTENDRE refusée 409 » = remise simple
+    (aperçu indisponible) refusée par le backend avec `REMISE_JACKPOT_INCOMPLETE`._
   - _Exigences : 4.1, 4.2, 4.4_
 - [ ] 4.7 Fiche et clôture (`FicheTontinePage`)
   - Boutons selon le rôle (gestionnaire, membre) ; clôture : 1er appel → 409 `TONTINE_CLOTURE_A_CONFIRMER` avec la liste des points, confirmation → 2e appel avec `forcer: true` ; export CSV.
@@ -177,22 +184,28 @@
 | C | 4.3 | `pages/pay/PayerPage.test.tsx`, `RecuPage.test.tsx` | +45 | pages/pay 95,68 % | `574aed5` · PR #76 |
 | D | 4.4 | `pages/gestion/AValiderPage.test.tsx` | +32 | `AValiderPage.tsx` 93,91 % | `cbefd09` |
 | E | 4.2 | `pages/tontine/CreerTontinePage.test.tsx` | +31 | `CreerTontinePage.tsx` 98,65 % | `ae4dff2` |
+| F | 4.6, 4.5 | `pages/tontine/ToursPage.test.tsx`, `TourPage.test.tsx`, `pages/gestion/EncaisserPage.test.tsx` | +77 | `ToursPage` 95,12 %, `TourPage` 91,66 %, `EncaisserPage` 100 %, `EncaisserDesktop` 96,77 % | à commiter |
 
-**Total : 387 tests, couverture globale 29,31 %** (lib 98,87 %, services 47,71 %, hooks 35,58 %).
+**Total : 464 tests, couverture globale 39,13 %** (lib 98,87 %, services 57,51 %, hooks 47,9 %).
 
-Reste, dans l'ordre prévu : lot F (4.6 tour et remise, 4.5 encaissement) → G (4.1 authentification) →
-H (4.7, 4.10, 4.8, 4.9, 4.11) → I (3.2 services, 3.3 hooks) → J (5.1 seuils, 5.2 reste, 5.3 documentation).
+Reste, dans l'ordre prévu : lot G (4.1 authentification) → H (4.7, 4.10, 4.8, 4.9, 4.11) →
+I (3.2 services, 3.3 hooks) → J (5.1 seuils, 5.2 reste, 5.3 documentation).
 
 ### Évolutions de l'outillage pendant la spec (à reporter dans `testing.md` et le README, tâche 5.3)
 - `src/test/router.tsx` : `<Emplacement />` + `emplacement()` / `etatNavigation()` pour vérifier une redirection par la
   page obtenue ; `<Depart to state />` pour ouvrir un écran avec un état de navigation.
 - `src/test/setup.ts` : `ResizeObserver` / `IntersectionObserver` simulés par une **classe** (Vitest 4 refuse `new` sur
   un `vi.fn` fléché, les modales Headless UI plantaient) ; `setPointerCapture` simulé (clic dans un toast sonner) ;
+  `scrollIntoView` simulé (encaissement desktop, demande ciblée) ;
   délai des `findBy` / `waitFor` porté à 5 s.
 - `vitest.config.ts` : délai par test porté à 20 s (échecs aléatoires sous charge en suite complète).
 - `eslint.config.js` : règle `react-refresh/only-export-components` désactivée pour les fichiers de test.
-- Handlers MSW : les routes précises (ex. `/v1/tontines/simulation`) doivent être déclarées **avant** les routes à
-  paramètre (`/v1/tontines/:id`), MSW prenant la première qui correspond.
+- Handlers MSW : les routes précises (ex. `/v1/tontines/simulation`, `/cycles/proposition`, `/cycles/beneficiaires`)
+  doivent être déclarées **avant** les routes à paramètre (`/v1/tontines/:id`, `/cycles/:cycleId`), MSW prenant la
+  première qui correspond. Le handler de l'aperçu de remise visait `…/remise-apercu` alors que le service appelle
+  `…/remise/apercu` : corrigé (lot F).
+- Version desktop d'un écran : simuler un écran large en remplaçant `window.matchMedia` (réponse `matches: true` pour
+  `min-width: 1024px`) et le restaurer en `afterEach`.
 - Conventions constatées :
   - jsdom n'applique pas le CSS : vue mobile et vue desktop sont rendues ensemble, cibler explicitement l'une ou
     l'autre (élément de liste, ligne de tableau, premier des deux boutons) ;
@@ -222,6 +235,9 @@ qu'avec cette décision.
 | B3 | B | `services/api.ts` | Sans refresh token, `isRefreshing` reste à `true` (sortie avant le `finally`) : les 401 suivants restent bloqués | Remettre `isRefreshing` à `false` (ou tester le refresh token avant) | Latente : masquée par le rechargement de page de la redirection `/login` | ☐ |
 | B4 | D | `pages/gestion/AValiderPage.tsx` | Bilan groupé : « 1 n'ont pas pu être validés. Ils restent dans la liste. » | « 1 n'a pas pu être validé. Il reste dans la liste. » | Faible (texte) | ☐ |
 | B5 | E | `pages/tontine/CreerTontinePage.tsx` | Événementielle : date de début vidée → la validation passe, POST envoyé avec `dateDebut: ''` | « Indiquez la date de début. » à l'étape 2 | Moyenne (refus backend attendu, message peu clair) | ☐ |
+| B6 | F | `pages/tontine/ToursPage.tsx` | Événement : titre de section « Tous les périodes » | « Toutes les périodes » | Faible (texte) | ☐ |
+| B7 | F | `pages/tontine/ToursPage.tsx` | Événement sans période : « Aucun période pour l'instant » | « Aucune période pour l'instant » | Faible (texte) | ☐ |
+| B8 | F | `pages/tontine/ToursPage.tsx` (`DemarrerTourSheet`) | Le bouton « Reprendre la date proposée » est dans le `<label>` « Fin » : dès qu'il apparaît, le libellé passe au bouton et le champ de date n'a plus de libellé | Bouton hors du `<label>` | Moyenne (accessibilité) | ☐ |
 
 ### Comportements à confirmer (pas de `// BUG:`, choix produit ou dette)
 
@@ -239,3 +255,6 @@ qu'avec cette décision.
 | Q10 | E | `CreerTontinePage` | Frais en francs décimaux : 2,5 affiché « 3F » (arrondi de `formatF`), 2,5 envoyé | Interdire les décimales pour les frais en F, ou afficher la valeur exacte ? | ☐ |
 | Q11 | E | `CreerTontinePage` | Nom par défaut « Tabaski AAAA » calculé une seule fois au chargement du module | Accepté (non testé : dépend de la date réelle) ? | ☐ |
 | Q12 | A | `lib/exportCsv.ts` / spec | La tâche 2.5 demandait de tester l'échappement CSV, mais le CSV est produit par le backend | Ajouter ce test côté backend ? | ☐ |
+| Q13 | F | `EncaisserPage` (choix de la tontine) | En cas d'erreur, le message dit « Impossible de charger les membres. » alors que ce sont les tontines qui n'ont pas pu être chargées | Texte à adapter ? | ☐ |
+| Q14 | F | `EncaisserPage` (mobile) | « Saisissez un montant. » ne s'affiche jamais sur mobile (bouton inactif à 0) ; sur desktop, il apparaît si on valide avec Entrée | Accepté ? | ☐ |
+| Q15 | F | `TourPage` (désignation) | Avec 1 gagnant, toucher un autre membre remplace le choix ; avec plusieurs, il faut décocher avant d'en choisir un autre | Comportement voulu ? | ☐ |
