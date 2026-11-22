@@ -17,19 +17,24 @@ export function useCotisations(
   })
 }
 
+/**
+ * Récap d'un tour. Les membres SORTI qui ont cotisé sont inclus (B48) : leurs paiements comptent
+ * dans le collecté et la distribution ; les écrans les grisent (`statutMembre`).
+ */
 export function useRecapCycle(tontineId: string, cycleId: string, page = 0, size = 20, enabled = true, echeanceId?: string) {
   return useQuery({
     queryKey: ['recapCycle', tontineId, cycleId, page, size, echeanceId ?? 'courante'],
-    queryFn: () => cotisationService.getRecapCycle(tontineId, cycleId, page, size, echeanceId),
+    queryFn: () => cotisationService.getRecapCycle(tontineId, cycleId, page, size, echeanceId, true),
     enabled: enabled && !!tontineId && !!cycleId,
     placeholderData: (prev) => prev,
   })
 }
 
+/** Total par membre, membres SORTI qui ont cotisé compris (B48), comme la distribution finale */
 export function useRecapTotal(tontineId: string, page = 0, size = 20, enabled = true) {
   return useQuery({
     queryKey: ['recapTotal', tontineId, page, size],
-    queryFn: () => cotisationService.getRecapTotal(tontineId, page, size),
+    queryFn: () => cotisationService.getRecapTotal(tontineId, page, size, true),
     enabled: enabled && !!tontineId,
     placeholderData: (prev) => prev,
   })

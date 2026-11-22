@@ -9,7 +9,7 @@
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import {
-  rythmeCourt, rythmeDe, rythmeLibre, dureeRythme, rythmeCourtDe, rythmePhraseDe,
+  rythmeCourt, rythmeDe, rythmeLibre, dureeRythme, rythmeCourtDe, rythmePhraseDe, libelleMontant,
   parRythme, dureeTour, jourEcheanceValide, echeancePhrase, heureLisible,
   aujourdhuiIso, joursAvant, compteARebours, modeRemiseLabel, capital,
   RYTHMES, RYTHME_PAR_DEFAUT, DECLENCHEMENTS, MODES_REMISE, ORDRE_LABEL,
@@ -115,6 +115,21 @@ describe('rythmeCourtDe', () => {
   })
   it('replie sur rythmeCourt(frequence) si pas de rythme B26', () => {
     expect(rythmeCourtDe({ frequence: 'MENSUEL' })).toBe('mois')
+  })
+})
+
+// ─── libelleMontant (FR23) ─────────────────────────────────────────────────────
+
+describe('libelleMontant', () => {
+  const jour = { rythmeIntervalle: 1, rythmeUnite: 'JOUR' as const }
+  it('montant fixe : « 5.000F / mois »', () => {
+    expect(libelleMontant({ rythmeIntervalle: 1, rythmeUnite: 'MOIS', montant: 5000 })).toBe('5.000F / mois')
+  })
+  it('montant libre avec minimum : jamais le minimum seul (le backend le recopie dans montant)', () => {
+    expect(libelleMontant({ ...jour, montant: 2000, montantLibre: true, montantMinimum: 2000 })).toBe('Montant libre, minimum 2.000F / jour')
+  })
+  it('montant libre sans minimum', () => {
+    expect(libelleMontant({ ...jour, montant: 0, montantLibre: true, montantMinimum: null })).toBe('Montant libre / jour')
   })
 })
 

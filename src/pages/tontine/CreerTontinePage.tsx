@@ -23,16 +23,16 @@ import { TYPES_COMMISSION } from '@/lib/commissions'
 import { useCodeList } from '@/hooks/useCodeList'
 import { useAuth } from '@/hooks/useAuth'
 import { useOnline } from '@/hooks/useOnline'
-import { formatF, formatDateCourte, formatEcheance } from '@/lib/format'
+import { formatF, formatDateCourte, formatEcheance, sansPointFinal } from '@/lib/format'
 import {
-  rythmeDe, rythmePhraseDe, dureeTour, echeancePhrase, jourEcheanceValide, aujourdhuiIso,
+  rythmeDe, rythmePhraseDe, dureeTour, echeancePhrase, jourEcheanceValide,
   RYTHME_PAR_DEFAUT, HEURE_ECHEANCE_DEFAUT, DECLENCHEMENTS, ORDRES_DEFAUT, ORDRE_LABEL, capital, type Rythme,
 } from '@/lib/tontineLabels'
 import { Stepper } from '@/components/ui/Stepper'
 import { RythmeSlider } from '@/components/ui/RythmeSlider'
 import { EcheancePicker } from '@/components/tontine/EcheancePicker'
 import { CalendrierApercu } from '@/components/tontine/CalendrierApercu'
-import { messageErreur } from '@/lib/apiError'
+import { aujourdhuiDakar, dateDebutPassee, erreurTontine } from '@/lib/periodes'
 import { ModeCycle } from '@/types/common'
 import { TontineType, type CreateTontineRequest, type Commission, type DeclenchementJackpot } from '@/types/tontine'
 
@@ -55,6 +55,8 @@ const annee = new Date().getMonth() >= 6 ? new Date().getFullYear() + 1 : new Da
 const OBJECTIFS: {
   id: Objectif; rubrique: Rubrique | null; label: string; description: string; icon: JSX.Element
   type: TontineType; nom: string; frequence: string; tone: string
+  /** Événementielle : fin de la phrase « À la fin, chacun récupère ce qu'il a cotisé… » */
+  fin?: string
 }[] = [
   // Entre proches (selon le lien social)
   { id: 'classique', rubrique: 'proches', label: 'Tontine classique', description: 'Chacun cotise le même montant et reçoit la cagnotte à son tour.', icon: <RefreshCw size={26} />, type: TontineType.ROTATIVE, nom: 'Ma tontine', frequence: 'MENSUEL', tone: 'bg-primary-100 text-primary-800' },
@@ -63,15 +65,15 @@ const OBJECTIFS: {
   { id: 'travail', rubrique: 'proches', label: 'Travail', description: 'Entre collègues, la cotisation se verse après le salaire.', icon: <Building2 size={26} />, type: TontineType.ROTATIVE, nom: 'Tontine du bureau', frequence: 'MENSUEL', tone: 'bg-slate-200 text-slate-800' },
   { id: 'marche', rubrique: 'proches', label: 'Marché', description: 'Entre commerçants, des cotisations chaque jour pour garder le fonds de roulement.', icon: <Store size={26} />, type: TontineType.ROTATIVE, nom: 'Tontine du marché', frequence: 'JOURNALIERE', tone: 'bg-lime-100 text-lime-800' },
   // Pour un événement (cérémonies)
-  { id: 'tabaski', rubrique: 'evenement', label: 'Tabaski', description: 'Épargnez ensemble pour être prêts le jour de la fête.', icon: <Moon size={26} />, type: TontineType.EVENEMENTIELLE, nom: `Tabaski ${annee}`, frequence: 'MENSUEL', tone: 'bg-amber-100 text-amber-800' },
-  { id: 'mariage', rubrique: 'evenement', label: 'Mariage', description: 'Préparez les dépenses du mariage, la cagnotte est versée avant la cérémonie.', icon: <Heart size={26} />, type: TontineType.EVENEMENTIELLE, nom: 'Mariage', frequence: 'MENSUEL', tone: 'bg-rose-100 text-rose-800' },
-  { id: 'bapteme', rubrique: 'evenement', label: 'Baptême', description: 'Préparez les dépenses du baptême, la cagnotte est versée avant la cérémonie.', icon: <Baby size={26} />, type: TontineType.EVENEMENTIELLE, nom: 'Baptême', frequence: 'MENSUEL', tone: 'bg-sky-100 text-sky-800' },
+  { id: 'tabaski', rubrique: 'evenement', label: 'Tabaski', description: 'Épargnez ensemble pour être prêts le jour de la fête.', icon: <Moon size={26} />, type: TontineType.EVENEMENTIELLE, nom: `Tabaski ${annee}`, frequence: 'MENSUEL', tone: 'bg-amber-100 text-amber-800', fin: 'pour la fête' },
+  { id: 'mariage', rubrique: 'evenement', label: 'Mariage', description: 'Préparez les dépenses du mariage, la cagnotte est versée avant la cérémonie.', icon: <Heart size={26} />, type: TontineType.EVENEMENTIELLE, nom: 'Mariage', frequence: 'MENSUEL', tone: 'bg-rose-100 text-rose-800', fin: 'pour la cérémonie' },
+  { id: 'bapteme', rubrique: 'evenement', label: 'Baptême', description: 'Préparez les dépenses du baptême, la cagnotte est versée avant la cérémonie.', icon: <Baby size={26} />, type: TontineType.EVENEMENTIELLE, nom: 'Baptême', frequence: 'MENSUEL', tone: 'bg-sky-100 text-sky-800', fin: 'pour la cérémonie' },
   // Pour un projet
-  { id: 'pelerinage', rubrique: 'projet', label: 'Pèlerinage', description: 'Réunissez les frais du pèlerinage à La Mecque avant le départ.', icon: <Landmark size={26} />, type: TontineType.EVENEMENTIELLE, nom: 'Pèlerinage', frequence: 'MENSUEL', tone: 'bg-emerald-100 text-emerald-800' },
+  { id: 'pelerinage', rubrique: 'projet', label: 'Pèlerinage', description: 'Réunissez les frais du pèlerinage à La Mecque avant le départ.', icon: <Landmark size={26} />, type: TontineType.EVENEMENTIELLE, nom: 'Pèlerinage', frequence: 'MENSUEL', tone: 'bg-emerald-100 text-emerald-800', fin: 'avant le départ' },
   { id: 'construction', rubrique: 'projet', label: 'Construction', description: 'Chaque membre reçoit à son tour de quoi avancer sa construction.', icon: <Hammer size={26} />, type: TontineType.ROTATIVE, nom: 'Tontine Construction', frequence: 'MENSUEL', tone: 'bg-stone-200 text-stone-800' },
   { id: 'business', rubrique: 'projet', label: 'Business', description: 'Financez votre commerce ou votre activité, chacun son tour.', icon: <Briefcase size={26} />, type: TontineType.ROTATIVE, nom: 'Tontine Business', frequence: 'HEBDOMADAIRE', tone: 'bg-teal-100 text-teal-800' },
-  { id: 'etudes', rubrique: 'projet', label: 'Études', description: 'Préparez la rentrée scolaire : fournitures, inscriptions, frais.', icon: <GraduationCap size={26} />, type: TontineType.EVENEMENTIELLE, nom: 'Rentrée scolaire', frequence: 'MENSUEL', tone: 'bg-indigo-100 text-indigo-800' },
-  { id: 'voyage', rubrique: 'projet', label: 'Voyage', description: 'Épargnez ensemble pour partir à la date prévue.', icon: <Plane size={26} />, type: TontineType.EVENEMENTIELLE, nom: 'Voyage', frequence: 'MENSUEL', tone: 'bg-cyan-100 text-cyan-800' },
+  { id: 'etudes', rubrique: 'projet', label: 'Études', description: 'Préparez la rentrée scolaire : fournitures, inscriptions, frais.', icon: <GraduationCap size={26} />, type: TontineType.EVENEMENTIELLE, nom: 'Rentrée scolaire', frequence: 'MENSUEL', tone: 'bg-indigo-100 text-indigo-800', fin: 'pour la rentrée' },
+  { id: 'voyage', rubrique: 'projet', label: 'Voyage', description: 'Épargnez ensemble pour partir à la date prévue.', icon: <Plane size={26} />, type: TontineType.EVENEMENTIELLE, nom: 'Voyage', frequence: 'MENSUEL', tone: 'bg-cyan-100 text-cyan-800', fin: 'pour le voyage' },
   // Hors rubrique : lien en bas de liste
   { id: 'autre', rubrique: null, label: 'Autre', description: 'Vous choisissez le fonctionnement à l’étape suivante.', icon: <MoreHorizontal size={22} />, type: TontineType.ROTATIVE, nom: 'Ma tontine', frequence: 'MENSUEL', tone: 'bg-neutral-200 text-neutral-700' },
 ]
@@ -91,7 +93,8 @@ export function CreerTontinePage() {
   const { data: ordreList } = useCodeList('ORDRE_BENEFICIAIRE')
   const ordres = ordreList?.length ? ordreList.map((o) => o.value) : ORDRES_DEFAUT
 
-  const aujourdhui = aujourdhuiIso()
+  // Recalculé à chaque rendu (heure de Dakar) : une page restée ouverte la nuit ne propose pas la veille
+  const aujourdhui = aujourdhuiDakar()
   const [etape, setEtape] = useState(1)
   const [objectif, setObjectif] = useState<Objectif | null>(null)
   const [type, setType] = useState<TontineType>(TontineType.ROTATIVE)
@@ -106,6 +109,10 @@ export function CreerTontinePage() {
   const [parTour, setParTour] = useState(1)
   const [declenchement, setDeclenchement] = useState<DeclenchementJackpot>('FIN_DU_TOUR')
   const [dateDebut, setDateDebut] = useState(aujourdhui)
+  // false tant que le gestionnaire n'a pas choisi de date : on suit alors « aujourd'hui »
+  const [dateDebutChoisie, setDateDebutChoisie] = useState(false)
+  // Date passée (avant l'envoi, ou DATE_DEBUT_PASSEE du backend) : message sur le champ date
+  const [erreurDate, setErreurDate] = useState<string | null>(null)
   const [gagnants, setGagnants] = useState(1)
   const [ordre, setOrdre] = useState('ROTATION')
   const [modeCycle, setModeCycle] = useState<ModeCycle>(ModeCycle.AUTOMATIQUE)
@@ -124,6 +131,24 @@ export function CreerTontinePage() {
   const objectifChoisi = OBJECTIFS.find((o) => o.id === objectif)
   const etapes = isEvent ? [1, 2, 4] : [1, 2, 3, 4]
   const indexEtape = etapes.indexOf(etape)
+  // Étape où se choisit la date de début : 2 (événement) ou 3 (rotative)
+  const etapeDate = isEvent ? 2 : 3
+
+  const changerDateDebut = (v: string) => {
+    setDateDebut(v)
+    setDateDebutChoisie(true)
+    setErreurDate(null)
+  }
+  const commencerAujourdhui = () => {
+    setDateDebut(aujourdhuiDakar())
+    setDateDebutChoisie(false)
+    setErreurDate(null)
+  }
+  // À l'ouverture d'une étape : la date proposée suit le jour réel (sauf si le gestionnaire l'a choisie)
+  const ouvrirEtape = (e: number) => {
+    if (!dateDebutChoisie) setDateDebut(aujourdhuiDakar())
+    setEtape(e)
+  }
 
   const choisirObjectif = (o: (typeof OBJECTIFS)[number]) => {
     setObjectif(o.id)
@@ -187,7 +212,7 @@ export function CreerTontinePage() {
   const suivant = () => {
     if (erreurEtape) { setError(erreurEtape); return }
     setError(null)
-    setEtape(etapes[indexEtape + 1])
+    ouvrirEtape(etapes[indexEtape + 1])
   }
   const precedent = () => {
     setError(null)
@@ -198,6 +223,14 @@ export function CreerTontinePage() {
   const creerTontine = () => {
     if (erreurEtape) { setError(erreurEtape); return }
     setError(null)
+    // « Aujourd'hui » recalculé juste avant l'envoi ; une date choisie et passée est signalée avant d'envoyer
+    const debut = dateDebutChoisie ? dateDebut : aujourdhuiDakar()
+    if (debut !== dateDebut) setDateDebut(debut)
+    if (dateDebutPassee(debut)) {
+      setErreurDate('La date de début est passée : choisissez aujourd’hui ou une date future.')
+      setEtape(etapeDate)
+      return
+    }
     const payload: CreateTontineRequest = {
       tontineType: type,
       nom: nom.trim(),
@@ -208,7 +241,7 @@ export function CreerTontinePage() {
       frequence: rythme.code ?? undefined,
       jourEcheance: jour || undefined,
       heureEcheance: heure,
-      dateDebut,
+      dateDebut: debut,
     }
     // Commission enregistrée avec la tontine : si elle est refusée, rien n'est créé (B30)
     if (commissionType) {
@@ -235,7 +268,9 @@ export function CreerTontinePage() {
         setCreeeId(t.id)
       },
       onError: (err) => {
-        setError(messageErreur(err, 'La création a échoué. Réessayez.'))
+        const e = erreurTontine(err, {}, 'La création a échoué. Réessayez.')
+        if (e.code === 'DATE_DEBUT_PASSEE') { setErreurDate(e.texte); setEtape(etapeDate); return }
+        setError(e.texte)
       },
     })
   }
@@ -278,13 +313,16 @@ export function CreerTontinePage() {
         ? `Vous prenez ${formatF(commissionNombre)} par tour, déduits du jackpot.`
         : `Chaque membre paie ${formatF(commissionNombre)} de frais d'adhésion en rejoignant la tontine.`
 
+  // Événementielle : chacun récupère ce qu'il a cotisé (distribution par membre, B43), selon l'objectif
+  const finEvenement = `À la fin, chacun récupère ce qu'il a cotisé${commissionLigne ? ', moins votre commission' : ''}${objectifChoisi?.fin ? ` ${objectifChoisi.fin}` : ''}.`
+
   // Phrase du récapitulatif (étape 4, et panneau « en direct » sur desktop)
   const phrase = isEvent ? (
     <>
       Chacun cotise <b>{montantLibre ? (Number(minimum) > 0 ? `librement (minimum ${formatF(Number(minimum))})` : 'librement') : formatF(montant)} {rythmeTexte}</b>
       {limiteTexte ? `, ${limiteTexte}` : ''}
-      {dateEvenement ? <>, jusqu'au <b>{formatDateCourte(dateEvenement)}</b></> : null}.
-      La cagnotte est partagée entre tous à la fin.
+      {dateEvenement ? <>, jusqu'au <b>{sansPointFinal(formatDateCourte(dateEvenement))}</b></> : null}.
+      {' '}{finEvenement}
     </>
   ) : (
     <>
@@ -424,7 +462,7 @@ export function CreerTontinePage() {
               <section className="bg-white rounded-3xl shadow-sm p-4 grid grid-cols-2 gap-3">
                 <label className="block">
                   <span className="text-sm font-semibold text-neutral-700">Début</span>
-                  <input type="date" value={dateDebut} onChange={(e) => setDateDebut(e.target.value)} className="mt-1 w-full h-12 px-3 rounded-2xl bg-neutral-100 text-[16px]" />
+                  <input type="date" value={dateDebut} min={aujourdhui} aria-invalid={!!erreurDate} onChange={(e) => changerDateDebut(e.target.value)} className={clsx('mt-1 w-full h-12 px-3 rounded-2xl bg-neutral-100 text-[16px]', erreurDate && 'ring-2 ring-red-500')} />
                 </label>
                 <label className="block">
                   <span className="text-sm font-semibold text-neutral-700">Événement</span>
@@ -432,6 +470,8 @@ export function CreerTontinePage() {
                 </label>
               </section>
             )}
+
+            {isEvent && erreurDate && <ErreurDate texte={erreurDate} onAujourdhui={commencerAujourdhui} />}
 
             {isEvent && <CalendrierApercu simulation={simulation.data} isEvent chargement={simulable && simulation.isLoading} />}
           </div>
@@ -445,8 +485,9 @@ export function CreerTontinePage() {
             </section>
             <label className="block bg-white rounded-3xl shadow-sm p-4">
               <span className="text-sm font-semibold text-neutral-700">Date de début</span>
-              <input type="date" value={dateDebut} min={aujourdhui} onChange={(e) => setDateDebut(e.target.value)} className="mt-1 w-full h-12 px-4 rounded-2xl bg-neutral-100 text-[16px]" />
+              <input type="date" value={dateDebut} min={aujourdhui} aria-invalid={!!erreurDate} onChange={(e) => changerDateDebut(e.target.value)} className={clsx('mt-1 w-full h-12 px-4 rounded-2xl bg-neutral-100 text-[16px]', erreurDate && 'ring-2 ring-red-500')} />
             </label>
+            {erreurDate && <ErreurDate texte={erreurDate} onAujourdhui={commencerAujourdhui} />}
 
             {/* Le jackpot : plus il y a de cotisations par tour, plus il est gros */}
             <section className="bg-yellow-50 rounded-3xl shadow-sm p-5">
@@ -655,6 +696,18 @@ export function CreerTontinePage() {
           {boutonPrincipal}
         </div>
       </div>
+    </div>
+  )
+}
+
+/** Date de début passée : le message et la correction en un geste */
+function ErreurDate({ texte, onAujourdhui }: { texte: string; onAujourdhui: () => void }) {
+  return (
+    <div className="rounded-3xl bg-red-50 px-4 py-3">
+      <p role="alert" className="text-sm font-medium text-red-800">{texte}</p>
+      <button type="button" onClick={onAujourdhui} className="mt-2 h-11 px-4 rounded-full bg-white text-sm font-semibold text-red-800">
+        Commencer aujourd’hui
+      </button>
     </div>
   )
 }

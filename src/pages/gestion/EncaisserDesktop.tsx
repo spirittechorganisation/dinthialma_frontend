@@ -16,7 +16,7 @@ import { METHODE_PAR_DEFAUT } from '@/lib/paymentMethods'
 import { useAdminRecordCotisation } from '@/hooks/useCotisations'
 import { useOnline } from '@/hooks/useOnline'
 import { formatF } from '@/lib/format'
-import { messageErreur } from '@/lib/apiError'
+import { erreurTontine } from '@/lib/periodes'
 import { AccountStatus, CotisationStatut } from '@/types/common'
 import type { CycleRecapLigne } from '@/types/cotisation'
 
@@ -31,6 +31,11 @@ interface EncaisserDesktopProps {
   suffixeTour?: string
   /** 0 = montant libre (à saisir) */
   montantDefaut: number
+  /** Montant libre : minimum par cotisation (null = aucun) */
+  montantMinimum?: number | null
+  evenement?: boolean
+  /** Premier jour de la période (texte de ECHEANCE_NON_OUVERTE) */
+  dateDebutPeriode?: string | null
   lignes: CycleRecapLigne[]
   membreId: string | null
   onChoisir: (membreId: string) => void
@@ -199,7 +204,10 @@ export function EncaisserDesktop(p: EncaisserDesktopProps) {
   )
 }
 
-function FormulaireEncaissement({ tontineId, cycleId, echeanceId, numeroCycle, suffixeTour = '', montantDefaut, membre, onFermer }: EncaisserDesktopProps & { membre: CycleRecapLigne }) {
+function FormulaireEncaissement({
+  tontineId, cycleId, echeanceId, numeroCycle, suffixeTour = '', montantDefaut, montantMinimum = null, evenement = false,
+  dateDebutPeriode = null, membre, onFermer,
+}: EncaisserDesktopProps & { membre: CycleRecapLigne }) {
   const navigate = useNavigate()
   const online = useOnline()
   const { mutate: encaisser, isPending } = useAdminRecordCotisation()
@@ -208,6 +216,8 @@ function FormulaireEncaissement({ tontineId, cycleId, echeanceId, numeroCycle, s
   const [reference, setReference] = useState('')
   const [note, setNote] = useState('')
   const [error, setError] = useState<string | null>(null)
+  // MEMBRE_INACTIF : le membre a été suspendu ou sorti entre-temps, on propose de le réactiver
+  const [inactif, setInactif] = useState(false)
   const montantRef = useRef<HTMLInputElement>(null)
   const nom = nomDe(membre)
   const montant = Number(saisie.replace(/\D/g, '')) || 0
@@ -219,7 +229,9 @@ function FormulaireEncaissement({ tontineId, cycleId, echeanceId, numeroCycle, s
   const confirmer = (e?: FormEvent) => {
     e?.preventDefault()
     setError(null)
+    setInactif(false)
     if (montant <= 0) { setError('Saisissez un montant.'); montantRef.current?.focus(); return }
+    if (montantMinimum && montant < montantMinimum) { setError(`Montant minimum : ${formatF(montantMinimum)}.`); montantRef.current?.focus(); return }
     encaisser(
       {
         tontineId,
@@ -235,7 +247,11 @@ function FormulaireEncaissement({ tontineId, cycleId, echeanceId, numeroCycle, s
       },
       {
         onSuccess: (cot) => navigate(`/recu/${tontineId}/${cot.id}`, { replace: true, state: { justCreated: true } }),
-        onError: (err) => setError(messageErreur(err, "L'encaissement n'a pas pu être enregistré. Réessayez.")),
+        onError: (err) => {
+          const e = erreurTontine(err, { role: 'gestionnaire', evenement, dateDebut: dateDebutPeriode }, "L'encaissement n'a pas pu être enregistré. Réessayez.")
+          setError(e.texte)
+          setInactif(e.code === 'MEMBRE_INACTIF')
+        },
       },
     )
   }
@@ -274,6 +290,7 @@ function FormulaireEncaissement({ tontineId, cycleId, echeanceId, numeroCycle, s
             />
             <span className="text-2xl font-bold text-neutral-400">F</span>
           </span>
+          {montantMinimum ? <span className="mt-2 block text-sm text-neutral-500">Montant libre · minimum {formatF(montantMinimum)}</span> : null}
           {montantDefaut > 0 && montant !== montantDefaut && (
             <button type="button" onClick={() => setSaisie(String(montantDefaut))} className="mt-2 text-sm font-semibold text-primary-700 hover:underline">
               Remettre le montant prévu ({formatF(montantDefaut)})
@@ -301,6 +318,9 @@ function FormulaireEncaissement({ tontineId, cycleId, echeanceId, numeroCycle, s
       <div className="border-t border-neutral-100 px-6 py-4 flex items-center gap-4">
         <p className="flex-1 min-w-0 text-sm text-neutral-500">
           {error ? <span role="alert" className="font-medium text-red-700">{error}</span> : <>Le paiement sera validé et {membre.firstName} sera prévenu.</>}
+          {inactif && (
+            <Link to={`/tontine/${tontineId}/membres/${membre.membreId}`} className="ml-2 font-semibold text-primary-800 hover:underline">Réactiver le membre</Link>
+          )}
         </p>
         <button
           type="submit"

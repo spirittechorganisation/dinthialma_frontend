@@ -59,9 +59,13 @@ export function useActiverTontine() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (id: string) => tontineService.activerTontine(id),
+    // L'activation génère les tours : la fiche doit montrer le tour 1 et « Encaisser » sans recharger
     onSuccess: (_, id) => {
       queryClient.invalidateQueries({ queryKey: ['tontines'] })
       queryClient.invalidateQueries({ queryKey: ['tontine', id] })
+      queryClient.invalidateQueries({ queryKey: ['cycles', id] })
+      queryClient.invalidateQueries({ queryKey: ['cycle', id] })
+      queryClient.invalidateQueries({ queryKey: ['me'] })
     },
   })
 }
