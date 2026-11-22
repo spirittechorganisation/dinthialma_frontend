@@ -52,6 +52,14 @@
 | B35 | Plusieurs parts par membre (rotatives, groupées si configuré) : parts max par adhérent, personnes requises pour démarrer, retrait encadré par le gestionnaire | Créer, Réglages, Membres, Invitation, Payer, Encaisser, Mes jackpots | P1 (après B33) |
 | S01 | Socle : ponctualité d'une cotisation (à temps / en retard / non déclarée), distincte du statut | Récap tour, Je cotise, Amendes | P1 (prérequis B26/B27) |
 | S02 | Socle : montants en francs entiers, partages exacts (aucun franc perdu) | Clôture, Distribution, Caisses | P1 (prérequis B27/B28/B29) |
+| B41 | Reprise d'une tontine déjà commencée (cahier papier) : soldes d'ouverture, puis import détaillé | Créer, Membres, Fiche, Historique | P1 (conception, voir 7.3) |
+| B42 | Retraits anticipés (épargne événementielle) : solde, retrait total ou partiel, distribution sur le solde | Fiche, Mon espace, À valider, Distribution | P1 (conception, voir 7.3) |
+| B43 | Correctif : distribution finale de toutes les cotisations validées, quel que soit le statut du membre | Clôture, Distribution, Mes jackpots | **P0 — fait** (2026-11-21, à mettre en production) |
+| B44 | Correctif : aucune nouvelle cotisation pour un membre SORTI ou SUSPENDU (`MEMBRE_INACTIF`) | Payer, Encaisser | **P0 — fait** (2026-11-21, à mettre en production) |
+| B45 | Correctif : garde-fou de date à la clôture d'un tour (`TOUR_NON_COMMENCE`, `CLOTURE_FINALE_PREMATUREE`) | Tours, Remise du jackpot, Clôture | **P0 — fait** (2026-11-21, à mettre en production) |
+| B46 | Correctif : date de début passée refusée à la création, la modification et l'activation (`DATE_DEBUT_PASSEE`) | Créer, Modifier, Activer | **P0 — fait** (2026-11-21, à mettre en production) |
+| B47 | Pas de paiement sur un sous-cycle événementiel pas encore commencé | Payer, Encaisser | P1 — fait (2026-11-21, branche `fix/b43-b46-distribution-cloture`) |
+| B48 | Récapitulatifs cohérents avec la distribution : membres SORTI qui ont cotisé | Récap tour, Total par membre | P1 — fait (2026-11-21, branche `feature/b48-recap-inclure-sortis`) |
 
 ---
 
@@ -279,6 +287,7 @@ Aucun développement backend nécessaire pour : inscription / connexion / code s
    4. B27 (amendes) ;
    5. B28 (prêts).
 6. **Ajouts du 2026-11-13** : B32 (N cotisations par tour) puis B33 (cotisation séparée de la remise, retards régularisables, options de remise, clôture de la tontine), **après B26 et avant B29/B27** : B27 compte une amende par échéance manquée (B32), B29 reçoit les régularisations en option D (B33). Puis B34 (tontine groupée), qui réutilise B26, B32 et B33, B35 (plusieurs parts par membre) passe **avant** B34, qui en a besoin pour les parts en groupée.
+7. **Ajouts du 2026-11-21** (diagnostic d'une épargne journalière déjà commencée, voir section 7) : B43 à B46 (correctifs P0) **faits le 2026-11-21, à mettre en production avant la mise en service du 24-25/11** ; puis B47 (petit, indépendant) ; B48 dès qu'il est décidé ; B42 lot 1 (retraits saisis par le gestionnaire) et B41 lot 1 (soldes d’ouverture ; le lot 0 est couvert par B46) pour servir ce client sans contournement ; B42 se branche ensuite sur B29 (un retrait = un mouvement sortant de la caisse commune).
 
 ---
 
@@ -868,3 +877,70 @@ Le gestionnaire choisit une **option par défaut** dans les réglages (`modeRemi
   - **limites du nombre de gagnants** : `1 ≤ nombreGagnants ≤ parts ÷ 2` (au moins 2 tours) ; si les parts ne se divisent pas exactement (ex. 10 parts, 3 gagnants), le **dernier tour a moins de gagnants** (comportement actuel conservé), affiché par la simulation.
 - **Codes d'erreur** (à nommer à l'implémentation) : parts au-delà de `partsMaxParMembre`, activation sans toutes les parts ou sous `membresMinimum`, `nombreGagnants` hors limites.
 - **Dépendances** : B32/B33 (échéances, régularisation, remise) ; **avant B34**.
+
+---
+
+## 7. Épargne déjà commencée, retraits, et correctifs (2026-11-21)
+
+> Origine : un gestionnaire démarre vers le 24-25/11/2026 une **épargne journalière de 2 000 F** (type `EVENEMENTIELLE`, chacun récupère sa mise, sans commission), déjà tenue 21 jours sur un cahier, avec des membres sans smartphone (`PRE_ENROLLED`, espèces saisies par le gestionnaire) qui peuvent demander leur argent avant la fin.
+> Diagnostic : `Docs/diagnostic/2026-11-reprise-et-retraits.md` (commit `76ea873`). Correctifs : `Docs/diagnostic/2026-11-correctifs-b43-b46.md` (branche `fix/b43-b46-distribution-cloture`). Contrôle de la production : `Docs/diagnostic/controle-b43.sql` (lecture seule).
+
+### 7.1 Correctifs P0 (faits le 2026-11-21, décisions validées par le porteur du projet)
+
+#### B43 — Distribution finale de toutes les cotisations validées
+- **Bug** : la distribution finale d'une événementielle ne retenait que les membres `ACTIF` ; les cotisations `VALIDE` des membres SORTI, SUSPENDU ou retirés n'étaient attribuées à personne, et le jackpot du dernier sous-cycle ne correspondait plus au total encaissé.
+- **Règle** : toute cotisation `VALIDE` revient à son membre, quel que soit son statut ou sa suppression logique ; commissions au prorata, `montantJackpot`, `montantCommission`, `montantNet` sur le total réellement encaissé ; même règle pour la clôture anticipée (`PUT /tontines/{id}/cloturer` + `forcer`).
+- **Décision 1** : les membres non actifs qui reçoivent une part sont **notifiés** comme les autres (in-app `DISTRIBUTION_FINALE` + WhatsApp `JACKPOT`), y compris un membre retiré : ils doivent savoir qu'une somme leur revient.
+- **Production** : lancer `controle-b43.sql` pour repérer les tontines déjà distribuées avec un écart (tontine, membre, statut, montant non distribué).
+
+#### B44 — Aucune nouvelle cotisation pour un membre non actif
+- **Règle** : déclaration du membre et saisie du gestionnaire refusées pour un membre `SORTI` ou `SUSPENDU` → 400 `MEMBRE_INACTIF` (régularisation d'un tour remis comprise).
+- **Décision 2** : une cotisation **déjà enregistrée** (EN_ATTENTE, EN_RETARD) d'un membre suspendu ou sorti entre-temps reste **validable, refusable et corrigeable** : l'argent a été remis avant.
+- **Décision 3** : un retard d'un membre **SORTI** ne se régularise pas tel quel : le gestionnaire le réactive, encaisse, puis le repasse SORTI.
+
+#### B45 — Garde-fou de date à la clôture d'un tour
+- **Règle** (heure de Dakar) :
+  - tour dont la `dateDebut` n'est pas atteinte → 400 `TOUR_NON_COMMENCE` ;
+  - **exception rotative** : si tous les membres actifs ont déjà payé toutes les échéances du tour, la remise reste permise (remise anticipée ; `TOUS_PAYES` en AUTOMATIQUE comme en MANUEL) ;
+  - rotative commencée : clôture toujours possible avant son échéance (remise anticipée, options de remise B33) ;
+  - **dernier sous-cycle d'une événementielle** : refusé avant sa `dateFin` (date de l'événement) → 400 `CLOTURE_FINALE_PREMATUREE` ; la fin anticipée volontaire passe par « Clôturer la tontine » (confirmation `forcer`).
+- **Décision 5** : blocage du dernier sous-cycle jusqu'à sa **`dateFin`** (et non son `dateDebut`), pour qu'une événementielle hebdomadaire ou mensuelle ne distribue pas jusqu'à un mois trop tôt.
+- **Front** : désactiver « Clôturer le tour » avant `dateDebut` (sauf rotative `tousPayes`) ; sur `CLOTURE_FINALE_PREMATUREE`, proposer « Clôturer la tontine ».
+
+#### B46 — Date de début passée
+- **Règle** : `dateDebut` antérieure à aujourd'hui (heure de Dakar) → 400 `DATE_DEBUT_PASSEE` à la **création**, à la **modification** (BROUILLON) et à l'**activation** quand elle génère les tours (événementielle, rotative AUTOMATIQUE). Rotative MANUEL et réactivation d'une tontine suspendue : non concernées.
+- **Décision 4** : à l'activation tardive, **refus** (le gestionnaire corrige la date puis réactive), pas de décalage automatique : le calendrier annoncé aux membres ne change jamais à leur insu.
+- **Front** : à la création, le code d'une date passée devient `DATE_DEBUT_PASSEE` (au lieu de `VALIDATION_ERROR`) ; à l'activation, ouvrir la modification de la date.
+- Une vraie reprise de tontine commencée relève de B41.
+
+### 7.2 Suites décidées ou à décider
+
+#### B47 — Pas de paiement sur un sous-cycle événementiel pas encore commencé (décision 6, fait le 2026-11-21)
+- **Constat** : quand le gestionnaire clôture le jour J, le sous-cycle J+1 passe EN_COURS immédiatement et accepte déjà un paiement (la 1ʳᵉ échéance d'un tour est toujours ouverte). B45 n'interdit que sa *clôture* avant son jour.
+- **Règle** : déclaration et saisie refusées sur un **sous-cycle événementiel** dont la `dateDebut` n'est pas atteinte → 400 `ECHEANCE_NON_OUVERTE` (code existant : « on ne paie pas d'avance »), contrôle dans `CotisationServiceImpl#verifierTourPayable` (heure de Dakar).
+- **Rotatives exclues** : le paiement d'avance d'un tour pas commencé y reste permis, car c'est lui qui rend possible la remise anticipée `TOUS_PAYES` décidée en B45 (confirmé le 2026-11-21).
+- **Tests** : `CotisationServiceImplTest.SousCycleNonCommence` (événementielle refusée, jour même accepté, rotative d'avance acceptée), IT `ClotureTontineIT#paiementJourNonCommence`.
+
+#### B48 — Récapitulatifs cohérents avec la distribution (fait le 2026-11-21)
+- **Constat** : depuis B43, un membre SORTI qui a cotisé reçoit sa part, mais `GET /cotisations/recap-total` et `GET /cotisations/recap/{cycleId}` excluent toujours les membres `SORTI` : leurs totaux ne correspondent plus à la distribution.
+- **Décision** : paramètre **`?inclureSortis=true`** (défaut `false` : comportement actuel inchangé tant que le front ne l'envoie pas) :
+  - `recap-total` avec `inclureSortis=true` : ajoute les membres SORTI **qui ont au moins une cotisation VALIDE** (la ligne porte déjà `statutMembre`, le front les grise) ;
+  - récap par tour avec `inclureSortis=true` : ajoute un membre SORTI s'il a une cotisation **sur ce tour** (EN_ATTENTE, VALIDE ou EN_RETARD ; une cotisation REFUSE ne compte pas) ;
+  - membres retirés (`DELETE`, `deletedAt`) : toujours exclus des récaps ; ils n'apparaissent que dans la distribution (où ils reçoivent leur part).
+- **Réalisation** : `CotisationService#getTontineRecapTotal` / `#getCycleRecap` (surcharges avec `inclureSortis`, les signatures historiques délèguent avec `false`), `TontineMembreSpecifications#horsSortisSaufCotisants`. Tests : `CotisationServiceImplTest.RecapsAvecSortis`, IT `CotisationParcoursIT#recapsInclureSortis`.
+
+### 7.3 Conceptions (à planifier, détail dans le diagnostic du 2026-11-21)
+
+#### B41 — Reprise d'une tontine déjà commencée
+- **Option recommandée** : **solde d'ouverture par membre** (une ligne par membre, copiée du cahier), puis en option un import détaillé membre × jour (CSV).
+- **Modèle** : `tontines.date_debut_reelle` (date du cahier, affichée) ; `cotisations.origine` (`DECLARATION`, `SAISIE`, `REPRISE`) ; un **tour de reprise** n° 0, TERMINE, sans échéance, qui porte les soldes (`VALIDE`, origine `REPRISE`) : ils entrent dans la distribution et les totaux sans déclencher rappels, ponctualité (`Ponctualite.REPRISE`), retards ni amendes.
+- **Règles** : gestionnaire ou SUPER_ADMIN ; avant la première distribution ; `dateDebutReelle` ≥ `dateDebut` − 366 j ; reprise **figée** (au premier tour clôturé ou à la demande) puis non modifiable (`REPRISE_FIGEE`) ; **aucune notification rétroactive** ; tout est audité.
+- **Endpoints** : `PUT` / `GET /v1/tontines/{id}/reprise`, `POST /v1/tontines/{id}/reprise/figer`, puis `POST /v1/tontines/{id}/reprise/import` (lot 3).
+- **Lots** : 0 (contrôle de `dateDebut` au PUT) **couvert par B46** · 1 soldes d'ouverture (3 à 4 j) · 2 affichage et activité (1 j) · 3 import détaillé (3 j).
+
+#### B42 — Retraits anticipés (épargne événementielle)
+- **Modèle** : table `retraits_epargne` (membre, `PARTIEL` | `TOTAL`, montant, frais, statut `DEMANDE` → `ACCEPTE` → `REMIS` ou `REFUSE` / `ANNULE`, origine `MEMBRE` | `GESTIONNAIRE`, méthode + référence, auteurs, dates) ; réglage `regle_retrait` (`INTERDIT` pour l'existant, `LIBRE`, `APRES_JOURS`, `AVEC_FRAIS`) ; `tontine_membres.solde_le` pour un membre soldé (pas de nouveau statut).
+- **Solde** = cotisations validées − retraits remis (montant + frais) ; distribution finale sur le solde ; membre soldé : plus de rappels ni de cotisation due.
+- **Endpoints** : `POST /v1/tontines/{id}/retraits` (demande du membre), `POST …/retraits/admin` (saisie directe, `REMIS`), `PUT …/{rid}/accepter|remettre|refuser`, `DELETE …/{rid}`, `GET …/retraits`, `GET …/membres/{mid}/solde` ; notifications `RETRAIT_DEMANDE`, `RETRAIT_ACCEPTE`, `RETRAIT_REMIS`, `RETRAIT_REFUSE`.
+- **Lien B29** : un retrait est un mouvement sortant de la caisse commune ; la table est conçue pour être journalisée par B29 sans migration destructive.
+- **Lots** : 0 (distribution de tous les membres) **couvert par B43** · 1 retraits saisis par le gestionnaire + solde + distribution (3 à 4 j) · 2 demande du membre et notifications (2 j) · 3 règles, exports, activité, tableaux de bord (2 à 3 j).

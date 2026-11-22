@@ -347,7 +347,7 @@
           "Cycles"
         ],
         "summary": "Clôturer un cycle",
-        "description": "🔒 Rôles : créateur de la tontine, SUPER_ADMIN.\n\nPasse le cycle **EN_COURS → TERMINÉ** avec le traitement automatique suivant :\n\n1. Calcul du jackpot brut = somme des cotisations **VALIDÉES** du cycle\n2. Calcul des commissions actives (POURCENTAGE_JACKPOT, FRAIS_FIXES_PAR_CYCLE)\n3. Stockage de montantJackpot, montantCommission, montantNet\n4. Cotisations **EN_ATTENTE** restantes → marquées **EN_RETARD**\n5. En mode AUTOMATIQUE : le cycle suivant (EN_ATTENTE) passe **EN_COURS** et un SMS est envoyé au bénéficiaire suivant\n\n**Option de remise (B33)** : corps facultatif `modeRemise`, sinon le réglage de la tontine. `ATTENDRE` avec un jackpot incomplet → 409 `REMISE_JACKPOT_INCOMPLETE` ; `CAISSE`, ou `AVANCE_COMMISSION` quand la commission ne couvre pas le manque → 400 `MODE_REMISE_INDISPONIBLE`.",
+        "description": "🔒 Rôles : créateur de la tontine, SUPER_ADMIN.\n\nPasse le cycle **EN_COURS → TERMINÉ** avec le traitement automatique suivant :\n\n1. Calcul du jackpot brut = somme des cotisations **VALIDÉES** du cycle\n2. Calcul des commissions actives (POURCENTAGE_JACKPOT, FRAIS_FIXES_PAR_CYCLE)\n3. Stockage de montantJackpot, montantCommission, montantNet\n4. Cotisations **EN_ATTENTE** restantes → marquées **EN_RETARD**\n5. En mode AUTOMATIQUE : le cycle suivant (EN_ATTENTE) passe **EN_COURS** et un SMS est envoyé au bénéficiaire suivant\n\n**Option de remise (B33)** : corps facultatif `modeRemise`, sinon le réglage de la tontine. `ATTENDRE` avec un jackpot incomplet → 409 `REMISE_JACKPOT_INCOMPLETE` ; `CAISSE`, ou `AVANCE_COMMISSION` quand la commission ne couvre pas le manque → 400 `MODE_REMISE_INDISPONIBLE`.\n\n**Garde-fou de date (B45, heure de Dakar)** : tour dont la `dateDebut` n'est pas atteinte → 400 `TOUR_NON_COMMENCE`, sauf en rotative quand tous les membres actifs ont déjà payé toutes les échéances du tour (remise anticipée). Une rotative commencée se clôture toujours avant son échéance. Événementielle : le dernier sous-cycle (distribution finale, irréversible) ne se clôture pas avant sa `dateFin` → 400 `CLOTURE_FINALE_PREMATUREE` ; fin anticipée par `PUT /v1/tontines/{id}/cloturer` avec `forcer`.\n\n**Distribution finale (B43)** : chaque membre ayant des cotisations VALIDÉES reçoit sa part, quel que soit son statut (SORTI, SUSPENDU, retiré).",
         "operationId": "closeCycle",
         "parameters": [
           {
@@ -394,7 +394,7 @@
             }
           },
           "400": {
-            "description": "Cycle pas EN_COURS",
+            "description": "Cycle pas EN_COURS, `TOUR_NON_COMMENCE`, `CLOTURE_FINALE_PREMATUREE`, `MODE_REMISE_INDISPONIBLE`",
             "content": {
               "application/json": {
                 "schema": {
@@ -887,7 +887,7 @@
           "Tontines"
         ],
         "summary": "Mettre à jour une tontine",
-        "description": "🔒 Rôles : créateur de la tontine, SUPER_ADMIN.\n\nModification autorisée **uniquement si la tontine est en statut BROUILLON**. Les champs null dans la requête ne sont pas modifiés.",
+        "description": "🔒 Rôles : créateur de la tontine, SUPER_ADMIN.\n\nModification autorisée **uniquement si la tontine est en statut BROUILLON**. Les champs null dans la requête ne sont pas modifiés. Une `dateDebut` passée (heure de Dakar) → 400 `DATE_DEBUT_PASSEE` (B46).",
         "operationId": "updateTontine",
         "parameters": [
           {
@@ -924,7 +924,7 @@
             }
           },
           "400": {
-            "description": "Données invalides ou tontine pas en BROUILLON",
+            "description": "Données invalides, tontine pas en BROUILLON, `DATE_DEBUT_PASSEE`",
             "content": {
               "application/json": {
                 "schema": {
@@ -1234,7 +1234,7 @@
           "Tontines"
         ],
         "summary": "Activer une tontine",
-        "description": "🔒 Rôles : créateur de la tontine, SUPER_ADMIN.\n\nPasse la tontine de **BROUILLON** (ou SUSPENDUE) à **ACTIVE**.\n\n**ROTATIVE – Mode AUTOMATIQUE** : génère immédiatement tous les cycles (N membres → N cycles), le premier passe EN_COURS.\n\n**ROTATIVE – Mode MANUEL** : active la tontine sans générer de cycles. Ouvrir les cycles via `POST .../cycles`.\n\n**EVENEMENTIELLE** : génère automatiquement tous les sous-cycles de `dateDebut` à `dateEcheance` selon la `frequence` (JOURNALIERE, HEBDOMADAIRE, BIMENSUEL, MENSUEL, TRIMESTRIEL). Le dernier sous-cycle se termine exactement sur `dateEcheance`.",
+        "description": "🔒 Rôles : créateur de la tontine, SUPER_ADMIN.\n\nPasse la tontine de **BROUILLON** (ou SUSPENDUE) à **ACTIVE**.\n\n**ROTATIVE – Mode AUTOMATIQUE** : génère immédiatement tous les cycles (N membres → N cycles), le premier passe EN_COURS.\n\n**ROTATIVE – Mode MANUEL** : active la tontine sans générer de cycles. Ouvrir les cycles via `POST .../cycles`.\n\n**EVENEMENTIELLE** : génère automatiquement tous les sous-cycles de `dateDebut` à `dateEcheance` selon la `frequence` (JOURNALIERE, HEBDOMADAIRE, BIMENSUEL, MENSUEL, TRIMESTRIEL). Le dernier sous-cycle se termine exactement sur `dateEcheance`.\n\n**Date de début passée (B46)** : quand l'activation génère les tours (événementielle ou rotative AUTOMATIQUE) et que `dateDebut` est passée depuis la création → 400 `DATE_DEBUT_PASSEE` : modifier la date (`PUT /{id}`) puis réactiver. Aucun décalage automatique.",
         "operationId": "activateTontine",
         "parameters": [
           {
@@ -1261,7 +1261,7 @@
             }
           },
           "400": {
-            "description": "Tontine déjà ACTIVE ou TERMINEE",
+            "description": "Tontine déjà ACTIVE ou TERMINEE, `DATE_DEBUT_PASSEE`",
             "content": {
               "application/json": {
                 "schema": {
@@ -1866,7 +1866,7 @@
           "Tontines"
         ],
         "summary": "Créer une tontine",
-        "description": "🔒 Rôles : tout utilisateur authentifié.\n\nL'appelant devient automatiquement l'administrateur de la tontine et reçoit le rôle DINTHIALMA_ADMIN. La tontine est créée en statut **BROUILLON**.\n\n**Types disponibles :**\n\n- `ROTATIVE` *(défaut)* – jackpot tournant. Champs obligatoires supplémentaires : `ordreBeneficiaire`, `nombreMembres` (≥2), `modeCycle`, `montant`.\n- `EVENEMENTIELLE` – épargne vers un événement (Tabaski, Korité…). Champs obligatoires supplémentaires : `dateEcheance` (> `dateDebut`), `montant` si `montantLibre=false`. Champ optionnel : `nomEvenement`, `montantMinimum`.",
+        "description": "🔒 Rôles : tout utilisateur authentifié.\n\nL'appelant devient automatiquement l'administrateur de la tontine et reçoit le rôle DINTHIALMA_ADMIN. La tontine est créée en statut **BROUILLON**.\n\n**Types disponibles :**\n\n- `ROTATIVE` *(défaut)* – jackpot tournant. Champs obligatoires supplémentaires : `ordreBeneficiaire`, `nombreMembres` (≥2), `modeCycle`, `montant`.\n- `EVENEMENTIELLE` – épargne vers un événement (Tabaski, Korité…). Champs obligatoires supplémentaires : `dateEcheance` (> `dateDebut`), `montant` si `montantLibre=false`. Champ optionnel : `nomEvenement`, `montantMinimum`.\n\n`dateDebut` : aujourd'hui ou future, heure de Dakar (B46), sinon 400 `DATE_DEBUT_PASSEE`.",
         "operationId": "createTontine",
         "requestBody": {
           "content": {
@@ -1890,7 +1890,7 @@
             }
           },
           "400": {
-            "description": "Données invalides (validation)",
+            "description": "Données invalides (validation), `DATE_DEBUT_PASSEE`",
             "content": {
               "application/json": {
                 "schema": {
@@ -2801,7 +2801,7 @@
             }
           },
           "400": {
-            "description": "Données invalides ou cycle pas EN_COURS",
+            "description": "Données invalides, tour pas ouvert, ou membre SORTI / SUSPENDU (`MEMBRE_INACTIF`, B44 : le réactiver d'abord), ou sous-cycle événementiel pas encore commencé (`ECHEANCE_NON_OUVERTE`, B47 : pas de paiement d'avance ; rotatives non concernées)",
             "content": {
               "application/json": {
                 "schema": {
@@ -2901,7 +2901,7 @@
             }
           },
           "400": {
-            "description": "Données invalides ou cycle pas EN_COURS",
+            "description": "Données invalides, tour pas ouvert, ou membre SORTI / SUSPENDU (`MEMBRE_INACTIF`, B44 : le réactiver d'abord), ou sous-cycle événementiel pas encore commencé (`ECHEANCE_NON_OUVERTE`, B47 : pas de paiement d'avance ; rotatives non concernées)",
             "content": {
               "application/json": {
                 "schema": {
@@ -5260,7 +5260,7 @@
           "Cotisations"
         ],
         "summary": "Récapitulatif des cotisations d'un cycle par membre",
-        "description": "🔒 Rôles : créateur de la tontine, SUPER_ADMIN.\n\nRetourne un enregistrement par membre actif/suspendu de la tontine :\n- `statutCotisation` **null** → membre n'a soumis aucune cotisation pour ce cycle\n- `statutCotisation` **EN_ATTENTE** → cotisation soumise, en attente de validation\n- `statutCotisation` **VALIDE** → cotisation validée et prise en compte\n- `statutCotisation` **EN_RETARD** → cycle clôturé sans cotisation validée\n\nTour à plusieurs échéances (B32) : les champs de cotisation portent sur l'échéance de référence (`?echeanceId=`, sinon l'échéance en cours) ; `echeancesDues`, `echeancesPayees` et `echeances[]` détaillent tout le tour.Les membres sont triés par `ordreJackpot` croissant puis par date d'adhésion. Les membres SORTI sont exclus.\n\nPagination : `?page=0&size=20` (tri par défaut `ordreJackpot,asc` puis `createdAt,asc`).",
+        "description": "🔒 Rôles : créateur de la tontine, SUPER_ADMIN.\n\nRetourne un enregistrement par membre actif/suspendu de la tontine :\n- `statutCotisation` **null** → membre n'a soumis aucune cotisation pour ce cycle\n- `statutCotisation` **EN_ATTENTE** → cotisation soumise, en attente de validation\n- `statutCotisation` **VALIDE** → cotisation validée et prise en compte\n- `statutCotisation` **EN_RETARD** → cycle clôturé sans cotisation validée\n\nTour à plusieurs échéances (B32) : les champs de cotisation portent sur l'échéance de référence (`?echeanceId=`, sinon l'échéance en cours) ; `echeancesDues`, `echeancesPayees` et `echeances[]` détaillent tout le tour.Les membres sont triés par `ordreJackpot` croissant puis par date d'adhésion. Les membres SORTI sont exclus, sauf avec `?inclureSortis=true` (B48) : un membre SORTI apparaît s'il a une cotisation (EN_ATTENTE, VALIDE ou EN_RETARD) sur ce cycle ; `statutMembre` permet de le distinguer. Les membres retirés restent exclus.\n\nPagination : `?page=0&size=20` (tri par défaut `ordreJackpot,asc` puis `createdAt,asc`).",
         "operationId": "getCycleRecap",
         "parameters": [
           {
@@ -5293,6 +5293,16 @@
             "schema": {
               "type": "string",
               "format": "uuid"
+            }
+          },
+          {
+            "name": "inclureSortis",
+            "in": "query",
+            "description": "Inclure les membres SORTI qui ont une cotisation sur ce cycle (B48, défaut false)",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
             }
           },
           {
@@ -5359,7 +5369,7 @@
           "Cotisations"
         ],
         "summary": "Total cumulé des cotisations validées par membre",
-        "description": "🔒 Rôles : créateur de la tontine, SUPER_ADMIN.\n\nRetourne, pour chaque membre actif/suspendu de la tontine, le total des cotisations **VALIDÉES** tous cycles confondus (`totalCotise`) ainsi que le nombre de cotisations prises en compte. Permet au gestionnaire de connaître à tout moment le cumul cotisé par chaque membre, sans devoir se limiter à un cycle précis.\n\nLes membres sans cotisation validée apparaissent avec `totalCotise = 0`. Les membres SORTI sont exclus. Tri par `ordreJackpot` croissant puis par date d'adhésion.\n\nPagination : `?page=0&size=20` (tri par défaut `ordreJackpot,asc` puis `createdAt,asc`).",
+        "description": "🔒 Rôles : créateur de la tontine, SUPER_ADMIN.\n\nRetourne, pour chaque membre actif/suspendu de la tontine, le total des cotisations **VALIDÉES** tous cycles confondus (`totalCotise`) ainsi que le nombre de cotisations prises en compte. Permet au gestionnaire de connaître à tout moment le cumul cotisé par chaque membre, sans devoir se limiter à un cycle précis.\n\nLes membres sans cotisation validée apparaissent avec `totalCotise = 0`. Les membres SORTI sont exclus, sauf avec `?inclureSortis=true` (B48) : un membre SORTI apparaît s'il a au moins une cotisation VALIDÉE, comme dans la distribution finale (B43) ; `statutMembre` permet de le distinguer. Les membres retirés restent exclus. Tri par `ordreJackpot` croissant puis par date d'adhésion.\n\nPagination : `?page=0&size=20` (tri par défaut `ordreJackpot,asc` puis `createdAt,asc`).",
         "operationId": "getTontineRecapTotal",
         "parameters": [
           {
@@ -5372,6 +5382,16 @@
               "format": "uuid"
             },
             "example": "550e8400-e29b-41d4-a716-446655440000"
+          },
+          {
+            "name": "inclureSortis",
+            "in": "query",
+            "description": "Inclure les membres SORTI qui ont au moins une cotisation validée (B48, défaut false)",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
           },
           {
             "name": "pageable",
@@ -5678,7 +5698,8 @@
             "schema": {
               "type": "number",
               "description": "ROTATIVE : jackpot visé brut, si cotisationsParTour est absent (B32)",
-              "example": 500000
+              "example": 500000,
+              "exclusiveMinimum": 0
             },
             "example": 500000
           },
@@ -5690,7 +5711,8 @@
             "schema": {
               "type": "number",
               "description": "Montant d'une cotisation (jackpot visé et jackpot par tour)",
-              "example": 5000
+              "example": 5000,
+              "exclusiveMinimum": 0
             },
             "example": 5000
           },
@@ -7273,15 +7295,17 @@
               "REMISE_JACKPOT_INCOMPLETE",
               "MODE_REMISE_INDISPONIBLE",
               "TONTINE_CLOTURE_A_CONFIRMER",
-              "TONTINE_NON_CLOTURABLE"
+              "TONTINE_NON_CLOTURABLE",
+              "MEMBRE_INACTIF",
+              "TOUR_NON_COMMENCE",
+              "CLOTURE_FINALE_PREMATUREE",
+              "DATE_DEBUT_PASSEE"
             ]
           },
           "message": {
             "type": "string"
           },
-          "data": {
-            "type": "object"
-          }
+          "data": {}
         }
       },
       "Accepter": {
@@ -7302,7 +7326,10 @@
         "description": "Corps facultatif de la remise du jackpot (clôture d'un tour, B33). Sans corps, l'option de remise par défaut de la tontine s'applique.",
         "properties": {
           "modeRemise": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "description": "Option de remise pour ce tour ; absente = réglage de la tontine. Voir l'aperçu GET /cycles/{cycleId}/remise/apercu pour les montants de chaque option.",
             "enum": [
               "ATTENDRE",
@@ -7371,7 +7398,10 @@
             "description": "Échéance ouverte en ce moment (absente si aucune)"
           },
           "montantJackpotPrevu": {
-            "type": "number",
+            "type": [
+              "number",
+              "null"
+            ],
             "description": "Jackpot brut prévu du tour (B32) = montant par membre × membres ACTIFS × échéances du tour, tous gagnants confondus (comparable à montantJackpot) ; null si montant libre sans plancher",
             "example": 200000
           },
@@ -7396,7 +7426,10 @@
             "example": 490000
           },
           "modeRemise": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "description": "Option de remise retenue à la clôture (B33) ; null avant la remise",
             "enum": [
               "ATTENDRE",
@@ -7407,12 +7440,18 @@
             ]
           },
           "resteARecevoir": {
-            "type": "number",
+            "type": [
+              "number",
+              "null"
+            ],
             "description": "Complément encore dû aux bénéficiaires quand les retards seront payés (B33, information de suivi) ; null si le tour n'est pas remis ou l'a été avant B33",
             "example": 8000
           },
           "montantAvance": {
-            "type": "number",
+            "type": [
+              "number",
+              "null"
+            ],
             "description": "Avance de poche du gestionnaire encore à rembourser par les régularisations (B33, information de suivi)",
             "example": 0
           },
@@ -7522,7 +7561,7 @@
           "phone": {
             "type": "string",
             "description": "Numéro de téléphone",
-            "example": 221770000001
+            "example": "221770000001"
           },
           "ordreJackpot": {
             "type": "integer",
@@ -7569,7 +7608,7 @@
           "phone": {
             "type": "string",
             "description": "Numéro de téléphone normalisé",
-            "example": 221770000002
+            "example": "221770000002"
           },
           "montantCotise": {
             "type": "number",
@@ -7683,16 +7722,23 @@
             "description": "Admin qui a validé la cotisation (null si pas encore validé)"
           },
           "motifRefus": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "description": "Motif du refus – présent seulement si statut = REFUSE",
             "example": "Transfert non reçu"
           },
           "refusePar": {
+            "type": "null",
             "$ref": "#/components/schemas/ValideurInfo",
             "description": "Admin ayant refusé la déclaration (null si non refusée)"
           },
           "dateRefus": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "format": "date-time",
             "description": "Date du refus (null si non refusée)"
           },
@@ -7702,7 +7748,10 @@
             "description": "Date d'enregistrement de la cotisation"
           },
           "datePaiement": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "format": "date-time",
             "description": "Date du paiement remis en main propre (encaissement admin), sinon null"
           },
@@ -7749,7 +7798,7 @@
           "phone": {
             "type": "string",
             "description": "Numéro de téléphone normalisé",
-            "example": 221770000001
+            "example": "221770000001"
           }
         }
       },
@@ -7775,7 +7824,7 @@
           "phone": {
             "type": "string",
             "description": "Numéro de téléphone",
-            "example": 221770000001
+            "example": "221770000001"
           }
         }
       },
@@ -7811,7 +7860,10 @@
             "maxLength": 500,
             "minLength": 0
           }
-        }
+        },
+        "required": [
+          "motif"
+        ]
       },
       "UpdateCommissionRequest": {
         "type": "object",
@@ -7913,7 +7965,8 @@
           "montant": {
             "type": "number",
             "description": "Nouveau montant de cotisation par cycle en FCFA (doit être positif)",
-            "example": 10000
+            "example": 10000,
+            "exclusiveMinimum": 0
           },
           "frequence": {
             "type": "string",
@@ -7959,7 +8012,8 @@
           "jackpotVise": {
             "type": "number",
             "description": "Jackpot visé, brut avant commission (ROTATIVE) : l'app en déduit cotisationsParTour = jackpotVise ÷ (montant × nombreMembres ÷ nombreGagnants), arrondi au plus proche. Ignoré si cotisationsParTour est fourni.",
-            "example": 500000
+            "example": 500000,
+            "exclusiveMinimum": 0
           },
           "declenchementJackpot": {
             "type": "string",
@@ -7996,8 +8050,8 @@
           "dateDebut": {
             "type": "string",
             "format": "date",
-            "description": "Nouvelle date de démarrage (null = inchangée)",
-            "example": "2024-08-01"
+            "description": "Nouvelle date de démarrage, aujourd'hui ou future (null = inchangée ; passée → 400 DATE_DEBUT_PASSEE)",
+            "example": "2026-12-01"
           },
           "nombreMembres": {
             "type": "integer",
@@ -8030,7 +8084,8 @@
           "montantMinimum": {
             "type": "number",
             "description": "Nouveau montant minimum de cotisation (EVENEMENTIELLE libre, null = inchangé)",
-            "example": 1000
+            "example": 1000,
+            "exclusiveMinimum": 0
           },
           "montantLibre": {
             "type": "boolean",
@@ -8060,7 +8115,7 @@
           "phone": {
             "type": "string",
             "description": "Numéro de téléphone normalisé",
-            "example": 221783703310
+            "example": "221783703310"
           }
         }
       },
@@ -8119,7 +8174,7 @@
           "jourEcheance": {
             "type": "string",
             "description": "Jour d'échéance (LUNDI…DIMANCHE, 1…31, DERNIER) ; absent = aucun jour imposé",
-            "example": 30
+            "example": "30"
           },
           "heureEcheance": {
             "type": "string",
@@ -8230,7 +8285,10 @@
             "description": "Informations résumées du créateur"
           },
           "monRole": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "description": "Rôle de l'appelant dans cette tontine (null dans les listes SUPER_ADMIN de la console)",
             "enum": [
               "GESTIONNAIRE",
@@ -8240,12 +8298,18 @@
             ]
           },
           "monMembreId": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "format": "uuid",
             "description": "UUID du membership de l'appelant (tontine_membres.id) – null s'il ne cotise pas"
           },
           "monStatutMembre": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "description": "Statut du membership de l'appelant – null s'il ne cotise pas",
             "enum": [
               "ACTIF",
@@ -8270,7 +8334,10 @@
         "description": "Corps facultatif de la clôture d'une tontine (B33). Sans corps, la clôture est refusée (409 `TONTINE_CLOTURE_A_CONFIRMER`) s'il reste des points en suspens.",
         "properties": {
           "forcer": {
-            "type": "boolean",
+            "type": [
+              "boolean",
+              "null"
+            ],
             "description": "`true` : clôturer malgré les tours non remis, les retards ou les compléments restants (confirmation du gestionnaire après le 409).",
             "example": true
           }
@@ -8360,7 +8427,10 @@
             "example": 2
           },
           "montant": {
-            "type": "number",
+            "type": [
+              "number",
+              "null"
+            ],
             "description": "Montant correspondant ; absent si le montant est libre.",
             "example": 10000
           }
@@ -8417,10 +8487,15 @@
           },
           "email": {
             "type": "string",
+            "format": "email",
             "description": "Adresse email (optionnelle)",
             "example": "mamadou@email.com"
           }
-        }
+        },
+        "required": [
+          "firstName",
+          "lastName"
+        ]
       },
       "PreferencesDto": {
         "type": "object",
@@ -8428,14 +8503,19 @@
         "properties": {
           "tontinesFavorites": {
             "type": "array",
+            "description": "Tontines épinglées en favori (50 max)",
             "items": {
+              "type": "string",
               "format": "uuid"
             },
             "maxItems": 50,
             "minItems": 0
           },
           "dernierMode": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "description": "Dernier mode d'accueil utilisé",
             "enum": [
               "COTISE",
@@ -8448,14 +8528,20 @@
             "example": false
           },
           "dernierMoyenPaiement": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "description": "Dernier moyen de paiement utilisé (valeur METHODE_PAIEMENT)",
             "example": "WAVE",
             "maxLength": 50,
             "minLength": 0
           },
           "derniereTontineGeree": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "format": "uuid",
             "description": "Dernière tontine choisie dans l'espace Gestionnaire de l'accueil. Une tontine dont l'utilisateur n'est pas (ou plus) gestionnaire est ramenée à null, sans refuser les autres préférences."
           }
@@ -8502,7 +8588,12 @@
           "systemAssign": {
             "type": "boolean"
           }
-        }
+        },
+        "required": [
+          "description",
+          "type",
+          "value"
+        ]
       },
       "UpdateUserRolesRequest": {
         "type": "object",
@@ -8535,7 +8626,10 @@
             "minItems": 1,
             "uniqueItems": true
           }
-        }
+        },
+        "required": [
+          "roles"
+        ]
       },
       "AdminUserResponse": {
         "type": "object",
@@ -8563,7 +8657,7 @@
           "phone": {
             "type": "string",
             "description": "Numéro de téléphone normalisé (sans le +)",
-            "example": 221783703310
+            "example": "221783703310"
           },
           "email": {
             "type": "string",
@@ -8673,7 +8767,8 @@
           "montant": {
             "type": "number",
             "description": "Montant fixe de cotisation par cycle en FCFA",
-            "example": 5000
+            "example": 5000,
+            "exclusiveMinimum": 0
           },
           "frequence": {
             "type": "string",
@@ -8719,7 +8814,8 @@
           "jackpotVise": {
             "type": "number",
             "description": "Jackpot visé, brut avant commission (ROTATIVE) : l'app en déduit cotisationsParTour = jackpotVise ÷ (montant × nombreMembres ÷ nombreGagnants), arrondi au plus proche. Ignoré si cotisationsParTour est fourni.",
-            "example": 500000
+            "example": 500000,
+            "exclusiveMinimum": 0
           },
           "declenchementJackpot": {
             "type": "string",
@@ -8765,8 +8861,8 @@
           "dateDebut": {
             "type": "string",
             "format": "date",
-            "description": "Date de démarrage du premier cycle (aujourd'hui ou dans le futur)",
-            "example": "2024-07-01"
+            "description": "Date de démarrage du premier cycle : aujourd'hui ou dans le futur, heure de Dakar (sinon 400 DATE_DEBUT_PASSEE). Elle doit l'être encore à l'activation qui génère les tours.",
+            "example": "2026-12-01"
           },
           "nombreMembres": {
             "type": "integer",
@@ -8804,7 +8900,8 @@
           "montantMinimum": {
             "type": "number",
             "description": "Montant minimum de cotisation (EVENEMENTIELLE + montantLibre=true uniquement). Null = aucun plancher.",
-            "example": 500
+            "example": 500,
+            "exclusiveMinimum": 0
           },
           "commissions": {
             "type": "array",
@@ -8816,6 +8913,7 @@
         },
         "required": [
           "dateDebut",
+          "nom",
           "tontineType"
         ]
       },
@@ -8884,15 +8982,24 @@
             ]
           },
           "motif": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "description": "Raison du besoin : visible du gestionnaire et du membre concerné uniquement (null pour les autres membres)"
           },
           "motifRefus": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "description": "Motif du refus ou de l'annulation"
           },
           "cycleId": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "format": "uuid",
             "description": "Tour où la priorité a été servie"
           },
@@ -8902,7 +9009,10 @@
             "description": "Date de la demande ou de l'attribution"
           },
           "dateTraitement": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "format": "date-time",
             "description": "Date d'acceptation, de refus ou d'annulation"
           }
@@ -8936,7 +9046,7 @@
           "phone": {
             "type": "string",
             "description": "Numéro de téléphone (format international, avec ou sans le +). Obligatoire sauf si `qrToken` est fourni.",
-            "example": 221770000001
+            "example": "221770000001"
           },
           "qrToken": {
             "type": "string",
@@ -9001,7 +9111,10 @@
             "example": "2024-06-15"
           },
           "dateJackpot": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "format": "date-time",
             "description": "Date de son jackpot dans cette tontine – null s'il n'a pas encore gagné"
           },
@@ -9044,7 +9157,7 @@
           "phone": {
             "type": "string",
             "description": "Numéro de téléphone normalisé",
-            "example": 221770000001
+            "example": "221770000001"
           },
           "email": {
             "type": "string",
@@ -9113,7 +9226,10 @@
             "example": "550e8400-e29b-41d4-a716-446655440002"
           },
           "echeanceId": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "format": "uuid",
             "description": "Échéance du tour payée (B32). Facultatif : par défaut l'échéance en cours (la dernière ouverte). À renseigner pour régulariser une échéance passée ; une échéance pas encore ouverte est refusée (ECHEANCE_NON_OUVERTE).",
             "example": "550e8400-e29b-41d4-a716-446655440010"
@@ -9121,7 +9237,8 @@
           "montant": {
             "type": "number",
             "description": "Montant cotisé en FCFA. Doit idéalement correspondre au montant configuré sur la tontine.",
-            "example": 5000
+            "example": 5000,
+            "exclusiveMinimum": 0
           },
           "methodePaiement": {
             "type": "string",
@@ -9161,7 +9278,10 @@
             "example": "550e8400-e29b-41d4-a716-446655440002"
           },
           "echeanceId": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "format": "uuid",
             "description": "Échéance du tour payée (B32). Facultatif : par défaut l'échéance en cours (la dernière ouverte). À renseigner pour régulariser une échéance passée ; une échéance pas encore ouverte est refusée (ECHEANCE_NON_OUVERTE).",
             "example": "550e8400-e29b-41d4-a716-446655440010"
@@ -9169,7 +9289,8 @@
           "montant": {
             "type": "number",
             "description": "Montant cotisé en FCFA",
-            "example": 5000
+            "example": 5000,
+            "exclusiveMinimum": 0
           },
           "methodePaiement": {
             "type": "string",
@@ -9212,10 +9333,14 @@
           "code": {
             "type": "string",
             "description": "Code OTP à 6 chiffres reçu par SMS sur le nouveau numéro",
-            "example": 789012,
+            "example": "789012",
             "minLength": 1
           }
-        }
+        },
+        "required": [
+          "code",
+          "newPhone"
+        ]
       },
       "PhoneChangeRequest": {
         "type": "object",
@@ -9227,7 +9352,10 @@
             "example": "+221701234567",
             "minLength": 1
           }
-        }
+        },
+        "required": [
+          "newPhone"
+        ]
       },
       "MonQrResponse": {
         "type": "object",
@@ -9267,7 +9395,11 @@
             "description": "true = déconnecter aussi les autres appareils (toutes les sessions sauf celle-ci)",
             "example": false
           }
-        }
+        },
+        "required": [
+          "ancienMotDePasse",
+          "nouveauMotDePasse"
+        ]
       },
       "ValidationGroupeeRequest": {
         "type": "object",
@@ -9275,13 +9407,18 @@
         "properties": {
           "cotisationIds": {
             "type": "array",
+            "description": "UUID des cotisations à valider (1 à 100, doublons ignorés). Elles peuvent appartenir à plusieurs tontines gérées par l'appelant.",
             "items": {
+              "type": "string",
               "format": "uuid"
             },
             "maxItems": 100,
             "minItems": 0
           }
-        }
+        },
+        "required": [
+          "cotisationIds"
+        ]
       },
       "Resultat": {
         "type": "object",
@@ -9297,7 +9434,10 @@
             "description": "true si la cotisation a été validée"
           },
           "statut": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "description": "Statut après traitement (VALIDE si succès)",
             "enum": [
               "EN_ATTENTE",
@@ -9307,7 +9447,10 @@
             ]
           },
           "code": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "description": "Code d'erreur stable en cas d'échec (ex : COTISATION_NOT_PENDING, FORBIDDEN, NOT_FOUND)",
             "enum": [
               "BAD_REQUEST",
@@ -9379,11 +9522,18 @@
               "REMISE_JACKPOT_INCOMPLETE",
               "MODE_REMISE_INDISPONIBLE",
               "TONTINE_CLOTURE_A_CONFIRMER",
-              "TONTINE_NON_CLOTURABLE"
+              "TONTINE_NON_CLOTURABLE",
+              "MEMBRE_INACTIF",
+              "TOUR_NON_COMMENCE",
+              "CLOTURE_FINALE_PREMATUREE",
+              "DATE_DEBUT_PASSEE"
             ]
           },
           "message": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "description": "Message d'erreur lisible en cas d'échec"
           }
         }
@@ -9473,19 +9623,31 @@
             "description": "Nom du demandeur"
           },
           "phone": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "description": "Téléphone du demandeur (visible du gestionnaire uniquement)"
           },
           "message": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "description": "Message du demandeur"
           },
           "motifRefus": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "description": "Motif du refus"
           },
           "membreId": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "format": "uuid",
             "description": "Membership créé à l'acceptation"
           },
@@ -9495,7 +9657,10 @@
             "description": "Date de la demande"
           },
           "dateTraitement": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "format": "date-time",
             "description": "Date d'acceptation ou de refus"
           }
@@ -9515,11 +9680,15 @@
           "code": {
             "type": "string",
             "description": "Code OTP à 6 chiffres reçu par SMS",
-            "example": 123456,
+            "example": "123456",
             "minLength": 1,
             "pattern": "^\\d{6}$"
           }
-        }
+        },
+        "required": [
+          "code",
+          "phone"
+        ]
       },
       "SendOtpRequest": {
         "type": "object",
@@ -9532,7 +9701,10 @@
             "minLength": 1,
             "pattern": "^\\+[1-9]\\d{7,14}$"
           }
-        }
+        },
+        "required": [
+          "phone"
+        ]
       },
       "RegisterCompleteRequest": {
         "type": "object",
@@ -9568,6 +9740,7 @@
           },
           "email": {
             "type": "string",
+            "format": "email",
             "description": "Adresse email (optionnelle)",
             "example": "mamadou.diallo@email.com"
           },
@@ -9585,7 +9758,13 @@
             "description": "Informations appareil pour la session (optionnel, comme au login)",
             "example": "Samsung A14 – Android 14"
           }
-        }
+        },
+        "required": [
+          "firstName",
+          "lastName",
+          "password",
+          "phone"
+        ]
       },
       "LoginResponse": {
         "type": "object",
@@ -9648,7 +9827,7 @@
           "phone": {
             "type": "string",
             "description": "Numéro de téléphone normalisé (sans le +)",
-            "example": 221783703310
+            "example": "221783703310"
           },
           "firstName": {
             "type": "string",
@@ -9719,7 +9898,10 @@
             "description": "Token de rafraîchissement obtenu lors du dernier login ou refresh. Expire selon la configuration Keycloak (défaut : 30 min).",
             "minLength": 1
           }
-        }
+        },
+        "required": [
+          "refreshToken"
+        ]
       },
       "PinSetupRequest": {
         "type": "object",
@@ -9728,18 +9910,22 @@
           "pin": {
             "type": "string",
             "description": "Code PIN à 6 chiffres",
-            "example": 123456,
+            "example": "123456",
             "minLength": 1,
             "pattern": "\\d{6}"
           },
           "confirmPin": {
             "type": "string",
             "description": "Confirmation du code PIN (doit être identique à pin)",
-            "example": 123456,
+            "example": "123456",
             "minLength": 1,
             "pattern": "\\d{6}"
           }
-        }
+        },
+        "required": [
+          "confirmPin",
+          "pin"
+        ]
       },
       "PinResetRequest": {
         "type": "object",
@@ -9754,24 +9940,30 @@
           "otp": {
             "type": "string",
             "description": "Code OTP reçu par SMS (6 chiffres)",
-            "example": 654321,
+            "example": "654321",
             "minLength": 1
           },
           "newPin": {
             "type": "string",
             "description": "Nouveau code PIN à 6 chiffres",
-            "example": 654321,
+            "example": "654321",
             "minLength": 1,
             "pattern": "\\d{6}"
           },
           "confirmPin": {
             "type": "string",
             "description": "Confirmation du nouveau code PIN",
-            "example": 654321,
+            "example": "654321",
             "minLength": 1,
             "pattern": "\\d{6}"
           }
-        }
+        },
+        "required": [
+          "confirmPin",
+          "newPin",
+          "otp",
+          "phone"
+        ]
       },
       "LogoutRequest": {
         "type": "object",
@@ -9783,14 +9975,20 @@
             "minLength": 1
           },
           "clientType": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "description": "Type de client concerné (WEB ou MOBILE). Si absent, toutes les sessions sont révoquées.",
             "enum": [
               "WEB",
               "MOBILE"
             ]
           }
-        }
+        },
+        "required": [
+          "refreshToken"
+        ]
       },
       "LoginRequest": {
         "type": "object",
@@ -9799,7 +9997,7 @@
           "username": {
             "type": "string",
             "description": "Téléphone (ex : 221783703310, avec ou sans +) ou adresse email",
-            "example": 221783703310,
+            "example": "221783703310",
             "minLength": 1
           },
           "password": {
@@ -9824,7 +10022,9 @@
           }
         },
         "required": [
-          "clientType"
+          "clientType",
+          "password",
+          "username"
         ]
       },
       "PinLoginRequest": {
@@ -9834,13 +10034,13 @@
           "phone": {
             "type": "string",
             "description": "Numéro de téléphone (avec ou sans +) ou email – identifiant du compte",
-            "example": 221783703310,
+            "example": "221783703310",
             "minLength": 1
           },
           "pin": {
             "type": "string",
             "description": "Code PIN à 6 chiffres",
-            "example": 123456,
+            "example": "123456",
             "minLength": 1,
             "pattern": "\\d{6}"
           },
@@ -9860,7 +10060,9 @@
           }
         },
         "required": [
-          "clientType"
+          "clientType",
+          "phone",
+          "pin"
         ]
       },
       "ResetPasswordByPhoneRequest": {
@@ -9877,7 +10079,7 @@
           "code": {
             "type": "string",
             "description": "Code OTP à 6 chiffres reçu par SMS et déjà vérifié",
-            "example": 123456,
+            "example": "123456",
             "minLength": 1,
             "pattern": "^\\d{6}$"
           },
@@ -9888,7 +10090,12 @@
             "maxLength": 2147483647,
             "minLength": 8
           }
-        }
+        },
+        "required": [
+          "code",
+          "newPassword",
+          "phone"
+        ]
       },
       "UpdateMembreStatutRequest": {
         "type": "object",
@@ -9919,7 +10126,10 @@
         "description": "Corps de la requête de désignation des gagnants du jackpot après clôture d'un cycle. Disponible uniquement pour les tontines avec ordreBeneficiaire = MANUEL. Le nombre de membreIds doit correspondre au nombreGagnants de la tontine (ou être inférieur si moins de membres éligibles restants).",
         "properties": {
           "membreIds": {
-            "type": "array",
+            "type": [
+              "array",
+              "null"
+            ],
             "description": "UUIDs des membres à désigner comme gagnants (tontine_membres.id). Doit contenir entre 1 et nombreGagnants entrées. Null ou liste vide = sélection aléatoire parmi les membres éligibles.",
             "items": {
               "type": "string",
@@ -9935,7 +10145,8 @@
           "montant": {
             "type": "number",
             "description": "Nouveau montant en FCFA (null = inchangé)",
-            "example": 6000
+            "example": 6000,
+            "exclusiveMinimum": 0
           },
           "methodePaiement": {
             "type": "string",
@@ -9959,7 +10170,10 @@
         "description": "Réglages de la tontine modifiables à tout moment, y compris en cours (B33). Champ absent = inchangé.",
         "properties": {
           "modeRemise": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "description": "Option de remise du jackpot par défaut : ATTENDRE, DISPONIBLE, AVANCE_COMMISSION ou AVANCE_GESTIONNAIRE. S'applique aux prochaines remises ; le gestionnaire peut encore en choisir une autre à chaque remise.",
             "enum": [
               "ATTENDRE",
@@ -9988,7 +10202,10 @@
             "example": "HYBRIDE",
             "minLength": 1
           }
-        }
+        },
+        "required": [
+          "ordreBeneficiaire"
+        ]
       },
       "ModifierEcheanceRequest": {
         "type": "object",
@@ -10167,7 +10384,10 @@
             "example": 2
           },
           "montant": {
-            "type": "number",
+            "type": [
+              "number",
+              "null"
+            ],
             "description": "Montant correspondant, en FCFA",
             "example": 10000
           }
@@ -10250,7 +10470,7 @@
           "phone": {
             "type": "string",
             "description": "Numéro de téléphone normalisé",
-            "example": 221770000001
+            "example": "221770000001"
           },
           "accountStatus": {
             "type": "string",
@@ -10321,7 +10541,10 @@
             "description": "Date de validation par l'admin (null si pas encore validé)"
           },
           "motifRefus": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "description": "Motif du refus – présent seulement si la seule déclaration du cycle est REFUSE"
           },
           "cotisationCreatedAt": {
@@ -10334,12 +10557,18 @@
             "description": "Utilisateur ayant enregistré la cotisation (null si aucune)"
           },
           "echeanceId": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "format": "uuid",
             "description": "Échéance de référence des champs de cotisation ci-dessus"
           },
           "numeroEcheance": {
-            "type": "integer",
+            "type": [
+              "integer",
+              "null"
+            ],
             "format": "int32",
             "description": "Rang de l'échéance de référence (1 à N)",
             "example": 2
@@ -10401,12 +10630,18 @@
             "description": "Échéance ouverte au paiement (due à ce jour)"
           },
           "cotisationId": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "format": "uuid",
             "description": "Cotisation retenue sur l'échéance (null si aucune)"
           },
           "statutCotisation": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "description": "Statut de la cotisation (null = aucune)",
             "enum": [
               "EN_ATTENTE",
@@ -10416,7 +10651,10 @@
             ]
           },
           "montant": {
-            "type": "number",
+            "type": [
+              "number",
+              "null"
+            ],
             "description": "Montant (null si aucune cotisation)"
           },
           "ponctualite": {
@@ -10457,7 +10695,7 @@
           "phone": {
             "type": "string",
             "description": "Numéro de téléphone normalisé",
-            "example": 221770000001
+            "example": "221770000001"
           },
           "accountStatus": {
             "type": "string",
@@ -10602,7 +10840,10 @@
             ]
           },
           "cycleEnCoursId": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "format": "uuid",
             "description": "UUID du tour EN_COURS – null si aucun"
           },
@@ -10653,7 +10894,10 @@
             ]
           },
           "invitationCode": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "description": "TONTINE : code d'invitation, à passer à GET /v1/public/invitations/{code}"
           },
           "user": {
@@ -10692,7 +10936,10 @@
             ]
           },
           "montant": {
-            "type": "number",
+            "type": [
+              "number",
+              "null"
+            ],
             "description": "Montant de cotisation (FCFA) – null si montant libre"
           },
           "frequence": {
@@ -10719,7 +10966,7 @@
           "jourEcheance": {
             "type": "string",
             "description": "Jour d'échéance (LUNDI…DIMANCHE, 1…31, DERNIER)",
-            "example": 30
+            "example": "30"
           },
           "heureEcheance": {
             "type": "string",
@@ -10746,15 +10993,24 @@
             "description": "true = montant libre (EVENEMENTIELLE)"
           },
           "montantMinimum": {
-            "type": "number",
+            "type": [
+              "number",
+              "null"
+            ],
             "description": "Plancher en montant libre"
           },
           "nomEvenement": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "description": "Nom de l'événement (EVENEMENTIELLE)"
           },
           "dateEcheance": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "format": "date",
             "description": "Date d'échéance (EVENEMENTIELLE)"
           },
@@ -10764,7 +11020,10 @@
             "description": "Date de démarrage"
           },
           "placesRestantes": {
-            "type": "integer",
+            "type": [
+              "integer",
+              "null"
+            ],
             "format": "int32",
             "description": "Places restantes (ROTATIVE à effectif fixé) – null si sans limite"
           },
@@ -10778,19 +11037,31 @@
             "description": "true si l'on peut encore demander à rejoindre (tontine BROUILLON ou ACTIVE, non complète)"
           },
           "dejaMembre": {
-            "type": "boolean",
+            "type": [
+              "boolean",
+              "null"
+            ],
             "description": "Appelant déjà membre de la tontine (actif ou suspendu). Absent sans JWT valide."
           },
           "estGestionnaire": {
-            "type": "boolean",
+            "type": [
+              "boolean",
+              "null"
+            ],
             "description": "Appelant gestionnaire (créateur) de la tontine. Absent sans JWT valide."
           },
           "demandeEnAttente": {
-            "type": "boolean",
+            "type": [
+              "boolean",
+              "null"
+            ],
             "description": "Appelant ayant déjà une demande d'adhésion EN_ATTENTE sur cette tontine. Absent sans JWT valide."
           },
           "tontineId": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "format": "uuid",
             "description": "Identifiant de la tontine, renseigné seulement si l'appelant en est membre ou gestionnaire (pour ouvrir sa fiche). Absent sinon."
           }
@@ -10801,20 +11072,32 @@
         "description": "Configuration publique de la plateforme",
         "properties": {
           "supportWhatsapp": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "description": "Numéro WhatsApp du support (format international)"
           },
           "supportEmail": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "description": "Email du support"
           },
           "versionMinimaleApp": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "description": "Version minimale du front (SemVer MAJEUR.MINEUR.CORRECTIF). Version du front strictement inférieure → écran bloquant « Mise à jour requise ». Absent → aucun contrôle.",
             "example": "1.0.0"
           },
           "versionRecommandeeApp": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "description": "Version recommandée du front (SemVer, ≥ versionMinimaleApp). Version du front strictement inférieure → simple bandeau « Nouvelle version disponible », non bloquant. Absent → aucun bandeau.",
             "example": "1.2.0"
           }
@@ -10871,27 +11154,42 @@
             "description": "Texte de la notification"
           },
           "tontineId": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "format": "uuid",
             "description": "Tontine concernée – null si aucune"
           },
           "cycleId": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "format": "uuid",
             "description": "Cycle (tour) concerné – null si aucun"
           },
           "cotisationId": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "format": "uuid",
             "description": "Cotisation concernée (reçu) – null si aucune"
           },
           "membreId": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "format": "uuid",
             "description": "Membership concerné (tontine_membres.id, fiche membre) – null si aucun"
           },
           "demandeId": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "format": "uuid",
             "description": "Demande d'adhésion concernée (DEMANDE_ADHESION, ADHESION_REFUSEE) – null sinon"
           },
@@ -10912,7 +11210,10 @@
         "description": "Ma cotisation attendue sur le tour en cours, à l'échéance courante du tour (B32)",
         "properties": {
           "montant": {
-            "type": "number",
+            "type": [
+              "number",
+              "null"
+            ],
             "description": "Montant attendu en FCFA : montant fixe, ou plancher en mode libre – null si libre sans plancher",
             "example": 5000
           },
@@ -10921,7 +11222,10 @@
             "description": "true = je choisis le montant (EVENEMENTIELLE)"
           },
           "montantMinimum": {
-            "type": "number",
+            "type": [
+              "number",
+              "null"
+            ],
             "description": "Plancher en mode libre"
           },
           "dateLimite": {
@@ -10930,12 +11234,18 @@
             "description": "Date limite de l'échéance courante (= fin du tour s'il n'en a qu'une)"
           },
           "echeanceId": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "format": "uuid",
             "description": "Échéance courante du tour (à payer par défaut)"
           },
           "numeroEcheance": {
-            "type": "integer",
+            "type": [
+              "integer",
+              "null"
+            ],
             "format": "int32",
             "description": "Rang de l'échéance courante (1 à N)",
             "example": 2
@@ -10947,7 +11257,10 @@
             "example": 4
           },
           "echeanceAt": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "format": "date-time",
             "description": "Limite de paiement de l'échéance courante, avec fuseau",
             "example": "2026-11-29T20:00:00Z"
@@ -10968,7 +11281,10 @@
             ]
           },
           "cotisationId": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "format": "uuid",
             "description": "UUID de ma cotisation sur ce tour – null si A_PAYER"
           },
@@ -10982,7 +11298,10 @@
             ]
           },
           "motifDernierRefus": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "description": "A_PAYER après un refus : motif du dernier refus sur ce tour (null sinon)",
             "example": "Transfert non reçu"
           }
@@ -11026,7 +11345,10 @@
             "example": 4
           },
           "montantJackpotPrevu": {
-            "type": "number",
+            "type": [
+              "number",
+              "null"
+            ],
             "description": "Jackpot brut prévu du tour (montant × membres ACTIFS × échéances, tous gagnants confondus, B32) – null si montant libre sans plancher",
             "example": 200000
           },
@@ -11070,7 +11392,10 @@
             "example": "2026-10-31T23:59:00Z"
           },
           "montant": {
-            "type": "number",
+            "type": [
+              "number",
+              "null"
+            ],
             "description": "Montant attendu en FCFA",
             "example": 5000
           }
@@ -11098,7 +11423,7 @@
           "phone": {
             "type": "string",
             "description": "Téléphone normalisé (sans +)",
-            "example": 221770000001
+            "example": "221770000001"
           }
         }
       },
@@ -11194,7 +11519,7 @@
           "jourEcheance": {
             "type": "string",
             "description": "Jour d'échéance (LUNDI…DIMANCHE, 1…31, DERNIER)",
-            "example": 30
+            "example": "30"
           },
           "heureEcheance": {
             "type": "string",
@@ -11217,11 +11542,17 @@
             "example": "FIN_DU_TOUR"
           },
           "nomEvenement": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "description": "Nom de l'événement (EVENEMENTIELLE)"
           },
           "dateEcheance": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "format": "date",
             "description": "Date d'échéance (EVENEMENTIELLE)"
           },
@@ -11240,7 +11571,10 @@
             ]
           },
           "ordreJackpot": {
-            "type": "integer",
+            "type": [
+              "integer",
+              "null"
+            ],
             "format": "int32",
             "description": "Ma position dans l'ordre des jackpots (ROTATIVE)"
           },
@@ -11276,6 +11610,7 @@
             "example": 12
           },
           "cycleEnCours": {
+            "type": "null",
             "$ref": "#/components/schemas/CycleEnCours",
             "description": "Tour EN_COURS – null si aucun"
           },
@@ -11287,6 +11622,7 @@
             }
           },
           "cotisationDue": {
+            "type": "null",
             "$ref": "#/components/schemas/CotisationDue",
             "description": "Cotisation attendue sur le tour en cours – null si aucun tour en cours, tontine non ACTIVE ou membership non ACTIF"
           },
@@ -11318,7 +11654,10 @@
             ]
           },
           "deviceInfo": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "description": "Informations appareil envoyées à la connexion (user-agent, modèle…)"
           },
           "derniereActivite": {
@@ -11370,24 +11709,36 @@
             ]
           },
           "position": {
-            "type": "integer",
+            "type": [
+              "integer",
+              "null"
+            ],
             "format": "int32",
             "description": "ORDRE : mon rang parmi les membres qui n'ont pas encore gagné (1 = prochain tour)",
             "example": 7
           },
           "numeroCycleEstime": {
-            "type": "integer",
+            "type": [
+              "integer",
+              "null"
+            ],
             "format": "int32",
             "description": "ORDRE : numéro du tour où je devrais gagner",
             "example": 7
           },
           "dateEstimee": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "format": "date",
             "description": "ORDRE : fin prévue de ce tour (null si le tour n'est pas encore planifié, ex. mode MANUEL) ; toujours null pour TIRAGE et CHOIX"
           },
           "montantEstime": {
-            "type": "number",
+            "type": [
+              "number",
+              "null"
+            ],
             "description": "Montant brut estimé par gagnant sur le tour complet (montant × membres ACTIFS × cotisations par tour ÷ gagnants par tour, B32), avant commissions",
             "example": 60000
           }
@@ -11500,7 +11851,10 @@
             ]
           },
           "statut": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "description": "Statut de la cotisation (null pour un jackpot)",
             "enum": [
               "EN_ATTENTE",
@@ -11531,7 +11885,10 @@
             "example": 5
           },
           "cotisationId": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "format": "uuid",
             "description": "UUID de la cotisation (null pour un jackpot)"
           },
@@ -11605,12 +11962,18 @@
             "example": 5000
           },
           "montantAttendu": {
-            "type": "number",
+            "type": [
+              "number",
+              "null"
+            ],
             "description": "Montant attendu sur le tour complet (montant par membre × membres ACTIFS × échéances du tour, B32), en FCFA – null si montant libre sans plancher",
             "example": 60000
           },
           "montantJackpotPrevu": {
-            "type": "number",
+            "type": [
+              "number",
+              "null"
+            ],
             "description": "Jackpot brut prévu du tour (= montantAttendu, B32)",
             "example": 60000
           },
@@ -11626,7 +11989,10 @@
             "example": 4
           },
           "numeroEcheanceCourante": {
-            "type": "integer",
+            "type": [
+              "integer",
+              "null"
+            ],
             "format": "int32",
             "description": "Numéro de l'échéance courante (payée par défaut) – null si aucune",
             "example": 2
@@ -11725,7 +12091,13 @@
             "type": "integer",
             "format": "int64"
           }
-        }
+        },
+        "required": [
+          "number",
+          "size",
+          "totalElements",
+          "totalPages"
+        ]
       },
       "PagedModelTontineStats": {
         "type": "object",
@@ -11739,7 +12111,11 @@
           "page": {
             "$ref": "#/components/schemas/PageMetadata"
           }
-        }
+        },
+        "required": [
+          "content",
+          "page"
+        ]
       },
       "TontineStats": {
         "type": "object",
@@ -11774,7 +12150,10 @@
             ]
           },
           "montant": {
-            "type": "number",
+            "type": [
+              "number",
+              "null"
+            ],
             "description": "Montant de la cotisation en FCFA (null si événementielle à montant libre)",
             "example": 20000
           },
@@ -11802,7 +12181,7 @@
           "jourEcheance": {
             "type": "string",
             "description": "Jour d'échéance (LUNDI…DIMANCHE, 1…31, DERNIER)",
-            "example": 30
+            "example": "30"
           },
           "heureEcheance": {
             "type": "string",
@@ -11831,23 +12210,35 @@
             "example": "2026-01-01"
           },
           "dateEcheance": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "format": "date",
             "description": "Date d'échéance – événementielle uniquement, null sinon",
             "example": "2026-06-16"
           },
           "nomEvenement": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "description": "Nom de l'événement – événementielle uniquement, null sinon",
             "example": "Tabaski 2026"
           },
           "montantLibre": {
-            "type": "boolean",
+            "type": [
+              "boolean",
+              "null"
+            ],
             "description": "Montant libre – événementielle uniquement, null sinon",
             "example": false
           },
           "nombreMembresCotise": {
-            "type": "integer",
+            "type": [
+              "integer",
+              "null"
+            ],
             "format": "int64",
             "description": "Événementielle uniquement (null sinon) : nombre de membres ayant au moins une cotisation VALIDÉE",
             "example": 9
