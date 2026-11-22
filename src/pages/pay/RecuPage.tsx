@@ -93,6 +93,8 @@ export function RecuPage() {
     ['Membre', membreNom || '—'],
     ['Moyen', paymentMethodLabel(cot.methodePaiement)],
     ...(cot.referenceTransaction ? [['Référence', cot.referenceTransaction] as [string, string]] : []),
+    // Note du gestionnaire (ex. « Report du cahier du 01/11 au 21/11 »), seulement si elle existe
+    ...(cot.note?.trim() ? [['Note', cot.note.trim()] as [string, string]] : []),
     ['Date', formatDateHeure(cot.createdAt)],
     ['Origine', encaissePar ? `Encaissé par ${encaissePar}` : 'Déclaré par le membre'],
     ...(cot.dateValidation ? [['Validé le', formatDateHeure(cot.dateValidation)] as [string, string]] : []),
