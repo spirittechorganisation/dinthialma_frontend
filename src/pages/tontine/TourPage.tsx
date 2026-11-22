@@ -9,7 +9,7 @@
  * Membre : ses paiements du tour, résultat.
  */
 import { useMemo, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { clsx } from 'clsx'
 import { Trophy, Clock, CheckCircle2, AlertTriangle, XCircle, Shuffle, RotateCw, PartyPopper, Circle, Check } from 'lucide-react'
@@ -17,13 +17,14 @@ import { EcranDetail, BarreAction, useDansPanneau } from '@/components/layout/Pa
 import { InitialsAvatar } from '@/components/ui/Section'
 import { Modal } from '@/components/ui/Modal'
 import { useTontineVue } from '@/hooks/useTontineVue'
-import { useCycle, useCloturerCycle, useDesignerGagnants, useRemiseApercu } from '@/hooks/useCycles'
+import { useCycle, useCycles, useCloturerCycle, useDesignerGagnants, useRemiseApercu } from '@/hooks/useCycles'
 import { useRecapCycle, useCotisations } from '@/hooks/useCotisations'
 import { useMembres } from '@/hooks/useMembres'
 import { useOnline } from '@/hooks/useOnline'
 import { formatF, formatDateCourte, formatEcheance } from '@/lib/format'
 import { TOUR_STATUT } from '@/lib/tontineLabels'
 import { messageErreur } from '@/lib/apiError'
+import { blocageCloture, erreurTontine, periodePayable, texteNonOuverte } from '@/lib/periodes'
 import { AccountStatus, CotisationStatut, CycleStatut, MembreStatut } from '@/types/common'
 import { TontineType, type ModeRemise } from '@/types/tontine'
 import type { Cycle, OptionRemise } from '@/types/cycle'
@@ -37,6 +38,7 @@ const STATUT_PILL: Record<CotisationStatut, { label: string; cls: string; icon: 
 
 export function TourPage() {
   const { id = '', cycleId = '' } = useParams()
+  const navigate = useNavigate()
   const online = useOnline()
   const v = useTontineVue(id)
   const t = v.tontine
@@ -51,12 +53,16 @@ export function TourPage() {
   const recap = useRecapCycle(id, cycleId, 0, 200, gerant, plusieurs ? echeanceSel?.id : undefined)
   const mesCot = useCotisations(id, cycleId, 0, 50, v.ma?.monMembreId ?? undefined, v.vue === 'COTISE')
   const { data: membresData } = useMembres(id, 0, 200)
+  // Dernière période d'une événementielle : plus aucun tour en attente (même règle que le backend, B45)
+  const { data: cyclesData } = useCycles(id, 0, 200)
   const { mutate: cloturer, isPending: closing } = useCloturerCycle()
   const { mutate: designer, isPending: designating } = useDesignerGagnants()
 
   const [confirmCloture, setConfirmCloture] = useState(false)
   const [remiseOpen, setRemiseOpen] = useState(false)
   const [resultat, setResultat] = useState<Cycle | null>(null)
+  // CLOTURE_FINALE_PREMATUREE : explication et accès à « Clôturer la tontine »
+  const [clotureFinale, setClotureFinale] = useState<string | null>(null)
   const [designerOpen, setDesignerOpen] = useState(false)
   const [tirageOpen, setTirageOpen] = useState(false)
   const [choix, setChoix] = useState<string[]>([])
@@ -64,16 +70,19 @@ export function TourPage() {
 
   const isEvent = t?.tontineType === TontineType.EVENEMENTIELLE
   const mot = isEvent ? 'Période' : 'Tour'
-  const lignes = (recap.data?.content ?? []).filter((l) => l.statutMembre !== MembreStatut.SORTI)
+  // Les membres SORTI qui ont cotisé restent dans le récap (B48) : leur argent compte dans le collecté
+  const lignes = recap.data?.content ?? []
   const actif = (l: (typeof lignes)[number]) => (l.statutCotisation === CotisationStatut.EN_ATTENTE || l.statutCotisation === CotisationStatut.VALIDE)
-  const nonPayes = lignes.filter((l) => !actif(l) && l.statutMembre === MembreStatut.ACTIF)
+  const estActif = (l: (typeof lignes)[number]) => l.statutMembre === MembreStatut.ACTIF
+  const nonPayes = lignes.filter((l) => !actif(l) && estActif(l))
   const payes = lignes.filter(actif)
   const enAttente = lignes.filter((l) => l.statutCotisation === CotisationStatut.EN_ATTENTE).length
   const valides = lignes.filter((l) => l.statutCotisation === CotisationStatut.VALIDE)
   const collecte = valides.reduce((s, l) => s + (l.montant ?? 0), 0)
-  const actifs = lignes.filter((l) => l.statutMembre === MembreStatut.ACTIF).length
+  const actifs = lignes.filter(estActif).length
+  const validesActifs = valides.filter(estActif).length
   const attendu = t?.montant && !t.montantLibre ? t.montant * actifs : null
-  const pct = actifs ? Math.round((valides.length / actifs) * 100) : 0
+  const pct = actifs ? Math.round((validesActifs / actifs) * 100) : 0
 
   const nbGagnants = Math.max(1, t?.nombreGagnants || 1)
   const eligibles = useMemo(
@@ -113,11 +122,20 @@ export function TourPage() {
 
   const st = TOUR_STATUT[cycle.statut]
 
+  const dernier = !!cyclesData && !cyclesData.content.some((c) => c.statut === CycleStatut.EN_ATTENTE)
+  const blocage = cycle.statut === CycleStatut.EN_COURS ? blocageCloture(t?.tontineType, cycle, dernier) : null
+  // Une période événementielle intermédiaire ne remet rien : l'argent reste jusqu'à la fin
+  const periodeIntermediaire = isEvent && !dernier
   const onCloturer = () => cloturer(
     { tontineId: id, cycleId },
     {
       onSuccess: (c) => { setConfirmCloture(false); setResultat(c) },
-      onError: (err) => toast.error(messageErreur(err, 'La clôture a échoué. Réessayez.')),
+      onError: (err) => {
+        const e = erreurTontine(err, { evenement: isEvent, dateDebut: cycle.dateDebut, dateFin: cycle.dateFin }, 'La clôture a échoué. Réessayez.')
+        setConfirmCloture(false)
+        if (e.code === 'CLOTURE_FINALE_PREMATUREE') setClotureFinale(e.texte)
+        else toast.error(e.texte)
+      },
     },
   )
   const onDesigner = (membreIds: string[]) => designer(
@@ -146,8 +164,9 @@ export function TourPage() {
     if (echeanceSel && (plusieurs || !enCours) && echeanceSel.id !== cycle.echeanceEnCours?.id) q.set('echeance', echeanceSel.id)
     return `/encaisser/${id}?${q.toString()}`
   }
-  // Un retard reste payable après la remise du jackpot (rotative)
-  const peutEncaisser = enCours || (!isEvent && cycle.statut === CycleStatut.TERMINE)
+  // Un retard reste payable après la remise du jackpot (rotative) ; une période pas commencée ne se paie pas (B47)
+  const payable = periodePayable(t?.tontineType, cycle)
+  const peutEncaisser = (enCours && payable) || (!isEvent && cycle.statut === CycleStatut.TERMINE)
 
   return (
     <Shell title={`${mot} ${cycle.numeroCycle}${t ? ` · ${t.nom}` : ''}`}>
@@ -198,8 +217,11 @@ export function TourPage() {
               )}
             </div>
           )}
-          {!plusieurs && enCours && cycle.echeanceAt && (
+          {!plusieurs && enCours && cycle.echeanceAt && payable && (
             <p className="mt-1 text-sm text-neutral-500">À payer avant {formatEcheance(cycle.echeanceAt)}</p>
+          )}
+          {enCours && !payable && (
+            <p className="mt-3 rounded-2xl bg-sky-50 px-3 py-2.5 text-sm text-sky-900">{texteNonOuverte(cycle.dateDebut)}</p>
           )}
 
           {enCours && !isEvent && cycle.tousPayes && (
@@ -210,7 +232,7 @@ export function TourPage() {
 
           {gerant ? (
             <div className="mt-4 flex items-center gap-5">
-              <Anneau pct={pct} label={`${valides.length}/${actifs}`} />
+              <Anneau pct={pct} label={`${validesActifs}/${actifs}`} />
               <div>
                 <p className="text-sm text-neutral-500">{plusieurs ? 'Ont payé cette cotisation' : 'Ont payé'}</p>
                 <p className="text-2xl font-extrabold tabular-nums text-neutral-900">{formatF(collecte)}</p>
@@ -353,10 +375,13 @@ export function TourPage() {
             <ul className="divide-y divide-neutral-100">
               {payes.map((l) => (
                 <li key={l.membreId}>
-                  <Link to={`/recu/${id}/${l.cotisationId}`} className="flex items-center gap-3 px-4 py-3 min-h-[64px]">
+                  <Link to={`/recu/${id}/${l.cotisationId}`} className={clsx('flex items-center gap-3 px-4 py-3 min-h-[64px]', !estActif(l) && 'opacity-60')}>
                     <InitialsAvatar name={`${l.firstName} ${l.lastName}`} />
                     <span className="min-w-0 flex-1">
-                      <span className="block font-semibold text-neutral-900 truncate">{l.firstName} {l.lastName}</span>
+                      <span className="flex items-center gap-2">
+                        <span className="font-semibold text-neutral-900 truncate">{l.firstName} {l.lastName}</span>
+                        <BadgeStatutMembre statut={l.statutMembre} />
+                      </span>
                       <span className="block text-sm text-neutral-500">{l.montant != null ? formatF(l.montant) : ''}</span>
                     </span>
                     {l.statutCotisation && <Pill statut={l.statutCotisation} />}
@@ -375,9 +400,15 @@ export function TourPage() {
       {action && (
         <BarreAction>
           <div className="space-y-2">
-            <button onClick={action.onClick} disabled={!online} className="w-full h-14 rounded-full bg-primary-700 text-white text-[17px] font-bold disabled:opacity-50">
+            {blocage && <p className="px-1 text-sm text-neutral-700">{blocage.texte}</p>}
+            <button onClick={action.onClick} disabled={!online || !!blocage} className="w-full h-14 rounded-full bg-primary-700 text-white text-[17px] font-bold disabled:opacity-50">
               {online ? action.label : 'Connexion requise'}
             </button>
+            {blocage?.code === 'CLOTURE_FINALE_PREMATUREE' && (
+              <button onClick={() => navigate(`/tontine/${id}/reglages?action=cloturer`)} disabled={!online} className="w-full h-12 rounded-full bg-white shadow-sm font-semibold text-neutral-800 disabled:opacity-50">
+                Clôturer la tontine
+              </button>
+            )}
             {peutDesigner && (
               <button onClick={() => setTirageOpen(true)} disabled={!online} className="w-full h-12 rounded-full bg-white shadow-sm font-semibold text-neutral-800 inline-flex items-center justify-center gap-2 disabled:opacity-50">
                 <Shuffle size={18} /> Tirage au sort
@@ -401,7 +432,13 @@ export function TourPage() {
 
       {/* Confirmation de clôture */}
       <Modal isOpen={confirmCloture} onClose={() => setConfirmCloture(false)} title={`Clôturer ${isEvent ? 'la période' : 'le tour'} ${cycle.numeroCycle} ?`} size="sm">
-        <p className="text-neutral-600">Le jackpot sera calculé et les paiements non validés passeront en retard.</p>
+        <p className="text-neutral-600">
+          {periodeIntermediaire
+            ? 'Les paiements de cette période sont arrêtés. L’argent reste dans l’épargne jusqu’à la fin : rien n’est remis aux membres maintenant.'
+            : isEvent
+              ? 'C’est la dernière période : l’épargne sera partagée, chacun reçoit ce qu’il a cotisé. Les paiements non validés passeront en retard.'
+              : 'Le jackpot sera calculé et les paiements non validés passeront en retard.'}
+        </p>
         {nonPayes.length > 0 && (
           <p className="mt-2 text-sm font-medium text-amber-800">{nonPayes.length} membre{nonPayes.length > 1 ? 's' : ''} n'{nonPayes.length > 1 ? 'ont' : 'a'} pas encore payé.</p>
         )}
@@ -462,6 +499,17 @@ export function TourPage() {
         </div>
       </Modal>
 
+      {/* Dernière période avant son dernier jour : la fin anticipée passe par « Clôturer la tontine » */}
+      <Modal isOpen={!!clotureFinale} onClose={() => setClotureFinale(null)} title="Pas encore la fin" size="sm">
+        <p className="text-neutral-600">{clotureFinale}</p>
+        <div className="mt-5 grid grid-cols-2 gap-3">
+          <button onClick={() => setClotureFinale(null)} className="h-12 rounded-full bg-neutral-100 font-semibold">Attendre</button>
+          <button onClick={() => navigate(`/tontine/${id}/reglages?action=cloturer`)} className="h-12 rounded-full bg-primary-700 text-white font-bold">
+            Clôturer la tontine
+          </button>
+        </div>
+      </Modal>
+
       {/* Écran de résultat après clôture / désignation */}
       <Modal isOpen={!!resultat} onClose={() => setResultat(null)} title={isEvent ? 'Période clôturée' : 'Jackpot remis'} size="sm">
         {resultat && (
@@ -475,7 +523,9 @@ export function TourPage() {
               </p>
             ) : (
               <p className="mt-4 text-lg font-bold text-neutral-900">
-                {resultat.montantNet != null ? `Net à remettre : ${formatF(resultat.montantNet)}` : 'Clôture enregistrée'}
+                {periodeIntermediaire && !resultat.distributionParMembre?.length
+                  ? `Période clôturée · ${formatF(resultat.montantNet)} gardés jusqu’à la fin`
+                  : resultat.montantNet != null ? `Net à remettre : ${formatF(resultat.montantNet)}` : 'Clôture enregistrée'}
               </p>
             )}
             {resultat.distributionParMembre && resultat.distributionParMembre.length > 0 && (
@@ -649,6 +699,13 @@ function RemiseSheet({ tontineId, cycleId, numeroCycle, nbGagnants, onClose, onD
       )}
     </Modal>
   )
+}
+
+/** Membre qui n'est plus actif mais dont le paiement compte encore (récap avec inclureSortis, B48) */
+function BadgeStatutMembre({ statut }: { statut: MembreStatut }) {
+  if (statut === MembreStatut.SORTI) return <span className="rounded-full bg-neutral-200 px-2 py-0.5 text-[11px] font-semibold text-neutral-700 flex-shrink-0">Sorti</span>
+  if (statut === MembreStatut.SUSPENDU) return <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800 flex-shrink-0">Suspendu</span>
+  return null
 }
 
 function Pill({ statut }: { statut: CotisationStatut }) {

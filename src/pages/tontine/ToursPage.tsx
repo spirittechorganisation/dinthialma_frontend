@@ -83,7 +83,7 @@ export function ToursPage() {
             )}
             {autres.length > 0 && (
               <section>
-                <h2 className="px-1 mb-2 text-sm font-semibold text-neutral-600">Tous les {isEvent ? 'périodes' : 'tours'}</h2>
+                <h2 className="px-1 mb-2 text-sm font-semibold text-neutral-600">{isEvent ? 'Toutes les périodes' : 'Tous les tours'}</h2>
                 <ul className="bg-white rounded-3xl shadow-sm divide-y divide-neutral-100 overflow-hidden">
                   {autres.map((c) => <LigneTour key={c.id} tontineId={id} cycle={c} mot={motTour} selected={c.id === cycleId} replace={desktop} />)}
                 </ul>

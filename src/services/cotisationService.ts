@@ -28,22 +28,27 @@ export const cotisationService = {
     return toPage(response.data.data)
   },
 
-  // ─── Récap d'un cycle (paginé, membres SORTI exclus) ──────────────────────────
+  // ─── Récap d'un cycle (paginé) ────────────────────────────────────────────────
   // Accès : créateur de la tontine + SUPER_ADMIN. Tri backend : ordreJackpot ASC, createdAt ASC
   // echeanceId (B32) : échéance de référence des champs de cotisation ; absente = échéance en cours
-  getRecapCycle: async (tontineId: string, cycleId: string, page = 0, size = 20, echeanceId?: string): Promise<PageResponse<CycleRecapLigne>> => {
+  // inclureSortis (B48) : ajoute les membres SORTI qui ont une cotisation sur ce cycle (ligne `statutMembre`)
+  getRecapCycle: async (
+    tontineId: string, cycleId: string, page = 0, size = 20, echeanceId?: string, inclureSortis = false,
+  ): Promise<PageResponse<CycleRecapLigne>> => {
     const response = await api.get<CustomResponse<RawPage<CycleRecapLigne>>>(
       `/v1/tontines/${tontineId}/cotisations/recap/${cycleId}`,
-      { params: { page, size, ...(echeanceId ? { echeanceId } : {}) } }
+      { params: { page, size, ...(echeanceId ? { echeanceId } : {}), ...(inclureSortis ? { inclureSortis: true } : {}) } }
     )
     return toPage(response.data.data)
   },
 
   // ─── Total cotisé par membre (paginé) ─────────────────────────────────────────
-  getRecapTotal: async (tontineId: string, page = 0, size = 20): Promise<PageResponse<MembreTotalCotisation>> => {
+  // inclureSortis (B48) : ajoute les membres SORTI qui ont au moins une cotisation validée,
+  // comme la distribution finale (B43)
+  getRecapTotal: async (tontineId: string, page = 0, size = 20, inclureSortis = false): Promise<PageResponse<MembreTotalCotisation>> => {
     const response = await api.get<CustomResponse<RawPage<MembreTotalCotisation>>>(
       `/v1/tontines/${tontineId}/cotisations/recap-total`,
-      { params: { page, size } }
+      { params: { page, size, ...(inclureSortis ? { inclureSortis: true } : {}) } }
     )
     return toPage(response.data.data)
   },
