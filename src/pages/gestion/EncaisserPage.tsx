@@ -13,7 +13,7 @@
 import { useMemo, useState } from 'react'
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { clsx } from 'clsx'
-import { ChevronDown, ChevronRight, Search, PartyPopper, CalendarX, RotateCw, Pencil } from 'lucide-react'
+import { ChevronDown, ChevronRight, Search, PartyPopper, CalendarX, CalendarClock, RotateCw, Pencil } from 'lucide-react'
 import { useIsDesktop } from '@/hooks/useMediaQuery'
 import { EncaisserDesktop } from '@/pages/gestion/EncaisserDesktop'
 import { ScreenHeader } from '@/components/layout/ScreenHeader'
@@ -27,8 +27,9 @@ import { useRecapCycle, useAdminRecordCotisation } from '@/hooks/useCotisations'
 import { useCycle } from '@/hooks/useCycles'
 import { useOnline } from '@/hooks/useOnline'
 import { formatF } from '@/lib/format'
-import { messageErreur } from '@/lib/apiError'
+import { erreurTontine, periodePayable, texteNonOuverte } from '@/lib/periodes'
 import { AccountStatus, CotisationStatut, MembreStatut } from '@/types/common'
+import { TontineType } from '@/types/tontine'
 import type { CycleRecapLigne } from '@/types/cotisation'
 
 export function EncaisserPage() {
@@ -95,8 +96,9 @@ function EncaisserTontine({ tontineId }: { tontineId: string }) {
   // Retard à encaisser : tour précisé (déjà remis) et / ou cotisation passée du tour
   const tourParam = params.get('tour')
   const echeanceId = params.get('echeance') ?? undefined
-  const tour = useCycle(tontineId, tourParam ?? '')
   const cycleId = tourParam ?? stats?.cycleEnCours?.cycleId ?? ''
+  // Tour visé : numéro d'un tour déjà remis, et premier jour d'une période (B47)
+  const tour = useCycle(tontineId, cycleId)
   const recap = useRecapCycle(tontineId, cycleId, 0, 200, !!cycleId, echeanceId)
   const desktop = useIsDesktop()
   // Garde le tour et la cotisation visés quand on choisit ou change de membre
@@ -108,7 +110,7 @@ function EncaisserTontine({ tontineId }: { tontineId: string }) {
     return n
   }
 
-  if (gestion.isLoading || (cycleId && recap.isLoading) || (tourParam && tour.isLoading)) return <Shell title={tontine?.nom}><Skeleton /></Shell>
+  if (gestion.isLoading || (cycleId && (recap.isLoading || tour.isLoading))) return <Shell title={tontine?.nom}><Skeleton /></Shell>
   if (gestion.isError || recap.isError) return <Shell><Erreur onRetry={() => { gestion.refetch(); recap.refetch() }} /></Shell>
   if (!stats) {
     return <Shell><Message icon={<CalendarX size={28} />} title="Tontine introuvable" text="Vous ne gérez pas cette tontine." /></Shell>
@@ -119,6 +121,18 @@ function EncaisserTontine({ tontineId }: { tontineId: string }) {
       <Shell title={stats.nom}>
         <Message icon={<CalendarX size={28} />} title="Aucun tour en cours" text="Démarrez un tour pour pouvoir encaisser.">
           <Link to={`/tontine/${tontineId}/tours`} className="h-12 px-5 rounded-full bg-primary-700 text-white font-bold inline-flex items-center">Voir les tours</Link>
+        </Message>
+      </Shell>
+    )
+  }
+
+  // B47 : une période événementielle ne s'encaisse pas avant son premier jour (le gestionnaire clôture
+  // la veille, la période suivante est « en cours » mais pas encore ouverte)
+  if (tour.data && !periodePayable(stats.tontineType, tour.data)) {
+    return (
+      <Shell title={stats.nom}>
+        <Message icon={<CalendarClock size={28} />} title="Période pas encore ouverte" text={texteNonOuverte(tour.data.dateDebut)}>
+          <Link to={`/tontine/${tontineId}/tours`} className="h-12 px-5 rounded-full bg-neutral-100 font-bold inline-flex items-center">Voir les périodes</Link>
         </Message>
       </Shell>
     )
@@ -140,6 +154,10 @@ function EncaisserTontine({ tontineId }: { tontineId: string }) {
     numeroCycle,
     suffixeTour,
     montantDefaut: stats.montantLibre ? 0 : stats.montant ?? tontine?.montant ?? 0,
+    // Montant libre : plancher affiché et vérifié avant l'envoi (le backend recopie le minimum dans `montant`)
+    montantMinimum: stats.montantLibre ? tontine?.montantMinimum ?? null : null,
+    evenement: stats.tontineType === TontineType.EVENEMENTIELLE,
+    dateDebutPeriode: tour.data?.dateDebut ?? null,
     onChangeMembre: () => setParams(avecMembre(), { replace: true }),
   }
   const deQuiProps = {
@@ -162,6 +180,9 @@ function EncaisserTontine({ tontineId }: { tontineId: string }) {
         numeroCycle={numeroCycle}
         suffixeTour={suffixeTour}
         montantDefaut={montantProps.montantDefaut}
+        montantMinimum={montantProps.montantMinimum}
+        evenement={montantProps.evenement}
+        dateDebutPeriode={montantProps.dateDebutPeriode}
         lignes={lignes}
         membreId={membreAEncaisser?.membreId ?? null}
         onChoisir={(id) => setParams(avecMembre(id), { replace: true })}
@@ -291,7 +312,10 @@ function DeQuiContenu({ tontineId, numeroCycle, suffixeTour = '', lignes, onChoi
 
 // ─── « Combien ? » ───────────────────────────────────────────────────────────
 
-function MontantForm({ tontineId, cycleId, echeanceId, numeroCycle, suffixeTour = '', montantDefaut, membre, onChangeMembre, inline = false }: {
+function MontantForm({
+  tontineId, cycleId, echeanceId, numeroCycle, suffixeTour = '', montantDefaut, montantMinimum = null, evenement = false,
+  dateDebutPeriode = null, membre, onChangeMembre, inline = false,
+}: {
   tontineId: string
   tontineNom: string
   cycleId: string
@@ -300,6 +324,11 @@ function MontantForm({ tontineId, cycleId, echeanceId, numeroCycle, suffixeTour 
   numeroCycle: number
   suffixeTour?: string
   montantDefaut: number
+  /** Montant libre : minimum par cotisation (null = aucun) */
+  montantMinimum?: number | null
+  evenement?: boolean
+  /** Premier jour de la période (texte de ECHEANCE_NON_OUVERTE) */
+  dateDebutPeriode?: string | null
   membre: CycleRecapLigne
   onChangeMembre: () => void
   /** Desktop : formulaire dans le panneau de droite, bouton dans le flux (pas de barre fixe) */
@@ -315,11 +344,15 @@ function MontantForm({ tontineId, cycleId, echeanceId, numeroCycle, suffixeTour 
   const [reference, setReference] = useState('')
   const [note, setNote] = useState('')
   const [error, setError] = useState<string | null>(null)
+  // MEMBRE_INACTIF : le membre a été suspendu ou sorti entre-temps, on propose de le réactiver
+  const [inactif, setInactif] = useState(false)
   const nom = useMemo(() => `${membre.firstName} ${membre.lastName}`.trim(), [membre])
 
   const confirmer = () => {
     setError(null)
+    setInactif(false)
     if (montant <= 0) { setError('Saisissez un montant.'); return }
+    if (montantMinimum && montant < montantMinimum) { setError(`Montant minimum : ${formatF(montantMinimum)}.`); return }
     encaisser(
       {
         tontineId,
@@ -336,7 +369,9 @@ function MontantForm({ tontineId, cycleId, echeanceId, numeroCycle, suffixeTour 
       {
         onSuccess: (cot) => navigate(`/recu/${tontineId}/${cot.id}`, { replace: true, state: { justCreated: true } }),
         onError: (err) => {
-          setError(messageErreur(err, "L'encaissement n'a pas pu être enregistré. Réessayez."))
+          const e = erreurTontine(err, { role: 'gestionnaire', evenement, dateDebut: dateDebutPeriode }, "L'encaissement n'a pas pu être enregistré. Réessayez.")
+          setError(e.texte)
+          setInactif(e.code === 'MEMBRE_INACTIF')
         },
       },
     )
@@ -367,6 +402,7 @@ function MontantForm({ tontineId, cycleId, echeanceId, numeroCycle, suffixeTour 
 
           <div className="mt-5">
             <BigAmount value={montant} />
+            {montantMinimum ? <p className="mt-1 text-center text-sm text-neutral-500">Montant libre · minimum {formatF(montantMinimum)}</p> : null}
             {!editMontant ? (
               <div className="mt-2 flex justify-center">
                 <button onClick={() => setEditMontant(true)} className="h-11 px-3 rounded-full text-sm font-semibold text-primary-800 inline-flex items-center gap-1.5">
@@ -416,6 +452,11 @@ function MontantForm({ tontineId, cycleId, echeanceId, numeroCycle, suffixeTour 
 
         <p className="px-1 text-sm text-neutral-500">Le paiement sera validé et {membre.firstName} sera prévenu.</p>
         {error && <p role="alert" className="px-1 text-sm font-medium text-red-700">{error}</p>}
+        {inactif && (
+          <Link to={`/tontine/${tontineId}/membres/${membre.membreId}`} className="flex h-12 items-center justify-center rounded-full bg-white shadow-sm font-semibold text-primary-800">
+            Réactiver le membre
+          </Link>
+        )}
         {inline && bouton}
       </div>
 
