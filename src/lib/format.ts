@@ -30,6 +30,11 @@ export function formatDateCourte(iso: string | null | undefined): string {
   return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', ...(sameYear ? {} : { year: 'numeric' }) })
 }
 
+/** « 31 déc. » → « 31 déc » : une date abrégée en fin de phrase ne donne pas « 31 déc.. » */
+export function sansPointFinal(texte: string): string {
+  return texte.replace(/\.$/, '')
+}
+
 /** ISO → « 12 nov. · 14:30 » */
 export function formatDateHeure(iso: string | null | undefined): string {
   if (!iso) return '—'

@@ -158,6 +158,7 @@ export function MembreFichePage() {
                       <span className="min-w-0 flex-1">
                         <span className="block font-semibold text-neutral-900">{cy ? `Tour ${cy.numeroCycle}` : 'Cotisation'}</span>
                         <span className="block text-sm text-neutral-500 truncate">{paymentMethodLabel(c.methodePaiement)} · {formatDateHeure(c.createdAt)}</span>
+                        {c.note?.trim() && <span className="block text-sm italic text-neutral-600 truncate">{c.note.trim()}</span>}
                       </span>
                       <span className="flex flex-col items-end gap-1">
                         <span className="font-bold tabular-nums">{formatF(c.montant)}</span>
@@ -171,19 +172,20 @@ export function MembreFichePage() {
           )}
         </section>
 
-        {membre.statut !== MembreStatut.SORTI && (
-          <section className="bg-white rounded-3xl shadow-sm">
-            <h2 className="px-4 pt-4 text-sm font-semibold text-neutral-500">Actions sensibles</h2>
-            <div className="divide-y divide-neutral-100">
-              {membre.statut === MembreStatut.ACTIF ? (
-                <button onClick={() => setAction('suspendre')} disabled={!online} className="w-full h-14 px-4 text-left font-medium text-amber-800 disabled:opacity-50">Suspendre</button>
-              ) : (
-                <button onClick={() => setAction('reactiver')} disabled={!online} className="w-full h-14 px-4 text-left font-medium text-primary-800 disabled:opacity-50">Réactiver</button>
-              )}
+        {/* Un membre SORTI peut être réactivé (B44, décision 3 : réactiver, encaisser, puis le repasser SORTI) */}
+        <section className="bg-white rounded-3xl shadow-sm">
+          <h2 className="px-4 pt-4 text-sm font-semibold text-neutral-500">Actions sensibles</h2>
+          <div className="divide-y divide-neutral-100">
+            {membre.statut === MembreStatut.ACTIF ? (
+              <button onClick={() => setAction('suspendre')} disabled={!online} className="w-full h-14 px-4 text-left font-medium text-amber-800 disabled:opacity-50">Suspendre</button>
+            ) : (
+              <button onClick={() => setAction('reactiver')} disabled={!online} className="w-full h-14 px-4 text-left font-medium text-primary-800 disabled:opacity-50">Réactiver</button>
+            )}
+            {membre.statut !== MembreStatut.SORTI && (
               <button onClick={() => setAction('retirer')} disabled={!online} className="w-full h-14 px-4 text-left font-medium text-red-700 disabled:opacity-50">Retirer de la tontine</button>
-            </div>
-          </section>
-        )}
+            )}
+          </div>
+        </section>
       </div>
 
       {peutEncaisser && (

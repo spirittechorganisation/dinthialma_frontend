@@ -16,19 +16,20 @@ import { InitialsAvatar } from '@/components/ui/Section'
 import { ChipRow, FilterChip } from '@/components/ui/ChipRow'
 import { telechargerCsv } from '@/lib/exportCsv'
 import { messageErreur } from '@/lib/apiError'
+import { erreurTontine } from '@/lib/periodes'
 import { Modal } from '@/components/ui/Modal'
 import { AddMembreModal } from '@/components/shared/AddMembreModal'
 import { useTontineVue } from '@/hooks/useTontineVue'
 import { useCycles } from '@/hooks/useCycles'
 import { useMembres } from '@/hooks/useMembres'
-import { useRecapCycle, useValiderCotisation } from '@/hooks/useCotisations'
+import { useRecapCycle, useRecapTotal, useValiderCotisation } from '@/hooks/useCotisations'
 import { useActiverTontine } from '@/hooks/useTontines'
 import { useCotisantSummary, useCotisationsParStatut } from '@/hooks/useMe'
 import { useLocalPreference } from '@/hooks/useLocalPreference'
 import { useOnline } from '@/hooks/useOnline'
 import { formatF, formatDateCourte } from '@/lib/format'
 import { paymentMethodLabel } from '@/lib/paymentMethods'
-import { rythmeCourtDe, compteARebours } from '@/lib/tontineLabels'
+import { libelleMontant, compteARebours } from '@/lib/tontineLabels'
 import { CotisationStatut, CycleStatut, MembreStatut, TontineStatut } from '@/types/common'
 import { TontineType } from '@/types/tontine'
 import type { Cotisation } from '@/types/cotisation'
@@ -89,6 +90,8 @@ export function FicheTontinePage() {
   const [limite, setLimite] = useState(PAGE)
   const [addOpen, setAddOpen] = useState(false)
   const [confirmLancer, setConfirmLancer] = useState(false)
+  // DATE_DEBUT_PASSEE au lancement (B46) : on propose de corriger la date, sans décalage automatique
+  const [dateLancement, setDateLancement] = useState<string | null>(null)
 
   const { data: cyclesData } = useCycles(id, 0, 200)
   const cycles = cyclesData?.content ?? []
@@ -97,6 +100,9 @@ export function FicheTontinePage() {
   const membres = membresData?.content ?? []
   const actifs = membres.filter((m) => m.statut === MembreStatut.ACTIF)
   const recap = useRecapCycle(id, cycleEnCours?.id ?? '', 0, 200, gerant && !!cycleEnCours)
+  // Événementielle terminée : total par membre, sortis compris (B48), comme la distribution finale (B43)
+  const evenementTermine = t?.tontineType === TontineType.EVENEMENTIELLE && t?.statut === TontineStatut.TERMINEE
+  const repartition = useRecapTotal(id, 0, 200, gerant && evenementTermine)
   const cotisant = useCotisantSummary(v.vue === 'COTISE')
   const maLigne = cotisant.data?.tontines.find((l) => l.tontineId === id)
 
@@ -110,7 +116,8 @@ export function FicheTontinePage() {
 
   const lignesRecap = recap.data?.content ?? []
   const collecte = lignesRecap.filter((l) => l.statutCotisation === CotisationStatut.VALIDE).reduce((s, l) => s + (l.montant ?? 0), 0)
-  const ontPaye = lignesRecap.filter((l) => l.statutCotisation === CotisationStatut.VALIDE).length
+  // Le collecté compte les membres sortis qui ont payé (B48) ; « x/y payés » ne compte que les actifs
+  const ontPaye = lignesRecap.filter((l) => l.statutCotisation === CotisationStatut.VALIDE && l.statutMembre === MembreStatut.ACTIF).length
   const enAttente = lignesRecap.filter((l) => l.statutCotisation === CotisationStatut.EN_ATTENTE).length
   const actifsRecap = lignesRecap.filter((l) => l.statutMembre === MembreStatut.ACTIF).length
 
@@ -145,16 +152,16 @@ export function FicheTontinePage() {
     : null
 
   // Montant énorme + ligne d'état
-  let libelleMontant: string
+  let titreMontant: string
   let montant: number | null
   if (gerant) {
-    libelleMontant = cycleEnCours ? `Collecté · Tour ${cycleEnCours.numeroCycle}` : 'Aucun tour en cours'
+    titreMontant = cycleEnCours ? `Collecté · Tour ${cycleEnCours.numeroCycle}` : 'Aucun tour en cours'
     montant = cycleEnCours ? collecte : null
   } else if (isEvent) {
-    libelleMontant = 'Cotisé par moi'
+    titreMontant = 'Cotisé par moi'
     montant = maLigne?.totalCotiseValide ?? 0
   } else {
-    libelleMontant = 'Jackpot du tour'
+    titreMontant = 'Jackpot du tour'
     montant = jackpotEstime
   }
   const etat = [
@@ -269,7 +276,7 @@ export function FicheTontinePage() {
               </div>
             )}
 
-            <p className="mt-4 text-xs font-semibold tracking-[0.14em] text-neutral-500 uppercase">{libelleMontant}</p>
+            <p className="mt-4 text-xs font-semibold tracking-[0.14em] text-neutral-500 uppercase">{titreMontant}</p>
             <div className="mt-1 flex items-center justify-center gap-1">
               <span className="text-[40px] leading-none font-extrabold tabular-nums text-neutral-900">
                 {montant === null ? '—' : hidden ? '••••••' : `${!gerant && !isEvent ? '≈ ' : ''}${formatF(montant)}`}
@@ -283,7 +290,7 @@ export function FicheTontinePage() {
               </button>
             </div>
             <p className="mt-1 text-sm text-neutral-500">
-              {t.montantLibre ? 'Montant libre' : `${formatF(t.montant)} / ${rythmeCourtDe(t)}`}
+              {libelleMontant(t)}
               {etat ? ` · ${etat}` : ''}
             </p>
             {pct !== null && (
@@ -307,6 +314,25 @@ export function FicheTontinePage() {
                 </button>
               ))}
             </div>
+          )}
+
+          {/* Répartition finale d'une événementielle clôturée : chacun reçoit ce qu'il a cotisé */}
+          {evenementTermine && gerant && (repartition.data?.content.length ?? 0) > 0 && (
+            <section className="bg-white rounded-3xl shadow-sm p-4" aria-labelledby="repartition-finale">
+              <h2 id="repartition-finale" className="text-[17px] font-semibold text-neutral-900">Répartition finale</h2>
+              <p className="mt-1 text-sm text-neutral-500">Chacun reçoit ce qu’il a cotisé (avant une éventuelle commission).</p>
+              <ul className="mt-2 divide-y divide-neutral-100">
+                {repartition.data!.content.map((m) => (
+                  <li key={m.membreId} className={clsx('flex items-center justify-between gap-3 py-2.5', m.statutMembre !== MembreStatut.ACTIF && 'opacity-60')}>
+                    <span className="min-w-0 flex items-center gap-2">
+                      <span className="text-sm font-medium text-neutral-900 truncate">{m.firstName} {m.lastName}</span>
+                      {m.statutMembre === MembreStatut.SORTI && <span className="rounded-full bg-neutral-200 px-2 py-0.5 text-[11px] font-semibold text-neutral-700 flex-shrink-0">Sorti</span>}
+                    </span>
+                    <span className="text-sm font-bold tabular-nums">{formatF(m.totalCotise)}</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
           )}
 
           {/* Rubriques */}
@@ -410,6 +436,7 @@ export function FicheTontinePage() {
                         <span className="block text-sm text-neutral-500 truncate">
                           {paymentMethodLabel(c.methodePaiement)} · {heurePaiement(c.createdAt)}
                         </span>
+                        {c.note?.trim() && <span className="block text-sm italic text-neutral-600 truncate">{c.note.trim()}</span>}
                       </span>
                     </Link>
                     <span className="flex flex-col items-end gap-1 flex-shrink-0">
@@ -457,21 +484,39 @@ export function FicheTontinePage() {
 
       {gerant && <AddMembreModal tontineId={id} isOpen={addOpen} onClose={() => setAddOpen(false)} />}
 
-      <Modal isOpen={confirmLancer} onClose={() => setConfirmLancer(false)} title="Lancer la tontine ?" size="sm">
-        <p className="text-neutral-600">Les membres pourront commencer à cotiser. Vérifiez que tout le monde est ajouté.</p>
-        <div className="mt-5 grid grid-cols-2 gap-3">
-          <button onClick={() => setConfirmLancer(false)} className="h-12 rounded-full bg-neutral-100 font-semibold">Annuler</button>
-          <button
-            disabled={activating}
-            onClick={() => activer(id, {
-              onSuccess: () => { toast.success('Tontine lancée'); setConfirmLancer(false) },
-              onError: () => toast.error("Le lancement a échoué. Réessayez."),
-            })}
-            className="h-12 rounded-full bg-primary-700 text-white font-bold disabled:opacity-50"
-          >
-            {activating ? 'Lancement…' : 'Lancer'}
-          </button>
-        </div>
+      <Modal isOpen={confirmLancer} onClose={() => { setConfirmLancer(false); setDateLancement(null) }} title="Lancer la tontine ?" size="sm">
+        {dateLancement ? (
+          <>
+            <p role="alert" className="text-neutral-700">{dateLancement} Le calendrier annoncé aux membres ne change jamais sans vous.</p>
+            <div className="mt-5 grid grid-cols-2 gap-3">
+              <button onClick={() => { setConfirmLancer(false); setDateLancement(null) }} className="h-12 rounded-full bg-neutral-100 font-semibold">Annuler</button>
+              <button onClick={() => navigate(`/tontine/${id}/modifier?champ=dateDebut`)} className="h-12 rounded-full bg-primary-700 text-white font-bold">
+                Modifier la date
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="text-neutral-600">Les membres pourront commencer à cotiser. Vérifiez que tout le monde est ajouté.</p>
+            <div className="mt-5 grid grid-cols-2 gap-3">
+              <button onClick={() => setConfirmLancer(false)} className="h-12 rounded-full bg-neutral-100 font-semibold">Annuler</button>
+              <button
+                disabled={activating}
+                onClick={() => activer(id, {
+                  onSuccess: () => { toast.success('Tontine lancée'); setConfirmLancer(false) },
+                  onError: (err) => {
+                    const e = erreurTontine(err, {}, 'Le lancement a échoué. Réessayez.')
+                    if (e.code === 'DATE_DEBUT_PASSEE') setDateLancement(e.texte)
+                    else toast.error(e.texte)
+                  },
+                })}
+                className="h-12 rounded-full bg-primary-700 text-white font-bold disabled:opacity-50"
+              >
+                {activating ? 'Lancement…' : 'Lancer'}
+              </button>
+            </div>
+          </>
+        )}
       </Modal>
     </div>
   )
@@ -505,7 +550,7 @@ function TableauPaiements({ tontineId, gerant, cotisant, groupes, cycles, online
             <th className={`${th} pl-4`}>{gerant ? 'Membre' : 'Tour'}</th>
             <th className={`${th} text-right`}>Montant</th>
             <th className={th}>Moyen</th>
-            <th className={th}>Référence</th>
+            <th className={th}>Référence / note</th>
             <th className={th}>Date</th>
             <th className={th}>Statut</th>
             {gerant && <th className={th}>Saisi par</th>}
@@ -544,7 +589,10 @@ function TableauPaiements({ tontineId, gerant, cotisant, groupes, cycles, online
                     </td>
                     <td className={`${td} text-right font-semibold tabular-nums whitespace-nowrap`}>{formatF(c.montant)}</td>
                     <td className={`${td} text-neutral-600 whitespace-nowrap`}>{paymentMethodLabel(c.methodePaiement)}</td>
-                    <td className={`${td} text-neutral-600 font-mono text-xs`}>{c.referenceTransaction || '—'}</td>
+                    <td className={`${td} text-neutral-600`}>
+                      <span className="font-mono text-xs">{c.referenceTransaction || '—'}</span>
+                      {c.note?.trim() && <span className="block text-xs italic text-neutral-600 max-w-[14rem] truncate">{c.note.trim()}</span>}
+                    </td>
                     <td className={`${td} text-neutral-500 whitespace-nowrap`}>{heurePaiement(c.createdAt)}</td>
                     <td className={td}>
                       <span className={clsx('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold whitespace-nowrap', st.cls)}>

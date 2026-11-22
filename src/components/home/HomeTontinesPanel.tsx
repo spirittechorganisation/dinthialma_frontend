@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { clsx } from 'clsx'
 import { ChevronRight, Wallet } from 'lucide-react'
 import { formatF } from '@/lib/format'
+import { libelleMontant } from '@/lib/tontineLabels'
 import { dueDetail } from '@/components/home/HomeSheets'
 import type { CotisantSummary, GestionSummary, MaTontine, ModeAccueil } from '@/types/me'
 
@@ -93,7 +94,7 @@ function LigneCotisant({ t, cotisant }: { t: MaTontine; cotisant: CotisantSummar
     <>
       <p className="font-semibold text-neutral-900 truncate">{t.nom}</p>
       <p className="text-sm text-neutral-500 truncate">
-        {t.montantLibre ? 'Montant libre' : formatF(t.montant)}
+        {libelleMontant(t)}
         {s && s.toursTotal > 0 ? ` · ${s.toursPayes}/${s.toursTotal} tours payés` : ''}
       </p>
       <div className="mt-1.5">

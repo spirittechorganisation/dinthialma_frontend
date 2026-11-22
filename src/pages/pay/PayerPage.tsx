@@ -15,7 +15,7 @@ import { useMemo, useState } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { clsx } from 'clsx'
-import { Copy, ChevronDown, ChevronRight, Clock, CheckCircle2, CalendarX, WifiOff, Circle } from 'lucide-react'
+import { Copy, ChevronDown, ChevronRight, Clock, CheckCircle2, CalendarX, CalendarClock, WifiOff, Circle, UserX } from 'lucide-react'
 import { ScreenHeader } from '@/components/layout/ScreenHeader'
 import { InitialsAvatar } from '@/components/ui/Section'
 import { PaymentMethodTiles } from '@/components/pay/PaymentMethodTiles'
@@ -28,8 +28,9 @@ import { formatF, formatEcheance, safeGet, safeSet } from '@/lib/format'
 import { formatPhoneLocal } from '@/lib/phone'
 import { isMobileMoney, LAST_METHOD_KEY, METHODE_PAR_DEFAUT, estDisponible } from '@/lib/paymentMethods'
 import { synchroniserPreferences } from '@/lib/preferences'
-import { messageErreur } from '@/lib/apiError'
-import { CotisationStatut } from '@/types/common'
+import { erreurTontine, periodePayable, texteNonOuverte } from '@/lib/periodes'
+import { CotisationStatut, MembreStatut } from '@/types/common'
+import { TontineType } from '@/types/tontine'
 import type { CotisantTontineSummary } from '@/types/me'
 
 /** Cotisations en retard d'une tontine : tours déjà remis + cotisations passées du tour en cours */
@@ -163,8 +164,8 @@ function DeclarerPaiement({ ligne }: { ligne: CotisantTontineSummary }) {
         })
       }
     }
-    // 3. La cotisation en cours
-    if (due?.statut === 'A_PAYER') {
+    // 3. La cotisation en cours, sauf une période événementielle pas encore commencée (B47)
+    if (due?.statut === 'A_PAYER' && (!ligne.cycleEnCours || periodePayable(ligne.tontineType, ligne.cycleEnCours))) {
       liste.push({
         cle: 'courante', cycleId: due.cycleId, echeanceId: due.echeanceId ?? undefined, numeroCycle: due.numeroCycle,
         numeroEcheance: due.numeroEcheance, nombreEcheances: due.nombreEcheances,
@@ -172,7 +173,7 @@ function DeclarerPaiement({ ligne }: { ligne: CotisantTontineSummary }) {
       })
     }
     return liste
-  }, [ligne.echeancesARegulariser, due, retardsDuTour, tour.data, mesPaiements.data])
+  }, [ligne.echeancesARegulariser, ligne.cycleEnCours, ligne.tontineType, due, retardsDuTour, tour.data, mesPaiements.data])
 
   // Dernier moyen utilisé s'il est disponible, sinon Espèces (seul moyen ouvert pour l'instant)
   const [methode, setMethode] = useState(() => {
@@ -189,6 +190,28 @@ function DeclarerPaiement({ ligne }: { ligne: CotisantTontineSummary }) {
   const cible = cibles.find((c) => c.cle === choix) ?? cibles.find((c) => !c.enRetard) ?? cibles[0]
 
   if (!cible && retardsDuTour && (tour.isLoading || mesPaiements.isLoading)) return <PayerSkeleton />
+
+  // Participation suspendue ou terminée (B44) : plus de nouvelle cotisation
+  if (!cible && (ligne.monStatutMembre === MembreStatut.SUSPENDU || ligne.monStatutMembre === MembreStatut.SORTI)) {
+    return (
+      <Shell>
+        <Message
+          icon={<UserX size={28} />}
+          title={ligne.monStatutMembre === MembreStatut.SUSPENDU ? 'Participation suspendue' : 'Participation terminée'}
+          text={`Vous ne pouvez plus cotiser dans ${ligne.nom}. Contactez votre gestionnaire.`}
+        />
+      </Shell>
+    )
+  }
+
+  // Période événementielle pas encore commencée (B47) : on ne paie pas d'avance
+  if (!cible && due?.statut === 'A_PAYER' && ligne.tontineType === TontineType.EVENEMENTIELLE && ligne.cycleEnCours) {
+    return (
+      <Shell>
+        <Message icon={<CalendarClock size={28} />} title="Pas encore ouverte" text={texteNonOuverte(ligne.cycleEnCours.dateDebut)} />
+      </Shell>
+    )
+  }
 
   if (!cible && !due) {
     return (
@@ -261,7 +284,11 @@ function DeclarerPaiement({ ligne }: { ligne: CotisantTontineSummary }) {
           navigate(`/recu/${ligne.tontineId}/${cotisation.id}`, { replace: true, state: { justCreated: true } })
         },
         onError: (err) => {
-          setError(messageErreur(err, "Le paiement n'a pas pu être enregistré. Réessayez."))
+          setError(erreurTontine(err, {
+            role: 'membre',
+            evenement: ligne.tontineType === TontineType.EVENEMENTIELLE,
+            dateDebut: ligne.cycleEnCours?.dateDebut,
+          }, "Le paiement n'a pas pu être enregistré. Réessayez.").texte)
         },
       },
     )

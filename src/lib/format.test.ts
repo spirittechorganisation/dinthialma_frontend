@@ -9,7 +9,7 @@ import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import {
   formatMontant, formatFCFA, formatF, formatFcfaRecu,
   formatDateCourte, formatDateHeure, formatEcheance,
-  safeGet, safeSet,
+  safeGet, safeSet, sansPointFinal,
 } from './format'
 
 describe('formatMontant', () => {
@@ -198,5 +198,16 @@ describe('safeSet', () => {
     })
     expect(() => safeSet('any-key', 'value')).not.toThrow()
     if (original) Object.defineProperty(window, 'localStorage', original)
+  })
+})
+
+// ─── sansPointFinal (FR23) ─────────────────────────────────────────────────────
+
+describe('sansPointFinal', () => {
+  it('retire le point d\'une date abrégée en fin de phrase (« 31 déc.. » → « 31 déc. »)', () => {
+    expect(`jusqu'au ${sansPointFinal('31 déc.')}.`).toBe("jusqu'au 31 déc.")
+  })
+  it('laisse un texte sans point final intact', () => {
+    expect(sansPointFinal('15 juin 2027')).toBe('15 juin 2027')
   })
 })

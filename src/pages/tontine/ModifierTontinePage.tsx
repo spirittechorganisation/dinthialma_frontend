@@ -4,7 +4,7 @@
  * n'est pas modifiable par l'API après création.
  */
 import { useEffect, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { clsx } from 'clsx'
 import { ScreenHeader } from '@/components/layout/ScreenHeader'
@@ -21,12 +21,13 @@ import {
   rythmeDe, dureeTour, jourEcheanceValide, RYTHME_PAR_DEFAUT, HEURE_ECHEANCE_DEFAUT, DECLENCHEMENTS, ORDRES_DEFAUT, ORDRE_LABEL,
   type Rythme,
 } from '@/lib/tontineLabels'
-import { messageErreur } from '@/lib/apiError'
+import { aujourdhuiDakar, dateDebutPassee, erreurTontine } from '@/lib/periodes'
 import { TontineStatut } from '@/types/common'
 import { TontineType, type UpdateTontineRequest, type DeclenchementJackpot } from '@/types/tontine'
 
 const champ = 'mt-1 w-full h-12 px-4 rounded-2xl bg-neutral-100 text-[16px] outline-none focus:ring-2 focus:ring-primary-600'
 const isoJour = (v: string | null | undefined) => (v ? v.slice(0, 10) : '')
+const DATE_PASSEE = 'La date de début est passée : choisissez aujourd’hui ou une date future.'
 
 export function ModifierTontinePage() {
   const { id = '' } = useParams()
@@ -45,6 +46,10 @@ export function ModifierTontinePage() {
   })
   const [pret, setPret] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Message sur le champ date : arrivée depuis un lancement refusé (DATE_DEBUT_PASSEE, B46) ou date passée
+  const [params] = useSearchParams()
+  const depuisLancement = params.get('champ') === 'dateDebut'
+  const [erreurDate, setErreurDate] = useState<string | null>(depuisLancement ? `${DATE_PASSEE} Enregistrez, puis relancez la tontine.` : null)
 
   // Préremplissage une fois la tontine chargée
   useEffect(() => {
@@ -116,6 +121,8 @@ export function ModifierTontinePage() {
   const enregistrer = () => {
     const e = verifier()
     if (e) { setError(e); return }
+    // « Aujourd'hui » recalculé au moment d'envoyer (heure de Dakar) : prévenir plutôt qu'essuyer un refus
+    if (dateDebutPassee(f.dateDebut)) { setErreurDate(DATE_PASSEE); return }
     const req: UpdateTontineRequest = {
       nom: f.nom.trim(),
       description: f.description.trim() || undefined,
@@ -143,7 +150,11 @@ export function ModifierTontinePage() {
     }
     modifier({ id, request: req }, {
       onSuccess: () => { toast.success('Modifications enregistrées'); navigate(`/tontine/${id}/reglages`, { replace: true }) },
-      onError: (err) => setError(messageErreur(err, "L'enregistrement a échoué. Réessayez.")),
+      onError: (err) => {
+        const r = erreurTontine(err, {}, "L'enregistrement a échoué. Réessayez.")
+        if (r.code === 'DATE_DEBUT_PASSEE') setErreurDate(r.texte)
+        else setError(r.texte)
+      },
     })
   }
 
@@ -198,10 +209,22 @@ export function ModifierTontinePage() {
           />
           <EcheancePicker unite={f.rythme.unite} jour={f.jour} onJour={(x) => set('jour', x)} heure={f.heure} onHeure={(x) => set('heure', x)} />
           <div className={clsx('grid gap-3', isEvent ? 'grid-cols-2' : 'grid-cols-1')}>
-            <label className="block">
-              <span className="text-sm font-semibold text-neutral-700">Début</span>
-              <input type="date" value={f.dateDebut} onChange={(e) => set('dateDebut', e.target.value)} className={champ} />
-            </label>
+            <div>
+              <label className="block">
+                <span className="text-sm font-semibold text-neutral-700">Début</span>
+                <input
+                  type="date"
+                  value={f.dateDebut}
+                  min={aujourdhuiDakar()}
+                  autoFocus={depuisLancement}
+                  aria-invalid={!!erreurDate}
+                  aria-describedby={erreurDate ? 'erreur-date-debut' : undefined}
+                  onChange={(e) => { set('dateDebut', e.target.value); setErreurDate(null) }}
+                  className={clsx(champ, erreurDate && 'ring-2 ring-red-500')}
+                />
+              </label>
+              {erreurDate && <p id="erreur-date-debut" role="alert" className="mt-1 text-sm font-medium text-red-700">{erreurDate}</p>}
+            </div>
             {isEvent && (
               <label className="block">
                 <span className="text-sm font-semibold text-neutral-700">Événement</span>

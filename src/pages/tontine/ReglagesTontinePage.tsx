@@ -6,7 +6,7 @@
  * Membre / lecture : règles, gestionnaire à contacter, commissions en consultation.
  */
 import { useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { clsx } from 'clsx'
 import { Phone, Plus, Pencil, Trash2, RotateCw, CheckCircle2, Circle, AlertTriangle, Star } from 'lucide-react'
@@ -23,10 +23,10 @@ import { usePriorites, useAccepterPriorite, useRefuserPriorite } from '@/hooks/u
 import { EcheancePicker } from '@/components/tontine/EcheancePicker'
 import { Stepper } from '@/components/ui/Stepper'
 import { useOnline } from '@/hooks/useOnline'
-import { formatF, formatDateCourte } from '@/lib/format'
+import { formatDateCourte } from '@/lib/format'
 import { formatPhoneLocal, toLocalPhone } from '@/lib/phone'
 import {
-  rythmeCourtDe, rythmeDe, rythmePhraseDe, echeancePhrase, dureeTour, capital,
+  libelleMontant, rythmeDe, rythmePhraseDe, echeancePhrase, dureeTour, capital,
   HEURE_ECHEANCE_DEFAUT, DECLENCHEMENTS, MODES_REMISE,
 } from '@/lib/tontineLabels'
 import { useInvitationTontine, useRegenererInvitation, useRevoquerInvitation } from '@/hooks/useQr'
@@ -65,7 +65,9 @@ export function ReglagesTontinePage() {
   const commissions = commissionsData?.content ?? []
 
   const [edition, setEdition] = useState<Commission | 'nouvelle' | null>(null)
-  const [sensible, setSensible] = useState<Sensible | null>(null)
+  // ?action=cloturer (depuis une période, CLOTURE_FINALE_PREMATUREE) : la confirmation s'ouvre directement
+  const [params] = useSearchParams()
+  const [sensible, setSensible] = useState<Sensible | null>(() => (params.get('action') === 'cloturer' ? 'cloturer' : null))
   const [echeanceOpen, setEcheanceOpen] = useState(false)
   const [clotureEnSuspens, setClotureEnSuspens] = useState<ClotureEnSuspensResponse | null>(null)
   const { mutate: changerRemise, isPending: remisePending, variables: remiseEnvoyee } = useModifierReglages()
@@ -103,7 +105,7 @@ export function ReglagesTontinePage() {
   const modeRemise: ModeRemise = (remisePending && remiseEnvoyee?.modeRemise) || t.modeRemise || 'DISPONIBLE'
   const regles: [string, string][] = [
     ['Type', isEvent ? 'Pour un événement' : 'Chacun son tour'],
-    ['Montant', t.montantLibre ? `Libre${t.montantMinimum ? ` · minimum ${formatF(t.montantMinimum)}` : ''}` : `${formatF(t.montant)} / ${rythmeCourtDe(t)}`],
+    ['Montant', libelleMontant(t)],
     ...(isEvent
       ? [
           ...(t.nomEvenement ? [['Événement', t.nomEvenement] as [string, string]] : []),
@@ -126,6 +128,9 @@ export function ReglagesTontinePage() {
   const tel = toLocalPhone(t.creePar?.phone)
   const gestionnaire = [t.creePar?.firstName, t.creePar?.lastName].filter(Boolean).join(' ')
 
+  // Événementielle : la fiche montre la répartition finale par membre
+  const apresCloture = isEvent ? `/tontine/${id}` : '/accueil'
+
   const executerSensible = () => {
     if (!sensible) return
     const ok = (msg: string) => () => { toast.success(msg); setSensible(null) }
@@ -134,7 +139,7 @@ export function ReglagesTontinePage() {
     else if (sensible === 'relancer') activer(id, { onSuccess: ok('Tontine relancée'), onError: ko })
     else if (sensible === 'cloturer') {
       cloturer({ id }, {
-        onSuccess: () => { toast.success('Tontine clôturée'); setSensible(null); navigate('/accueil') },
+        onSuccess: () => { toast.success('Tontine clôturée'); setSensible(null); navigate(apresCloture) },
         onError: (err) => {
           if (isAxiosError(err) && err.response?.status === 409) {
             const suspens = (err.response.data as { data?: ClotureEnSuspensResponse })?.data
@@ -150,7 +155,7 @@ export function ReglagesTontinePage() {
   const confirmerClotureForce = () => {
     setClotureEnSuspens(null)
     cloturer({ id, forcer: true }, {
-      onSuccess: () => { toast.success('Tontine clôturée'); navigate('/accueil') },
+      onSuccess: () => { toast.success('Tontine clôturée'); navigate(apresCloture) },
       onError: (err) => toast.error(messageErreur(err, "La clôture a échoué. Réessayez.")),
     })
   }
@@ -159,7 +164,14 @@ export function ReglagesTontinePage() {
     suspendre: { titre: 'Suspendre la tontine ?', texte: 'Les membres ne pourront plus cotiser tant qu\'elle est suspendue.', bouton: 'Suspendre', danger: true },
     relancer: { titre: 'Relancer la tontine ?', texte: 'Les membres pourront de nouveau cotiser.', bouton: 'Relancer', danger: false },
     supprimer: { titre: 'Supprimer le brouillon ?', texte: 'La tontine et ses réglages seront supprimés.', bouton: 'Supprimer', danger: true },
-    cloturer: { titre: 'Clôturer la tontine ?', texte: 'La tontine sera définitivement terminée. Aucun nouveau tour ne pourra être ouvert. Cette action est irréversible.', bouton: 'Clôturer', danger: true },
+    cloturer: {
+      titre: 'Clôturer la tontine ?',
+      texte: isEvent
+        ? 'L’épargne est partagée maintenant : chacun reçoit ce qu’il a cotisé. Aucune nouvelle période ne s’ouvrira. Cette action est irréversible.'
+        : 'La tontine sera définitivement terminée. Aucun nouveau tour ne pourra être ouvert. Cette action est irréversible.',
+      bouton: 'Clôturer',
+      danger: true,
+    },
   }
 
   return (
@@ -300,7 +312,7 @@ export function ReglagesTontinePage() {
               subtitle={invitation.data ? `Code ${invitation.data.code}` : invitation.isError ? 'Lien d’invitation désactivé' : 'Préparation du lien…'}
               url={invitation.data?.url ?? null}
               onShare={() => navigate(`/partager?tontine=${t.id}`)}
-              shareText={`Rejoins notre tontine ${t.nom} (${formatF(t.montant)} / ${rythmeCourtDe(t)}) :`}
+              shareText={`Rejoins notre tontine ${t.nom} (${libelleMontant(t)}) :`}
             />
             <div className="flex flex-wrap gap-2 px-1">
               <button

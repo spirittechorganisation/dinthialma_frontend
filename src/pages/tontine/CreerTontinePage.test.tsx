@@ -266,7 +266,9 @@ describe('[caractérisation] CreerTontinePage — tontine rotative', () => {
     await continuer(user)
     await continuer(user)
 
-    expect(await apercuCalendrier()).toHaveTextContent('Première cotisation avant dim. 20 déc..10 tours, dernière cotisation le lun. 20 sept. 2027.')
+    // Changement voulu (FR23, R7, validé le 22/11/2026) : plus de double point après une date abrégée
+    // (avant : « dim. 20 déc.. »)
+    expect(await apercuCalendrier()).toHaveTextContent('Première cotisation avant dim. 20 déc.10 tours, dernière cotisation le lun. 20 sept. 2027.')
   })
 
   it('un jour limite incompatible avec le nouveau rythme est effacé', async () => {
@@ -358,7 +360,9 @@ describe('[caractérisation] CreerTontinePage — tontine événementielle', () 
 
     expect(titre()).toBe('Récapitulatif')
     expect(screen.getByLabelText('Étape 3 sur 3')).toBeInTheDocument()
-    expect(recapitulatif()).toContain('Chacun cotise librement (minimum 2.000F) chaque mois, jusqu\'au 15 juin 2027. La cagnotte est partagée entre tous à la fin.')
+    // Changement voulu (FR23, validé par le responsable produit le 22/11/2026) : en événementielle, chacun
+    // récupère ce qu'il a cotisé ; la fin de phrase dépend de l'objectif. Avant : « La cagnotte est partagée entre tous à la fin. »
+    expect(recapitulatif()).toContain('Chacun cotise librement (minimum 2.000F) chaque mois, jusqu\'au 15 juin 2027. À la fin, chacun récupère ce qu\'il a cotisé pour la cérémonie.')
     await user.click(principal('Créer la tontine'))
 
     await screen.findByText('Tontine créée ✓')
