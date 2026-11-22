@@ -1,5 +1,5 @@
 import { CalendarCheck2 } from 'lucide-react'
-import { formatEcheance } from '@/lib/format'
+import { formatEcheance, sansPointFinal } from '@/lib/format'
 import type { SimulationCalendrier } from '@/types/tontine'
 
 /**
@@ -22,11 +22,11 @@ export function CalendrierApercu({ simulation, isEvent, chargement }: {
     <div className="rounded-2xl bg-primary-50 px-4 py-3 flex gap-2.5" aria-live="polite">
       <CalendarCheck2 size={18} className="text-primary-700 flex-shrink-0 mt-0.5" />
       <div className="text-sm text-neutral-800 space-y-0.5">
-        <p>Première cotisation avant <b>{formatEcheance(simulation.premiereEcheance)}</b>.</p>
+        <p>Première cotisation avant <b>{sansPointFinal(formatEcheance(simulation.premiereEcheance))}</b>.</p>
         {isEvent ? (
-          n > 0 && <p><b>{n} cotisation{n > 1 ? 's' : ''}</b> jusqu'au {formatEcheance(simulation.derniereEcheance)}.</p>
+          n > 0 && <p><b>{n} cotisation{n > 1 ? 's' : ''}</b> jusqu'au {sansPointFinal(formatEcheance(simulation.derniereEcheance))}.</p>
         ) : (
-          tours > 0 && <p><b>{tours} tours</b>, dernière cotisation le {formatEcheance(simulation.derniereEcheance)}.</p>
+          tours > 0 && <p><b>{tours} tours</b>, dernière cotisation le {sansPointFinal(formatEcheance(simulation.derniereEcheance))}.</p>
         )}
       </div>
     </div>
