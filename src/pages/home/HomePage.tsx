@@ -28,6 +28,7 @@ import { HomeDesktop } from '@/components/home/HomeDesktop'
 import { useIsDesktop } from '@/hooks/useMediaQuery'
 import { TontinePickerSheet, MontantsSheet, PlusSheet, dueDetail, type PlusItem } from '@/components/home/HomeSheets'
 import { formatF, safeGet } from '@/lib/format'
+import { libelleMontant } from '@/lib/tontineLabels'
 import { INVITATION_EN_ATTENTE_KEY } from '@/lib/share'
 import { useMonQr, useInvitationTontine } from '@/hooks/useQr'
 import { parseApiError } from '@/lib/apiError'
@@ -315,7 +316,7 @@ export function HomePage() {
     else navigate(`/tontine/${it.tontineId}`)
   }
 
-  const filterOptions = tontinesDuMode.map((t) => ({ id: t.id, nom: t.nom, detail: `${formatF(t.montant)} · ${t.nombreMembresActuels} membres` }))
+  const filterOptions = tontinesDuMode.map((t) => ({ id: t.id, nom: t.nom, detail: `${libelleMontant(t)} · ${t.nombreMembresActuels} membres` }))
   const payOptions = (cotisant.data?.aPayer ?? []).map((t) => ({
     id: t.tontineId,
     nom: t.nom,

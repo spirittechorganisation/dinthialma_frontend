@@ -1,4 +1,5 @@
 import { CycleStatut } from '@/types/common'
+import { formatF } from '@/lib/format'
 import type { RythmeUnite, DeclenchementJackpot, ModeRemise } from '@/types/tontine'
 
 /** Rythme court pour « 5.000F / mois » */
@@ -108,6 +109,25 @@ export function rythmeCourtDe(t: Parameters<typeof rythmeDe>[0]): string {
   const r = rythmeDe(t)
   if (!r) return rythmeCourt(t?.frequence)
   return r.intervalle === 1 ? MOTS_UNITE[r.unite][0] : dureeRythme(r)
+}
+
+/**
+ * Montant d'une tontine pour les fiches et listes (FR23) :
+ * « 5.000F / mois », « Montant libre, minimum 2.000F / jour », « Montant libre / jour ».
+ * En montant libre, le backend recopie le minimum dans `montant` : ne jamais l'afficher seul,
+ * il ressemblerait à un montant fixe.
+ */
+export function libelleMontant(t: Parameters<typeof rythmeDe>[0] & {
+  montant?: number | null
+  montantLibre?: boolean | null
+  montantMinimum?: number | null
+}): string {
+  const rythme = rythmeCourtDe(t)
+  const parRythmeCourt = rythme ? ` / ${rythme}` : ''
+  if (t.montantLibre) {
+    return `Montant libre${t.montantMinimum ? `, minimum ${formatF(t.montantMinimum)}` : ''}${parRythmeCourt}`
+  }
+  return `${formatF(t.montant)}${parRythmeCourt}`
 }
 
 /** Rythme en phrase : « chaque semaine », « tous les 3 jours » */
