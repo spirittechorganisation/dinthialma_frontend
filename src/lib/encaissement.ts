@@ -4,6 +4,10 @@
  */
 import { CotisationStatut } from '@/types/common'
 import type { CycleRecapLigne } from '@/types/cotisation'
+import { estSolde } from '@/lib/retraits'
+
+/** Ligne de « De qui ? » : récapitulatif de la période + date du retrait total (FR29, membre soldé) */
+export type LigneEncaisser = CycleRecapLigne & { soldeLe?: string | null }
 
 /** Dernier moyen utilisé par le gestionnaire pour encaisser (distinct de celui du membre qui paie) */
 export const METHODE_ENCAISSEMENT_KEY = 'dinthialma_derniere_methode_encaissement'
@@ -41,8 +45,22 @@ export function avecEncaissementsRecents(lignes: CycleRecapLigne[], recents: Rec
   })
 }
 
-/** « 8 / 20 payés aujourd'hui » (journalier), « 8 / 20 payés » sinon */
-export function textePayes(lignes: Pick<CycleRecapLigne, 'statutCotisation'>[], journalier: boolean): string {
-  const payes = lignes.filter(aPaye).length
-  return `${payes} / ${lignes.length} payé${payes > 1 ? 's' : ''}${journalier ? ' aujourd’hui' : ''}`
+/**
+ * Membres soldés (FR29) : le récapitulatif d'une période ne porte pas `soldeLe`, repris de la liste des membres.
+ */
+export function avecSoldes(lignes: CycleRecapLigne[], membres: { id: string; soldeLe?: string | null }[]): LigneEncaisser[] {
+  const soldes = new Map(membres.filter(estSolde).map((m) => [m.id, m.soldeLe]))
+  return lignes.map((l) => (soldes.has(l.membreId) ? { ...l, soldeLe: soldes.get(l.membreId) } : l))
+}
+
+/** Rien à encaisser pour ce membre : il a payé, ou il est soldé (rangé avec les « déjà payés », grisé) */
+export function horsEncaissement(l: Pick<LigneEncaisser, 'statutCotisation' | 'soldeLe'>): boolean {
+  return aPaye(l) || estSolde(l)
+}
+
+/** « 8 / 20 payés aujourd'hui » (journalier), « 8 / 20 payés » sinon ; un membre soldé ne compte pas */
+export function textePayes(lignes: Pick<LigneEncaisser, 'statutCotisation' | 'soldeLe'>[], journalier: boolean): string {
+  const attendus = lignes.filter((l) => !estSolde(l) || aPaye(l))
+  const payes = attendus.filter(aPaye).length
+  return `${payes} / ${attendus.length} payé${payes > 1 ? 's' : ''}${journalier ? ' aujourd’hui' : ''}`
 }
