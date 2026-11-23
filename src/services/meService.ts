@@ -55,6 +55,8 @@ interface RawCotisantTontine {
   ordreJackpot?: number; aRecuJackpot?: boolean
   totalCotiseValide?: number; totalEnAttente?: number; toursPayes?: number; toursTotal?: number
   totalJackpotsRecus?: number; nombreJackpotsRecus?: number
+  /** Épargne (B42) */
+  totalRetire?: number | null; solde?: number | null; soldeLe?: string | null
   cycleEnCours?: { cycleId: string; numeroCycle: number; dateDebut: string; dateFin: string }
   cotisationDue?: {
     montant?: number; montantLibre?: boolean; montantMinimum?: number; dateLimite: string
@@ -120,6 +122,10 @@ export const meService = {
       aRecuJackpot: !!t.aRecuJackpot,
       totalCotiseValide: num(t.totalCotiseValide),
       totalEnAttente: num(t.totalEnAttente),
+      // Épargne (B42, FR29) : absents en rotative
+      totalRetire: numOuNull(t.totalRetire),
+      solde: numOuNull(t.solde),
+      soldeLe: ouNull(t.soldeLe),
       toursPayes: num(t.toursPayes),
       toursTotal: num(t.toursTotal),
       // Toujours 0 pour une tontine événementielle (pas de jackpot)
@@ -149,8 +155,9 @@ export const meService = {
       },
     }))
 
+    // Un membre soldé (retrait total, FR29) n'a plus rien à payer, même si une échéance traîne encore
     const aPayer = tontines
-      .filter((l) => l.cotisationDue?.statut === 'A_PAYER')
+      .filter((l) => l.cotisationDue?.statut === 'A_PAYER' && !l.soldeLe)
       .sort((a, b) => +new Date(a.cotisationDue!.dateLimite) - +new Date(b.cotisationDue!.dateLimite))
 
     return {

@@ -436,7 +436,7 @@ export function TourPage() {
           {periodeIntermediaire
             ? 'Les paiements de cette période sont arrêtés. L’argent reste dans l’épargne jusqu’à la fin : rien n’est remis aux membres maintenant.'
             : isEvent
-              ? 'C’est la dernière période : l’épargne sera partagée, chacun reçoit ce qu’il a cotisé. Les paiements non validés passeront en retard.'
+              ? 'C’est la dernière période : l’épargne sera partagée, chacun reçoit son solde (ce qu’il a cotisé, moins ses retraits). Les paiements non validés passeront en retard.'
               : 'Le jackpot sera calculé et les paiements non validés passeront en retard.'}
         </p>
         {nonPayes.length > 0 && (

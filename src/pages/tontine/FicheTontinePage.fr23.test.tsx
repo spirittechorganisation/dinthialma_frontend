@@ -18,7 +18,6 @@ import { unCycle } from '@/test/factories/cycle'
 import { uneCotisation } from '@/test/factories/cotisation'
 import { CycleStatut, MembreStatut, TontineStatut } from '@/types/common'
 import { TontineType, type Tontine } from '@/types/tontine'
-import type { MembreTotalCotisation } from '@/types/cotisation'
 import { FicheTontinePage } from './FicheTontinePage'
 
 function epargne(surcharge: Partial<Tontine> = {}) {
@@ -100,25 +99,25 @@ describe('FR23 FicheTontinePage — lancement', () => {
 })
 
 describe('FR23 FicheTontinePage — après la clôture', () => {
-  it('montre la répartition finale par membre, sortis compris (inclureSortis)', async () => {
+  // FR29 : la répartition est relue depuis GET /distribution (B51), plus depuis recap-total
+  it('montre la répartition finale par membre, sortis compris', async () => {
     epargne({ statut: TontineStatut.TERMINEE })
-    const appels: URL[] = []
-    const total = (prenom: string, statutMembre: MembreStatut, totalCotise: number): MembreTotalCotisation => ({
-      membreId: `m-${prenom}`, firstName: prenom, lastName: 'Test', phone: '+221770000000', statutMembre,
-      ordreJackpot: null, totalCotise, nombreCotisationsValidees: 1,
+    const ligne = (prenom: string, statutMembre: MembreStatut, montantCotise: number) => ({
+      membreId: `m-${prenom}`, firstName: prenom, lastName: 'Test', statutMembre,
+      montantCotise, montantCommission: 0, montantRetire: 0, montantNet: montantCotise,
     })
-    server.use(http.get(`${API}/v1/tontines/t1/cotisations/recap-total`, ({ request }) => {
-      appels.push(new URL(request.url))
-      return page([total('Awa', MembreStatut.ACTIF, 44000), total('Coumba', MembreStatut.SORTI, 2000)])
-    }))
+    server.use(http.get(`${API}/v1/tontines/t1/distribution`, () => ok({
+      tontineId: 't1', cycleId: 'c9', dateDistribution: '2026-12-31T20:00:00', nombreMembres: 2,
+      totalCotise: 46000, totalCommission: 0, totalRetire: 0, totalNet: 46000,
+      lignes: [ligne('Awa', MembreStatut.ACTIF, 44000), ligne('Coumba', MembreStatut.SORTI, 2000)],
+    })))
     afficher()
 
     const section = (await screen.findByRole('heading', { name: 'Répartition finale' })).closest('section')!
-    expect(appels[0].searchParams.get('inclureSortis')).toBe('true')
-    const coumba = within(section).getByText('Coumba Test').closest('li')!
+    const coumba = within(section).getByText('Coumba Test').closest('tr')!
     expect(coumba).toHaveTextContent('Sorti')
     expect(coumba).toHaveTextContent('2.000F')
-    expect(within(section).getByText('Awa Test').closest('li')).toHaveTextContent('44.000F')
+    expect(within(section).getByText('Awa Test').closest('tr')).toHaveTextContent('44.000F')
   })
 })
 
