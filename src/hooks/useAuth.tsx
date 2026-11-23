@@ -6,11 +6,10 @@ import {
   storeSession, clearAccessToken,
   getAuthUser, isTokenExpired,
   setPinConfigured, detectClientType,
-  getRefreshToken, setTokens, getClientType, clearAll,
+  getRefreshToken, getClientType, clearAll, verrouillerSession,
 } from '@/lib/tokenStorage'
-import axios from 'axios'
 import { describeDevice } from '@/lib/device'
-import api from '@/services/api'
+import api, { renouvelerJetons } from '@/services/api'
 
 interface ExtendedAuthContextType extends AuthContextType {
   loginWithPin: (phone: string, pin: string) => Promise<AuthUser | null>
@@ -97,17 +96,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   // ─── Renouvellement silencieux ─────────────────────────────────────────────
+  // Même renouvellement que l'intercepteur (FR26) : un seul appel /v1/auth/refresh à la fois
   const refreshSession = useCallback(async (): Promise<boolean> => {
-    const refreshToken = getRefreshToken()
-    if (!refreshToken) return false
     try {
-      // Endpoint public : appelé SANS en-tête Authorization (le jeton d'accès peut être expiré)
-      const { data } = await axios.post<{ data: { access_token: string; refresh_token: string } }>(
-        `${api.defaults.baseURL}/v1/auth/refresh`,
-        { refreshToken },
-      )
-      setTokens(data.data.access_token, data.data.refresh_token)
-      setUser(getAuthUser(data.data.access_token))
+      const accessToken = await renouvelerJetons()
+      setUser(getAuthUser(accessToken))
       return true
     } catch {
       return false
@@ -141,6 +134,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // sur l'écran PIN qui appelle /auth/logout + clearAll().
   const logout = useCallback(async (): Promise<void> => {
     clearAccessToken()
+    verrouillerSession()
     setUser(null)
     window.location.href = '/'
   }, [])

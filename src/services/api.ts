@@ -22,12 +22,43 @@ api.interceptors.request.use(
 )
 
 // ─── Refresh automatique ──────────────────────────────────────────────────────
-let isRefreshing = false
-let failedQueue: Array<{ resolve: (token: string) => void; reject: (error: unknown) => void }> = []
+// FR26 (corrige B3 de la spec 01) : un seul renouvellement à la fois, partagé par l'intercepteur, le
+// démarrage (ProtectedRoute) et useAuth.refreshSession ; plus d'état bloqué quand il n'y a pas de
+// refresh token ; une seule redirection vers /login quand la session est perdue.
+let renouvellement: Promise<string> | null = null
+let redirectionLogin = false
 
-const processQueue = (error: unknown, token: string | null = null) => {
-  failedQueue.forEach((p) => (error ? p.reject(error) : p.resolve(token!)))
-  failedQueue = []
+/** Erreur levée quand aucun refresh token n'est enregistré (rien à renouveler) */
+export class SansRefreshToken extends Error {
+  constructor() { super('Aucun refresh token') }
+}
+
+/**
+ * Renouvelle les jetons avec le refresh token et renvoie le nouveau jeton d'accès.
+ * Les appels simultanés partagent la même requête `/v1/auth/refresh`.
+ */
+export function renouvelerJetons(): Promise<string> {
+  if (renouvellement) return renouvellement
+  const refreshToken = getRefreshToken()
+  if (!refreshToken) return Promise.reject(new SansRefreshToken())
+  renouvellement = axios
+    // Endpoint public : appelé SANS en-tête Authorization (le jeton d'accès peut être expiré)
+    .post(`${API_BASE_URL}/api/v1/auth/refresh`, { refreshToken })
+    .then(({ data }) => {
+      const { access_token, refresh_token } = data.data
+      setTokens(access_token, refresh_token)
+      return access_token as string
+    })
+    .finally(() => { renouvellement = null })
+  return renouvellement
+}
+
+/** Session perdue : efface tout et part sur /login, une seule fois même si plusieurs requêtes échouent */
+function sessionPerdue() {
+  clearAll()
+  if (redirectionLogin) return
+  redirectionLogin = true
+  window.location.href = '/login'
 }
 
 // Rôle insuffisant = 403 (code FORBIDDEN) : jamais de déconnexion. Seul un 401 tente un refresh.
@@ -48,39 +79,15 @@ api.interceptors.response.use(
     }
 
     if (error.response?.status === 401 && !originalRequest._retry) {
-      if (isRefreshing) {
-        return new Promise((resolve, reject) => {
-          failedQueue.push({ resolve, reject })
-        }).then((token) => {
-          originalRequest.headers!.Authorization = `Bearer ${token}`
-          return api(originalRequest)
-        })
-      }
-
       originalRequest._retry = true
-      isRefreshing = true
-
-      const refreshToken = getRefreshToken()
-      if (!refreshToken) {
-        clearAll()
-        window.location.href = '/login'
-        return Promise.reject(error)
-      }
-
       try {
-        const { data } = await axios.post(`${API_BASE_URL}/api/v1/auth/refresh`, { refreshToken })
-        const { access_token, refresh_token } = data.data
-        setTokens(access_token, refresh_token)
-        processQueue(null, access_token)
-        originalRequest.headers!.Authorization = `Bearer ${access_token}`
+        const token = await renouvelerJetons()
+        originalRequest.headers!.Authorization = `Bearer ${token}`
         return api(originalRequest)
       } catch (refreshError) {
-        processQueue(refreshError, null)
-        clearAll()
-        window.location.href = '/login'
-        return Promise.reject(refreshError)
-      } finally {
-        isRefreshing = false
+        sessionPerdue()
+        // Sans refresh token : on rejette l'erreur d'origine (le 401 de la requête)
+        return Promise.reject(refreshError instanceof SansRefreshToken ? error : refreshError)
       }
     }
 

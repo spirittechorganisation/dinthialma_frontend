@@ -83,6 +83,7 @@
   - Paramètres tableaux sérialisés en `statut=A&statut=B`.
   - _Fait (19/11/2026) : `src/services/api.test.ts`, 26 tests. BUG documenté : sans refresh token, `isRefreshing`
     reste à true (sortie avant le `finally`) et les 401 suivants restent bloqués jusqu'au rechargement de la page._
+  - _Corrigé en FR26 (23/11/2026) : B3 résolu, le test correspondant attend désormais que la requête suivante soit rejouée._
   - _Exigences : 3.1_
 - [ ] 3.2 Services (tests en tableau : appel → requête attendue → valeur retournée)
   - `authService`, `meService`, `tontineService`, `cycleService`, `cotisationService`, `membreService`, `validationService` (y compris `validerPlusieurs` et `refuser` avec motif), `qrService`, `prioriteService`, `notificationService`, `securiteService`, `userService`, `codeListService`, `dashboardService`.
@@ -219,7 +220,7 @@ qu'avec cette décision.
 |---|---|---|---|---|---|---|
 | B1 | A | `lib/exportCsv.ts` | `filename="Tontine A;B.csv"` donne « Tontine A » (sans extension) | Nom complet : « ; » est autorisé entre guillemets (RFC 6266) | Faible (noms produits par le backend) | ☐ |
 | B2 | A | `lib/exportCsv.ts` | Un `filename*` mal encodé fait échouer l'export (`URIError`) alors que le fichier est reçu | Prendre le nom de repli | Faible | ☐ |
-| B3 | B | `services/api.ts` | Sans refresh token, `isRefreshing` reste à `true` (sortie avant le `finally`) : les 401 suivants restent bloqués | Remettre `isRefreshing` à `false` (ou tester le refresh token avant) | Latente : masquée par le rechargement de page de la redirection `/login` | ☐ |
+| B3 | B | `services/api.ts` | Sans refresh token, `isRefreshing` reste à `true` (sortie avant le `finally`) : les 401 suivants restent bloqués | Remettre `isRefreshing` à `false` (ou tester le refresh token avant) | Latente : masquée par le rechargement de page de la redirection `/login` | ☑ Corrigé en FR26 (23/11/2026, accord du responsable produit) : renouvellement partagé (`renouvelerJetons`), test inversé dans `api.test.ts` |
 | B4 | D | `pages/gestion/AValiderPage.tsx` | Bilan groupé : « 1 n'ont pas pu être validés. Ils restent dans la liste. » | « 1 n'a pas pu être validé. Il reste dans la liste. » | Faible (texte) | ☐ |
 | B5 | E | `pages/tontine/CreerTontinePage.tsx` | Événementielle : date de début vidée → la validation passe, POST envoyé avec `dateDebut: ''` | « Indiquez la date de début. » à l'étape 2 | Moyenne (refus backend attendu, message peu clair) | ☐ |
 
