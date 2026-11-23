@@ -5,7 +5,7 @@
     "description": "# Dinthialma API – Gestion de tontines et d'épargne collective\n\nDinthialma digitalise la pratique de la **tontine** (épargne rotative communautaire) en\noffrant une plateforme transparente, traçable et accessible depuis tout appareil.\n\n---\n\n## 🔐 Authentification\n\nTous les endpoints sécurisés nécessitent un **JWT Keycloak** dans le header :\n```\nAuthorization: Bearer <access_token>\n```\n\n**Flux de connexion :**\n1. `POST /v1/auth/login` → renvoie `access_token` + `refresh_token`\n2. Coller l'`access_token` dans le bouton **Authorize** en haut de cette page\n3. Quand le token expire, utiliser `POST /v1/auth/refresh`\n\n---\n\n## 👥 Rôles et accès\n\n| Rôle Keycloak | Description | Portée |\n|---|---|---|\n| `DINTHIALMA_SUPER_ADMIN` | Équipe Dinthialma | Accès total plateforme |\n| `DINTHIALMA_ADMIN` | Créateur d'une tontine | Gère ses propres tontines |\n| `DINTHIALMA_MEMBER` | Cotisant d'une tontine | Accès lecture + ses cotisations |\n| `DINTHIALMA_USER` | Tout compte inscrit | Rôle de base attribué à l'inscription |\n\n> **Important :** Les rôles se cumulent. La logique d'accès par tontine est applicative :\n> être ADMIN ne suffit pas — il faut être le **créateur de cette tontine spécifique**.\n\n---\n\n## 📦 Format des réponses\n\nToutes les réponses sont enveloppées dans un objet `CustomResponse` :\n```json\n{\n  \"status\": \"success\",\n  \"statusCode\": 200,\n  \"message\": \"Opération réussie\",\n  \"data\": { ... }\n}\n```\n\nLes listes paginées retournent dans `data` un objet `Page` Spring Data :\n```json\n{\n  \"data\": {\n    \"content\": [ ... ],\n    \"totalElements\": 42,\n    \"totalPages\": 3,\n    \"size\": 20,\n    \"number\": 0,\n    \"first\": true,\n    \"last\": false\n  }\n}\n```\n\n---\n\n## 📄 Pagination\n\nTous les endpoints de liste acceptent les query params suivants :\n- `page` — numéro de page (base 0, défaut 0)\n- `size` — taille de page (défaut 20)\n- `sort` — champ de tri (ex: `createdAt,desc`)\n\n**Defaults par domaine :**\n\n| Endpoint | Tri par défaut |\n|---|---|\n| `GET /v1/tontines` | `createdAt DESC` |\n| `GET .../cycles` | `numeroCycle ASC` |\n| `GET .../membres` | `ordreJackpot ASC` |\n| `GET .../cotisations` | `createdAt DESC` |\n| `GET .../commissions` | `createdAt ASC` |\n| `GET /v1/admin/dashboard/users` | `createdAt DESC` |\n| `GET /v1/notifications` | `createdAt DESC` |\n\n---\n\n## ⚠️ Codes d'erreur\n\n| Code HTTP | Signification |\n|---|---|\n| 400 | Données invalides (validation) |\n| 401 | Token JWT manquant ou expiré |\n| 403 | Accès interdit (mauvais rôle ou pas le créateur) |\n| 404 | Ressource introuvable |\n| 409 | Conflit (ex: téléphone déjà utilisé, cycle déjà ouvert) |\n| 429 | Trop de tentatives PIN (lockout 30 min) |\n| 500 | Erreur serveur interne |\n\n---\n\n## 💡 Concepts clés\n\n### Tontine ROTATIVE (classique)\n- **Tontine** : groupe d'épargne rotative. Chaque membre cotise périodiquement et, à tour\n  de rôle, reçoit le jackpot collecté (= la mise de tous les membres sur un cycle).\n- **Cycle** : période pendant laquelle les cotisations sont collectées et le jackpot remis.\n- **Bénéficiaire** : membre qui reçoit le jackpot du cycle en cours.\n- **Mode AUTOMATIQUE** : les cycles sont générés à l'activation de la tontine, chacun\n  démarrant automatiquement quand le précédent est clôturé.\n- **Mode MANUEL** : le gestionnaire ouvre chaque cycle manuellement au moment voulu.\n\n### Tontine EVENEMENTIELLE (nouveau)\n- **Tontine événementielle** : groupe d'épargne collective vers un événement (Tabaski, Korité,\n  mariage, baptême…). Pas de rotation — chaque membre récupère sa propre mise à la clôture.\n- **Date d'échéance** (`dateEcheance`) : date cible de l'événement. Les sous-cycles sont\n  générés automatiquement entre `dateDebut` et `dateEcheance` selon la `frequence`.\n- **Cotisation libre** (`montantLibre=true`) : chaque membre cotise le montant qu'il veut\n  (avec plancher optionnel `montantMinimum`). Sinon, le montant fixe est imposé à tous.\n- **Distribution finale** : à la clôture du dernier sous-cycle, `CycleResponse.distributionParMembre`\n  indique pour chaque membre : montantCotise, montantCommission (proportionnel), montantNet.\n- **Fréquence** : utilisée à titre informatif pour structurer les sous-cycles et planifier\n  les rappels WhatsApp. Aucune pénalité si un sous-cycle est sauté.\n\n### Communs aux deux types\n- **Commission** : frais de gestion configurés par le gestionnaire (POURCENTAGE_JACKPOT,\n  FRAIS_FIXES_PAR_CYCLE, FRAIS_ADHESION). Déduits automatiquement à la clôture.\n\n---\n\n## 📋 Référentiels de valeurs (Code Lists)\n\nEndpoint public (aucun token requis) : `GET /v1/code-list/type/{type}`\n\n| Type | Valeurs disponibles | Description |\n|------|---------------------|-------------|\n| `FREQUENCE_TONTINE` | `JOURNALIERE` · `HEBDOMADAIRE` · `BIMENSUEL` · `MENSUEL` · `TRIMESTRIEL` | Rythme de cotisation d'une tontine |\n| `METHODE_PAIEMENT` | `WAVE` · `ORANGE_MONEY` · `FREE_MONEY` · `PI_SPI` · `CASH` | Moyen de paiement d'une cotisation |\n| `STATUT_COTISATION` | `EN_ATTENTE` · `VALIDE` · `EN_RETARD` | Cycle de vie d'une cotisation |\n| `ORDRE_BENEFICIAIRE` | `ALEATOIRE` · `HYBRIDE` · `MANUEL` · `ROTATION` | Règle de désignation du bénéficiaire |\n\n### Statuts métier (enums Java)\n\n| Enum | Valeurs |\n|------|---------|\n| `TontineType` | `ROTATIVE` · `EVENEMENTIELLE` |\n| `TontineStatut` | `BROUILLON` → `ACTIVE` → `SUSPENDUE` / `TERMINEE` |\n| `CycleStatut` | `EN_ATTENTE` → `EN_COURS` → `TERMINE` |\n| `ModeCycle` | `AUTOMATIQUE` · `MANUEL` (ROTATIVE uniquement) |\n| `CommissionType` | `POURCENTAGE_JACKPOT` · `FRAIS_FIXES_PAR_CYCLE` · `FRAIS_ADHESION` |\n| `MembreStatut` | `ACTIF` · `SUSPENDU` · `SORTI` |\n| `CotisationStatut` | `EN_ATTENTE` · `VALIDE` · `EN_RETARD` |\n| `ClientType` | `WEB` (TTL 24 h) · `MOBILE` (TTL 30 jours) |\n| `UserRole` | `USER` · `MEMBER` · `ADMIN` · `SUPER_ADMIN` |\n| `NotificationType` | `PAIEMENT_RECU` · `COTISATION_SOUMISE` · `COTISATION_VALIDEE` · `JACKPOT_DISTRIBUE` · `DISTRIBUTION_FINALE` · `PAIEMENT_EN_RETARD` · `RAPPEL_COTISATION` · `TOUR_PROCHE` · `CYCLE_BIENTOT_CLOTURE` · `CYCLE_OUVERT` · `INVITATION_TONTINE` · `STATUT_MEMBRE` |\n",
     "contact": {
       "name": "Spirit Tech Revolution",
-      "email": "spirittechrevolution@gmail.com"
+      "email": "contact@spirittechrevolution.com"
     },
     "version": "1.0.0"
   },
@@ -1927,7 +1927,7 @@
           "Retraits d'épargne"
         ],
         "summary": "Enregistrer un retrait remis à un membre",
-        "description": "🔒 Rôles : créateur de la tontine, SUPER_ADMIN. Événementielle ACTIVE ou SUSPENDUE, avant la distribution finale, règle de retrait `LIBRE`. Le retrait est créé **REMIS** (argent déjà remis).\n\n`PARTIEL` : `montant` obligatoire, ≤ solde. `TOTAL` : tout le solde, le membre devient soldé (`soldeLe`) : plus de cotisation ni de rappel.\n\n`dateRemise` (facultative, défaut maintenant) : date réelle, pour reporter les retraits notés dans le cahier ; jamais future, pas avant le début de la tontine. Membre notifié (`RETRAIT_REMIS`, in-app + WhatsApp), sauf si `dateRemise` date de plus de 24 h.",
+        "description": "🔒 Rôles : créateur de la tontine, SUPER_ADMIN. Événementielle ACTIVE ou SUSPENDUE, avant la distribution finale, règle de retrait `LIBRE`. Le retrait est créé **REMIS** (argent déjà remis).\n\n`PARTIEL` : `montant` obligatoire, ≤ solde. `TOTAL` : tout le solde, le membre devient soldé (`soldeLe`) : plus de cotisation ni de rappel. Refusé tant que le membre a des cotisations EN_ATTENTE ou EN_RETARD : les valider ou les refuser d'abord.\n\n`dateRemise` (facultative, défaut maintenant) : date réelle, pour reporter les retraits notés dans le cahier ; jamais future, pas avant le début de la tontine. Membre notifié (`RETRAIT_REMIS`, in-app + WhatsApp), sauf si `dateRemise` date de plus de 24 h.",
         "operationId": "enregistrer",
         "parameters": [
           {
@@ -1962,7 +1962,7 @@
             }
           },
           "400": {
-            "description": "`RETRAIT_NON_DISPONIBLE` (rotative, pas active, terminée ou distribuée), `RETRAIT_INTERDIT`, `MEMBRE_SOLDE`, `RETRAIT_SOLDE_INSUFFISANT` (`data.solde`), `INVALID_PARAMETER` (montant ou date), `VALIDATION_ERROR`",
+            "description": "`RETRAIT_NON_DISPONIBLE` (rotative, pas active, terminée ou distribuée), `RETRAIT_INTERDIT`, `MEMBRE_SOLDE`, `RETRAIT_SOLDE_INSUFFISANT` (`data.solde`), `RETRAIT_COTISATIONS_EN_ATTENTE` (retrait total avec des cotisations EN_ATTENTE ou EN_RETARD à traiter d'abord, `data.cotisationsEnAttente`), `INVALID_PARAMETER` (montant ou date), `VALIDATION_ERROR`",
             "content": {
               "application/json": {
                 "schema": {
@@ -3799,7 +3799,7 @@
           "Auth"
         ],
         "summary": "Rafraîchir les tokens JWT",
-        "description": "Échange un refresh_token Keycloak valide contre de nouveaux tokens JWT.",
+        "description": "Échange un refresh_token Keycloak valide (normal ou hors ligne, B53) contre de nouveaux tokens JWT. Si ce jeton est celui de la session d'un appareil, la session reçoit le nouveau (rotation) : le PIN rejoue toujours le jeton valide.",
         "operationId": "refresh",
         "requestBody": {
           "content": {
@@ -3841,7 +3841,7 @@
           "Auth"
         ],
         "summary": "Configurer le code PIN",
-        "description": "Accessible uniquement après connexion complète (JWT requis).",
+        "description": "Accessible uniquement après connexion complète (JWT requis).\n\n**B53** : avec `motDePasse`, `appareilId` et `clientType`, l'appareil devient de confiance (jeton hors ligne Keycloak, chiffré en base) : le PIN y suffit ensuite pendant des mois, sans dépendre de SSO Session Idle. Réponse `{confiance}`. Mot de passe faux → 401 `INVALID_CREDENTIALS` (PIN non enregistré). SUPER_ADMIN : jamais de session de confiance.",
         "operationId": "setupPin",
         "requestBody": {
           "content": {
@@ -4002,7 +4002,7 @@
           "Auth"
         ],
         "summary": "Déconnexion – invalide la session Keycloak et supprime la session PIN",
-        "description": "Révoque le refresh token côté Keycloak et supprime la session PIN en base. `clientType` optionnel : si absent, toutes les sessions de l'utilisateur sont supprimées (déconnexion totale de tous les appareils).",
+        "description": "Révoque le refresh token côté Keycloak et supprime la session PIN en base. `appareilId` (B53) : seule la session de cet appareil est supprimée et son jeton hors ligne révoqué chez Keycloak. Sinon `clientType` ; si absent, toutes les sessions de l'utilisateur sont supprimées (déconnexion totale de tous les appareils). La « déconnexion douce » (retour à l'écran PIN) n'appelle pas cet endpoint : le front oublie seulement le jeton d'accès.",
         "operationId": "logout",
         "requestBody": {
           "content": {
@@ -7695,10 +7695,12 @@
               "PIN_EXPIRED",
               "PIN_LOCKED",
               "PIN_SESSION_EXPIRED",
+              "PIN_DISABLED",
               "OTP_INVALID",
               "OTP_EXPIRED",
               "OTP_NOT_VERIFIED",
               "OTP_RATE_LIMITED",
+              "OTP_TOO_MANY_ATTEMPTS",
               "MEMBER_ALREADY_IN_TONTINE",
               "JACKPOT_POSITION_TAKEN",
               "MEMBER_NAME_REQUIRED",
@@ -7745,7 +7747,8 @@
               "RETRAIT_SOLDE_INSUFFISANT",
               "MEMBRE_SOLDE",
               "RETRAIT_NON_ANNULABLE",
-              "RETRAIT_NON_DISPONIBLE"
+              "RETRAIT_NON_DISPONIBLE",
+              "RETRAIT_COTISATIONS_EN_ATTENTE"
             ]
           },
           "message": {
@@ -10133,10 +10136,12 @@
               "PIN_EXPIRED",
               "PIN_LOCKED",
               "PIN_SESSION_EXPIRED",
+              "PIN_DISABLED",
               "OTP_INVALID",
               "OTP_EXPIRED",
               "OTP_NOT_VERIFIED",
               "OTP_RATE_LIMITED",
+              "OTP_TOO_MANY_ATTEMPTS",
               "MEMBER_ALREADY_IN_TONTINE",
               "JACKPOT_POSITION_TAKEN",
               "MEMBER_NAME_REQUIRED",
@@ -10183,7 +10188,8 @@
               "RETRAIT_SOLDE_INSUFFISANT",
               "MEMBRE_SOLDE",
               "RETRAIT_NON_ANNULABLE",
-              "RETRAIT_NON_DISPONIBLE"
+              "RETRAIT_NON_DISPONIBLE",
+              "RETRAIT_COTISATIONS_EN_ATTENTE"
             ]
           },
           "message": {
@@ -10414,6 +10420,15 @@
             "type": "string",
             "description": "Informations appareil pour la session (optionnel, comme au login)",
             "example": "Samsung A14 – Android 14"
+          },
+          "appareilId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Identifiant stable de l'appareil (B53), généré une fois par le front (UUID) et gardé dans son stockage (localStorage, stockage sécurisé). Sans lui, aucune session de confiance : le PIN ne survit pas à SSO Session Idle (30 min).",
+            "example": "6f1c2a9e-4b7d-4c1a-9e2f-0a1b2c3d4e5f",
+            "pattern": "[A-Za-z0-9._-]{8,100}"
           }
         },
         "required": [
@@ -10577,6 +10592,40 @@
             "example": "123456",
             "minLength": 1,
             "pattern": "\\d{6}"
+          },
+          "motDePasse": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Mot de passe du compte (B53, facultatif). Fourni une fois à la création du PIN, il rend cet appareil « de confiance » : le PIN suffira ensuite pendant des mois. Exige appareilId et clientType. Faux → 401 INVALID_CREDENTIALS (PIN non enregistré)."
+          },
+          "appareilId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Identifiant stable de l'appareil (B53), voir /v1/auth/login",
+            "example": "6f1c2a9e-4b7d-4c1a-9e2f-0a1b2c3d4e5f",
+            "pattern": "[A-Za-z0-9._-]{8,100}"
+          },
+          "clientType": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Type de client de cet appareil (B53), avec motDePasse",
+            "enum": [
+              "WEB",
+              "MOBILE"
+            ]
+          },
+          "deviceInfo": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Informations appareil (optionnel)"
           }
         },
         "required": [
@@ -10641,6 +10690,15 @@
               "WEB",
               "MOBILE"
             ]
+          },
+          "appareilId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Identifiant stable de l'appareil (B53), généré une fois par le front (UUID) et gardé dans son stockage (localStorage, stockage sécurisé). Sans lui, aucune session de confiance : le PIN ne survit pas à SSO Session Idle (30 min).",
+            "example": "6f1c2a9e-4b7d-4c1a-9e2f-0a1b2c3d4e5f",
+            "pattern": "[A-Za-z0-9._-]{8,100}"
           }
         },
         "required": [
@@ -10676,6 +10734,15 @@
             "type": "string",
             "description": "Informations sur l'appareil (optionnel) – ex. \"Chrome 124 / Windows 11\"",
             "example": "Chrome 124 / Windows 11"
+          },
+          "appareilId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Identifiant stable de l'appareil (B53), généré une fois par le front (UUID) et gardé dans son stockage (localStorage, stockage sécurisé). Sans lui, aucune session de confiance : le PIN ne survit pas à SSO Session Idle (30 min).",
+            "example": "6f1c2a9e-4b7d-4c1a-9e2f-0a1b2c3d4e5f",
+            "pattern": "[A-Za-z0-9._-]{8,100}"
           }
         },
         "required": [
@@ -10714,6 +10781,15 @@
             "type": "string",
             "description": "Informations appareil (optionnel) : user-agent navigateur (WEB) ou device_id (MOBILE)",
             "example": "iPhone 15 / iOS 17"
+          },
+          "appareilId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Identifiant stable de l'appareil (B53), généré une fois par le front (UUID) et gardé dans son stockage (localStorage, stockage sécurisé). Sans lui, aucune session de confiance : le PIN ne survit pas à SSO Session Idle (30 min).",
+            "example": "6f1c2a9e-4b7d-4c1a-9e2f-0a1b2c3d4e5f",
+            "pattern": "[A-Za-z0-9._-]{8,100}"
           }
         },
         "required": [
@@ -12543,6 +12619,22 @@
           "courante": {
             "type": "boolean",
             "description": "true pour la session de l'appareil qui fait la requête"
+          },
+          "confiance": {
+            "type": "boolean",
+            "description": "true si l'appareil est de confiance (B53) : jeton hors ligne, le PIN y suffit pendant des mois"
+          },
+          "derniereUtilisation": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Dernière utilisation (connexion, PIN ou rafraîchissement) – B53"
+          },
+          "appareilId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Identifiant stable de l'appareil envoyé par le front (B53), null avant B53"
           }
         }
       },

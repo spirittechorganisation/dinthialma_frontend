@@ -957,4 +957,5 @@ Le gestionnaire choisit une **option par défaut** dans les réglages (`modeRemi
   - Retrait total → membre **soldé** (`soldeLe`) : plus de cotisation (`MEMBRE_SOLDE`), ni rappel (8h et B26), ni `COTISATIONS_MANQUANTES` ; il reste dans les listes et récaps.
   - Distribution finale : `net = cotisé − commission − retiré`, commission au prorata de ce qui est réellement distribué ; ligne à 0 conservée pour un membre soldé (sans notification). Clôture forcée : même calcul.
   - `RETRAIT_REMIS` (in-app + WhatsApp famille `JACKPOT`), sauf si `dateRemise` date de plus de 24 h. `/me/summary` et `recap-total` : `totalRetire`, `solde`, `soldeLe` (événementielle). `MembreResponse.soldeLe`.
-  - Codes : `RETRAIT_INTERDIT`, `RETRAIT_SOLDE_INSUFFISANT` (`data.solde`), `MEMBRE_SOLDE`, `RETRAIT_NON_ANNULABLE`, `RETRAIT_NON_DISPONIBLE`.
+  - Retrait total refusé tant que le membre a des cotisations EN_ATTENTE ou EN_RETARD (`RETRAIT_COTISATIONS_EN_ATTENTE`, décision du 2026-11-23) : un membre soldé ne retrouve jamais un solde positif. Un retrait partiel ne s'annule pas tant que le membre est soldé. Export du récap total : reporté au lot 3.
+  - Codes : `RETRAIT_INTERDIT`, `RETRAIT_SOLDE_INSUFFISANT` (`data.solde`), `MEMBRE_SOLDE`, `RETRAIT_NON_ANNULABLE`, `RETRAIT_NON_DISPONIBLE`, `RETRAIT_COTISATIONS_EN_ATTENTE` (`data.cotisationsEnAttente`).
