@@ -425,7 +425,9 @@ describe('[caractérisation] AValiderPage — Tout valider et sélection', () =>
     await user.click((await screen.findAllByRole('button', { name: 'Tout valider (101)' }))[1])
     await user.click(within(await screen.findByRole('dialog', { name: 'Valider 101 paiements ?' })).getByRole('button', { name: 'Valider' }))
 
-    expect(await screen.findByText('101 paiements validés')).toBeInTheDocument()
+    // Attente allongée (FR29, accord du responsable produit le 23/11/2026) : deux envois puis le nouveau rendu
+    // de 101 lignes dépassent parfois 5 s sous couverture quand la machine est chargée (échec isolé en FR24-26)
+    expect(await screen.findByText('101 paiements validés', {}, { timeout: 15_000 })).toBeInTheDocument()
     expect(envois.map((lot) => lot.length)).toEqual([100, 1])
   })
 
