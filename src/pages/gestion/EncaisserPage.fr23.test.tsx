@@ -11,6 +11,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { screen, within } from '@testing-library/react'
 import { Routes, Route } from 'react-router-dom'
 import { http } from 'msw'
+import { Toaster, toast } from 'sonner'
 import { API, ok, page, erreur } from '@/test/msw/api'
 import { server } from '@/test/msw/server'
 import { renderWithProviders } from '@/test/render'
@@ -74,6 +75,7 @@ function afficher(route = '/encaisser/t1?membre=m-awa') {
         <Route path="/tontine/:id/tours" element={<p>Périodes</p>} />
       </Routes>
       <Emplacement />
+      <Toaster />
     </>,
     { route, auth: 'gestionnaire' },
   )
@@ -93,6 +95,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.useRealTimers()
+  toast.dismiss()
 })
 
 describe('FR23 EncaisserPage — report du cahier', () => {
@@ -101,13 +104,15 @@ describe('FR23 EncaisserPage — report du cahier', () => {
     const { user } = afficher()
 
     expect(await screen.findByText('Montant libre · minimum 2.000F')).toBeInTheDocument()
+    // FR24 : prérempli au minimum, la première touche le remplace
     await taper(user, ['4', '4', '000'])
     await user.click(screen.getByRole('button', { name: 'Référence et note' }))
     await user.type(screen.getByRole('textbox', { name: 'Note (facultatif)' }), 'Report du cahier du 01/11 au 21/11')
     await user.click(screen.getByRole('button', { name: 'Encaisser 44.000F' }))
 
-    await screen.findByText('Reçu')
-    expect(emplacement()).toBe('/recu/t1/cot-new')
+    // FR24 : on reste sur « De qui ? » (saisie en série) ; le reçu s'ouvre depuis le toast
+    expect(await screen.findByText('Reçu enregistré')).toBeInTheDocument()
+    expect(emplacement()).toBe('/encaisser/t1')
     expect(envois).toEqual([{
       membreId: 'm-awa', cycleId: 'c1', montant: 44000, methodePaiement: 'CASH', note: 'Report du cahier du 01/11 au 21/11',
     }])
