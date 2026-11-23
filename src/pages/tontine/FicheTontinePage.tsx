@@ -16,7 +16,7 @@ import { InitialsAvatar } from '@/components/ui/Section'
 import { ChipRow, FilterChip } from '@/components/ui/ChipRow'
 import { telechargerCsv } from '@/lib/exportCsv'
 import { messageErreur } from '@/lib/apiError'
-import { erreurTontine } from '@/lib/periodes'
+import { erreurTontine, nomPeriode } from '@/lib/periodes'
 import { Modal } from '@/components/ui/Modal'
 import { AddMembreModal } from '@/components/shared/AddMembreModal'
 import { useTontineVue } from '@/hooks/useTontineVue'
@@ -151,11 +151,15 @@ export function FicheTontinePage() {
     ? Math.round((t.montant * (actifs.length || t.nombreMembres)) / Math.max(1, t.nombreGagnants || 1))
     : null
 
+  // FR25 : « Tour 3 » (rotative), « Jour du 23/11 » ou « Période 3 » (épargne)
+  const nomTour = (c: { numeroCycle: number; dateDebut?: string | null }) => nomPeriode(t, c)
+  const periodeEnCours = cycleEnCours ? nomTour(cycleEnCours) : null
+
   // Montant énorme + ligne d'état
   let titreMontant: string
   let montant: number | null
   if (gerant) {
-    titreMontant = cycleEnCours ? `Collecté · Tour ${cycleEnCours.numeroCycle}` : 'Aucun tour en cours'
+    titreMontant = periodeEnCours ? `Collecté · ${periodeEnCours}` : isEvent ? 'Aucune période en cours' : 'Aucun tour en cours'
     montant = cycleEnCours ? collecte : null
   } else if (isEvent) {
     titreMontant = 'Cotisé par moi'
@@ -165,7 +169,7 @@ export function FicheTontinePage() {
     montant = jackpotEstime
   }
   const etat = [
-    cycleEnCours ? `Tour ${cycleEnCours.numeroCycle}` : null,
+    periodeEnCours,
     gerant && cycleEnCours ? `${ontPaye}/${actifsRecap || actifs.length} payés${enAttente ? ` + ${enAttente} en attente` : ''}` : null,
     cycleEnCours ? `fin le ${formatDateCourte(cycleEnCours.dateFin)}` : null,
     isEvent ? compteARebours(t.dateEcheance) : null,
@@ -338,7 +342,7 @@ export function FicheTontinePage() {
           {/* Rubriques */}
           <section className="bg-white rounded-3xl shadow-sm divide-y divide-neutral-100">
             <Rubrique to={`/tontine/${id}/membres`} icon={<Users size={20} />} label="Membres" value={String(t.nombreMembresActuels)} />
-            <Rubrique to={`/tontine/${id}/tours`} icon={<RefreshCw size={20} />} label={isEvent ? 'Périodes' : 'Tours'} value={cycleEnCours ? `Tour ${cycleEnCours.numeroCycle} en cours` : undefined} />
+            <Rubrique to={`/tontine/${id}/tours`} icon={<RefreshCw size={20} />} label={isEvent ? 'Périodes' : 'Tours'} value={periodeEnCours ? `${periodeEnCours} en cours` : undefined} />
             {gerant && <Rubrique to={`/tontine/${id}/reglages`} icon={<Settings size={20} />} label="Réglages" />}
             {prochainsGagnants.length > 0 && (
               <div className="flex items-center gap-3 px-4 min-h-[56px]">
@@ -406,6 +410,7 @@ export function FicheTontinePage() {
             {/* Desktop : tableau (rubriques de date en lignes de séparation) */}
             <TableauPaiements
               tontineId={id}
+              nomTour={nomTour}
               gerant={gerant}
               cotisant={v.vue === 'COTISE'}
               groupes={groupes}
@@ -431,7 +436,7 @@ export function FicheTontinePage() {
                       {gerant ? <InitialsAvatar name={nom || '?'} /> : null}
                       <span className="min-w-0">
                         <span className="block font-semibold text-neutral-900 truncate">
-                          {gerant ? nom : `Cotisation${cycle ? ` · Tour ${cycle.numeroCycle}` : ''}`}
+                          {gerant ? nom : `Cotisation${cycle ? ` · ${nomTour(cycle)}` : ''}`}
                         </span>
                         <span className="block text-sm text-neutral-500 truncate">
                           {paymentMethodLabel(c.methodePaiement)} · {heurePaiement(c.createdAt)}
@@ -527,12 +532,13 @@ export function FicheTontinePage() {
  * Gestionnaire : membre, montant, moyen, référence, date, statut, saisi par (+ Valider sur les lignes en attente).
  * Membre : tour, montant, moyen, référence, date, statut (+ Payer / Repayer sur un retard ou un refus).
  */
-function TableauPaiements({ tontineId, gerant, cotisant, groupes, cycles, online, validating, onValider, onPayer }: {
+function TableauPaiements({ tontineId, nomTour, gerant, cotisant, groupes, cycles, online, validating, onValider, onPayer }: {
   tontineId: string
+  nomTour: (cycle: { numeroCycle: number; dateDebut?: string | null }) => string
   gerant: boolean
   cotisant: boolean
   groupes: { titre: string; lignes: Cotisation[] }[]
-  cycles: { id: string; numeroCycle: number }[]
+  cycles: { id: string; numeroCycle: number; dateDebut?: string | null }[]
   online: boolean
   validating: boolean
   onValider: (c: Cotisation) => void
@@ -583,7 +589,7 @@ function TableauPaiements({ tontineId, gerant, cotisant, groupes, cycles, online
                         </span>
                       ) : (
                         <Link to={`/recu/${tontineId}/${c.id}`} onClick={(e) => e.stopPropagation()} className="font-semibold text-neutral-900 hover:underline">
-                          {cycle ? `Tour ${cycle.numeroCycle}` : 'Cotisation'}
+                          {cycle ? nomTour(cycle) : 'Cotisation'}
                         </Link>
                       )}
                     </td>

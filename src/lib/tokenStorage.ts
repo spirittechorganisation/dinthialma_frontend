@@ -6,6 +6,8 @@ const REFRESH_TOKEN_KEY  = 'dinthialma_refresh_token'
 const USER_PHONE_KEY     = 'dinthialma_user_phone'
 const PIN_CONFIGURED_KEY = 'dinthialma_pin_configured'
 const CLIENT_TYPE_KEY    = 'dinthialma_client_type'
+/** Déconnexion douce : le refresh token est gardé pour l'écran PIN, mais il ne doit pas rouvrir la session seul */
+const VERROU_KEY         = 'dinthialma_session_verrouillee'
 
 // ─── Détection du type de client ──────────────────────────────────────────────
 export function detectClientType(): 'WEB' | 'MOBILE' {
@@ -77,6 +79,17 @@ export function storeSession(
   localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken)
   localStorage.setItem(USER_PHONE_KEY, normalizePhone(phone))
   localStorage.setItem(CLIENT_TYPE_KEY, detectClientType())
+  localStorage.removeItem(VERROU_KEY)
+}
+
+// ─── Verrou de la déconnexion douce (FR26) ────────────────────────────────────
+// Posé par logout() ; levé par une connexion (mot de passe, PIN, inscription) via storeSession.
+// Tant qu'il est posé, une page protégée ne renouvelle pas la session avec le refresh token.
+export function verrouillerSession(): void {
+  localStorage.setItem(VERROU_KEY, 'true')
+}
+export function sessionVerrouillee(): boolean {
+  return localStorage.getItem(VERROU_KEY) === 'true'
 }
 
 // ─── Phone ────────────────────────────────────────────────────────────────────
@@ -111,6 +124,7 @@ export function clearAll(): void {
   localStorage.removeItem(USER_PHONE_KEY)
   localStorage.removeItem(PIN_CONFIGURED_KEY)
   localStorage.removeItem(CLIENT_TYPE_KEY)
+  localStorage.removeItem(VERROU_KEY)
 }
 
 // ─── Parsing JWT ──────────────────────────────────────────────────────────────
