@@ -1,6 +1,8 @@
 /**
  * T4 — Fiche membre (gestionnaire) : situation, total versé, historique, actions.
  * Actions sensibles (suspendre / réactiver / retirer) en bas, toujours confirmées.
+ * Épargne (FR29) : bloc cotisé / retiré / solde, retraits ; membre soldé : badge « Soldé », plus d'Encaisser ;
+ * vocabulaire d'une épargne (FR25) : ni position de jackpot ni « tour ».
  */
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
@@ -18,6 +20,11 @@ import { useOnline } from '@/hooks/useOnline'
 import { formatF, formatDateCourte, formatDateHeure } from '@/lib/format'
 import { formatPhoneLocal, toLocalPhone } from '@/lib/phone'
 import { paymentMethodLabel } from '@/lib/paymentMethods'
+import { nomPeriode } from '@/lib/periodes'
+import { estSolde } from '@/lib/retraits'
+import { EpargneMembre } from '@/components/epargne/EpargneMembre'
+import { useTontine } from '@/hooks/useTontines'
+import { TontineType } from '@/types/tontine'
 import { AccountStatus, CotisationStatut, CycleStatut, MembreStatut } from '@/types/common'
 
 const PILL: Record<CotisationStatut, { label: string; cls: string; icon: JSX.Element }> = {
@@ -34,6 +41,7 @@ export function MembreFichePage() {
   const navigate = useNavigate()
   const online = useOnline()
   const v = useTontineVue(id)
+  const { data: tontine } = useTontine(id)
   const { data: membresData, isLoading, isError, refetch } = useMembres(id, 0, 200)
   const membre = membresData?.content.find((m) => m.id === membreId)
   const { data: cyclesData } = useCycles(id, 0, 200)
@@ -69,7 +77,10 @@ export function MembreFichePage() {
   const nbAttente = paiements.filter((c) => c.statut === CotisationStatut.EN_ATTENTE).length
   const nbRetard = paiements.filter((c) => c.statut === CotisationStatut.EN_RETARD).length
   const payeCeTour = !!cycleEnCours && paiements.some((c) => c.cycleId === cycleEnCours.id)
-  const peutEncaisser = !!cycleEnCours && !payeCeTour && membre.statut === MembreStatut.ACTIF
+  const epargne = tontine?.tontineType === TontineType.EVENEMENTIELLE
+  const solde = estSolde(membre)
+  // Un membre soldé ne cotise plus (MEMBRE_SOLDE) : pas d'Encaisser
+  const peutEncaisser = !!cycleEnCours && !payeCeTour && membre.statut === MembreStatut.ACTIF && !solde
   const tel = toLocalPhone(membre.user.phone)
 
   const confirmer = () => {
@@ -104,7 +115,8 @@ export function MembreFichePage() {
           <p className="mt-3 text-lg font-bold text-neutral-900">{nom}</p>
           <p className="text-sm text-neutral-500">{formatPhoneLocal(membre.user.phone)}</p>
           <div className="mt-2 flex flex-wrap justify-center gap-1.5">
-            <span className="rounded-full bg-neutral-100 px-2.5 py-1 text-xs font-semibold text-neutral-700">Position {membre.ordreJackpot || '—'}</span>
+            {!epargne && <span className="rounded-full bg-neutral-100 px-2.5 py-1 text-xs font-semibold text-neutral-700">Position {membre.ordreJackpot || '—'}</span>}
+            {solde && <span className="rounded-full bg-neutral-200 px-2.5 py-1 text-xs font-semibold text-neutral-700">Soldé</span>}
             {membre.statut !== MembreStatut.ACTIF && (
               <span className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-800">{membre.statut === MembreStatut.SUSPENDU ? 'Suspendu' : 'Sorti'}</span>
             )}
@@ -137,9 +149,11 @@ export function MembreFichePage() {
             ))}
           </dl>
           {cycleEnCours && (
-            <p className="mt-3 text-sm text-neutral-600">Tour {cycleEnCours.numeroCycle} : {payeCeTour ? 'payé ✓' : 'pas encore payé'}</p>
+            <p className="mt-3 text-sm text-neutral-600">{nomPeriode(tontine, cycleEnCours)} : {payeCeTour ? 'payé ✓' : solde ? 'soldé, ne cotise plus' : 'pas encore payé'}</p>
           )}
         </section>
+
+        {epargne && tontine && <EpargneMembre tontine={tontine} membreId={membreId} prenom={membre.user.firstName} />}
 
         <section className="bg-white rounded-3xl shadow-sm">
           <h2 className="px-4 pt-4 text-[17px] font-semibold text-neutral-900">Paiements</h2>
@@ -156,7 +170,7 @@ export function MembreFichePage() {
                   <li key={c.id}>
                     <Link to={`/recu/${id}/${c.id}`} className="flex items-center gap-3 px-4 py-3 min-h-[64px]">
                       <span className="min-w-0 flex-1">
-                        <span className="block font-semibold text-neutral-900">{cy ? `Tour ${cy.numeroCycle}` : 'Cotisation'}</span>
+                        <span className="block font-semibold text-neutral-900">{cy ? nomPeriode(tontine, cy) : 'Cotisation'}</span>
                         <span className="block text-sm text-neutral-500 truncate">{paymentMethodLabel(c.methodePaiement)} · {formatDateHeure(c.createdAt)}</span>
                         {c.note?.trim() && <span className="block text-sm italic text-neutral-600 truncate">{c.note.trim()}</span>}
                       </span>
