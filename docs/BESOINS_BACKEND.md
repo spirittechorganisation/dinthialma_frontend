@@ -929,6 +929,13 @@ Le gestionnaire choisit une **option par défaut** dans les réglages (`modeRemi
   - membres retirés (`DELETE`, `deletedAt`) : toujours exclus des récaps ; ils n'apparaissent que dans la distribution (où ils reçoivent leur part).
 - **Réalisation** : `CotisationService#getTontineRecapTotal` / `#getCycleRecap` (surcharges avec `inclureSortis`, les signatures historiques délèguent avec `false`), `TontineMembreSpecifications#horsSortisSaufCotisants`. Tests : `CotisationServiceImplTest.RecapsAvecSortis`, IT `CotisationParcoursIT#recapsInclureSortis`.
 
+#### B51 — Répartition finale relisible (FR23) — fait le 2026-11-23, à mettre en production
+- **Constat (front, FR23)** : la répartition finale n'était renvoyée qu'une fois, dans la réponse de la clôture du dernier sous-cycle, et jamais après une clôture forcée de la tontine.
+- **Livré** :
+  - `GET /v1/tontines/{id}/distribution` : lignes de `distributions_evenementielles` (membre, `statutMembre`, `montantCotise`, `montantCommission`, `montantRetire`, `montantNet`), totaux (`totalCotise`, `totalCommission`, `totalRetire`, `totalNet`), `nombreMembres`, `dateDistribution`, `cycleId`. Gestionnaire et SUPER_ADMIN : toutes les lignes ; membre : sa ligne et les totaux ; tiers : 403 ; rotative : 400 ; pas encore distribuée : 404 `DISTRIBUTION_NON_FAITE`.
+  - `distributionParMembre` aussi dans `GET …/cycles/{id}` pour le sous-cycle qui a fait la distribution (le membre n'y voit que sa part), et dans la réponse de `PUT /tontines/{id}/cloturer` quand elle déclenche la distribution (champ absent sinon).
+- **Réalisation** : `DistributionService(Impl)`, `DistributionMapper`, `CycleServiceImpl#distributionRelue`, `CycleService#distribuerMaintenant` renvoie désormais la répartition. Tests : `DistributionServiceImplTest`, `CycleServiceImplTest.RepartitionRelisible`, `ClotureTontineServiceImplTest.RepartitionDansLaReponse`, IT `DistributionFinaleIT`.
+
 ### 7.3 Conceptions (à planifier, détail dans le diagnostic du 2026-11-21)
 
 #### B41 — Reprise d'une tontine déjà commencée
@@ -944,3 +951,10 @@ Le gestionnaire choisit une **option par défaut** dans les réglages (`modeRemi
 - **Endpoints** : `POST /v1/tontines/{id}/retraits` (demande du membre), `POST …/retraits/admin` (saisie directe, `REMIS`), `PUT …/{rid}/accepter|remettre|refuser`, `DELETE …/{rid}`, `GET …/retraits`, `GET …/membres/{mid}/solde` ; notifications `RETRAIT_DEMANDE`, `RETRAIT_ACCEPTE`, `RETRAIT_REMIS`, `RETRAIT_REFUSE`.
 - **Lien B29** : un retrait est un mouvement sortant de la caisse commune ; la table est conçue pour être journalisée par B29 sans migration destructive.
 - **Lots** : 0 (distribution de tous les membres) **couvert par B43** · 1 retraits saisis par le gestionnaire + solde + distribution (3 à 4 j) · 2 demande du membre et notifications (2 j) · 3 règles, exports, activité, tableaux de bord (2 à 3 j).
+- **Lot 1 — fait le 2026-11-23, à mettre en production** (détail : `Docs/diagnostic/2026-11-b51-b42-lot1.md`) :
+  - V044 : table `retraits_epargne`, `tontine_membres.solde_le`, `distributions_evenementielles.montant_retire` (reprise 0), `tontines.regle_retrait` (reprise `INTERDIT` ; une nouvelle événementielle est `LIBRE`, une rotative `INTERDIT`) ; modifiable dans `PATCH /tontines/{id}/reglages` (événementielle seulement).
+  - `POST /v1/tontines/{id}/retraits/admin` (créé `REMIS`, `dateRemise` passée permise pour reporter le cahier), `GET …/retraits?membreId=&statut=` (le membre ne voit que les siens), `DELETE …/retraits/{rid}` `{motif}` (→ `ANNULE`, avant la distribution), `GET …/retraits/export` (CSV), `GET …/membres/{mid}/solde`.
+  - Retrait total → membre **soldé** (`soldeLe`) : plus de cotisation (`MEMBRE_SOLDE`), ni rappel (8h et B26), ni `COTISATIONS_MANQUANTES` ; il reste dans les listes et récaps.
+  - Distribution finale : `net = cotisé − commission − retiré`, commission au prorata de ce qui est réellement distribué ; ligne à 0 conservée pour un membre soldé (sans notification). Clôture forcée : même calcul.
+  - `RETRAIT_REMIS` (in-app + WhatsApp famille `JACKPOT`), sauf si `dateRemise` date de plus de 24 h. `/me/summary` et `recap-total` : `totalRetire`, `solde`, `soldeLe` (événementielle). `MembreResponse.soldeLe`.
+  - Codes : `RETRAIT_INTERDIT`, `RETRAIT_SOLDE_INSUFFISANT` (`data.solde`), `MEMBRE_SOLDE`, `RETRAIT_NON_ANNULABLE`, `RETRAIT_NON_DISPONIBLE`.

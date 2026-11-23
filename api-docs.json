@@ -69,6 +69,10 @@
       "description": "Enregistrement par le membre et validation par l'admin des paiements de cotisation"
     },
     {
+      "name": "Retraits d'épargne",
+      "description": "Un membre reprend tout ou partie de son épargne événementielle avant la fin ; le gestionnaire enregistre l'argent remis (B42)"
+    },
+    {
       "name": "Tontines",
       "description": "Gestion des groupes de tontine (CRUD + cycle de vie)"
     },
@@ -1917,6 +1921,84 @@
         ]
       }
     },
+    "/v1/tontines/{tontineId}/retraits/admin": {
+      "post": {
+        "tags": [
+          "Retraits d'épargne"
+        ],
+        "summary": "Enregistrer un retrait remis à un membre",
+        "description": "🔒 Rôles : créateur de la tontine, SUPER_ADMIN. Événementielle ACTIVE ou SUSPENDUE, avant la distribution finale, règle de retrait `LIBRE`. Le retrait est créé **REMIS** (argent déjà remis).\n\n`PARTIEL` : `montant` obligatoire, ≤ solde. `TOTAL` : tout le solde, le membre devient soldé (`soldeLe`) : plus de cotisation ni de rappel.\n\n`dateRemise` (facultative, défaut maintenant) : date réelle, pour reporter les retraits notés dans le cahier ; jamais future, pas avant le début de la tontine. Membre notifié (`RETRAIT_REMIS`, in-app + WhatsApp), sauf si `dateRemise` date de plus de 24 h.",
+        "operationId": "enregistrer",
+        "parameters": [
+          {
+            "name": "tontineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Saisir"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Retrait enregistré (avec `soldeRestant`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RetraitEpargneResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`RETRAIT_NON_DISPONIBLE` (rotative, pas active, terminée ou distribuée), `RETRAIT_INTERDIT`, `MEMBRE_SOLDE`, `RETRAIT_SOLDE_INSUFFISANT` (`data.solde`), `INVALID_PARAMETER` (montant ou date), `VALIDATION_ERROR`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Accès interdit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Tontine ou membre introuvable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
     "/v1/tontines/{tontineId}/priorites": {
       "get": {
         "tags": [
@@ -2801,7 +2883,7 @@
             }
           },
           "400": {
-            "description": "Données invalides, tour pas ouvert, ou membre SORTI / SUSPENDU (`MEMBRE_INACTIF`, B44 : le réactiver d'abord), ou sous-cycle événementiel pas encore commencé (`ECHEANCE_NON_OUVERTE`, B47 : pas de paiement d'avance ; rotatives non concernées)",
+            "description": "Données invalides, tour pas ouvert, ou membre SORTI / SUSPENDU (`MEMBRE_INACTIF`, B44 : le réactiver d'abord), ou sous-cycle événementiel pas encore commencé (`ECHEANCE_NON_OUVERTE`, B47 : pas de paiement d'avance ; rotatives non concernées), ou membre soldé après un retrait total (`MEMBRE_SOLDE`, B42 : annuler le retrait total d'abord)",
             "content": {
               "application/json": {
                 "schema": {
@@ -2901,7 +2983,7 @@
             }
           },
           "400": {
-            "description": "Données invalides, tour pas ouvert, ou membre SORTI / SUSPENDU (`MEMBRE_INACTIF`, B44 : le réactiver d'abord), ou sous-cycle événementiel pas encore commencé (`ECHEANCE_NON_OUVERTE`, B47 : pas de paiement d'avance ; rotatives non concernées)",
+            "description": "Données invalides, tour pas ouvert, ou membre SORTI / SUSPENDU (`MEMBRE_INACTIF`, B44 : le réactiver d'abord), ou sous-cycle événementiel pas encore commencé (`ECHEANCE_NON_OUVERTE`, B47 : pas de paiement d'avance ; rotatives non concernées), ou membre soldé après un retrait total (`MEMBRE_SOLDE`, B42 : annuler le retrait total d'abord)",
             "content": {
               "application/json": {
                 "schema": {
@@ -4709,8 +4791,8 @@
         "tags": [
           "Tontines"
         ],
-        "summary": "Modifier les réglages de remise (y compris en cours)",
-        "description": "🔒 Rôles : créateur de la tontine, SUPER_ADMIN. Tontine rotative non terminée. Champ absent = inchangé. `modeRemise` : option de remise du jackpot par défaut (B33), effective aux prochaines remises ; `CAISSE` → 400 `MODE_REMISE_INDISPONIBLE`.",
+        "summary": "Modifier les réglages (y compris en cours)",
+        "description": "🔒 Rôles : créateur de la tontine, SUPER_ADMIN. Tontine non terminée. Champ absent = inchangé ; chaque changement est audité.\n\n`modeRemise` (rotative uniquement, sinon 400) : option de remise du jackpot par défaut (B33), effective aux prochaines remises ; `CAISSE` → 400 `MODE_REMISE_INDISPONIBLE`.\n\n`regleRetrait` (événementielle uniquement, sinon 400 `RETRAIT_NON_DISPONIBLE`) : `INTERDIT` ou `LIBRE`, autorise les retraits anticipés (B42).",
         "operationId": "modifierReglages",
         "parameters": [
           {
@@ -4956,6 +5038,197 @@
           },
           "401": {
             "description": "JWT manquant ou expiré",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/v1/tontines/{tontineId}/retraits": {
+      "get": {
+        "tags": [
+          "Retraits d'épargne"
+        ],
+        "summary": "Lister les retraits",
+        "description": "🔒 Créateur de la tontine et SUPER_ADMIN : tous les retraits (filtre `membreId`) ; membre : les siens seulement (`membreId` ignoré). Filtre `statut` répétable. Tri par défaut : `dateRemise` décroissante.",
+        "operationId": "lister_1",
+        "parameters": [
+          {
+            "name": "tontineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "membreId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "statut",
+            "in": "query",
+            "description": "Statuts (répétable : `?statut=REMIS&statut=ANNULE`)",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "description": "DEMANDE → ACCEPTE → REMIS, ou REFUSE / ANNULE. Au lot 1, seul REMIS (saisie du gestionnaire) et ANNULE (saisie erronée) sont utilisés",
+                "enum": [
+                  "DEMANDE",
+                  "ACCEPTE",
+                  "REMIS",
+                  "REFUSE",
+                  "ANNULE"
+                ]
+              }
+            }
+          },
+          {
+            "name": "pageable",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Pageable"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/v1/tontines/{tontineId}/retraits/export": {
+      "get": {
+        "tags": [
+          "Retraits d'épargne"
+        ],
+        "summary": "Exporter les retraits (CSV)",
+        "description": "🔒 Rôles : créateur de la tontine, SUPER_ADMIN. Tous les retraits de la tontine, annulés compris ; séparateur `;`, BOM UTF-8.",
+        "operationId": "exporter",
+        "parameters": [
+          {
+            "name": "tontineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "description": "Format d'export (csv)",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "csv"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/v1/tontines/{tontineId}/membres/{membreId}/solde": {
+      "get": {
+        "tags": [
+          "Retraits d'épargne"
+        ],
+        "summary": "Solde d'épargne d'un membre",
+        "description": "🔒 Créateur de la tontine, SUPER_ADMIN, ou le membre concerné. `solde` = cotisations VALIDÉES − retraits REMIS ; `soldeLe` renseigné si le membre a tout retiré.",
+        "operationId": "solde",
+        "parameters": [
+          {
+            "name": "tontineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "membreId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Solde",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SoldeEpargneResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Accès interdit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Tontine ou membre introuvable",
             "content": {
               "application/json": {
                 "schema": {
@@ -5369,7 +5642,7 @@
           "Cotisations"
         ],
         "summary": "Total cumulé des cotisations validées par membre",
-        "description": "🔒 Rôles : créateur de la tontine, SUPER_ADMIN.\n\nRetourne, pour chaque membre actif/suspendu de la tontine, le total des cotisations **VALIDÉES** tous cycles confondus (`totalCotise`) ainsi que le nombre de cotisations prises en compte. Permet au gestionnaire de connaître à tout moment le cumul cotisé par chaque membre, sans devoir se limiter à un cycle précis.\n\nLes membres sans cotisation validée apparaissent avec `totalCotise = 0`. Les membres SORTI sont exclus, sauf avec `?inclureSortis=true` (B48) : un membre SORTI apparaît s'il a au moins une cotisation VALIDÉE, comme dans la distribution finale (B43) ; `statutMembre` permet de le distinguer. Les membres retirés restent exclus. Tri par `ordreJackpot` croissant puis par date d'adhésion.\n\nPagination : `?page=0&size=20` (tri par défaut `ordreJackpot,asc` puis `createdAt,asc`).",
+        "description": "🔒 Rôles : créateur de la tontine, SUPER_ADMIN.\n\nRetourne, pour chaque membre actif/suspendu de la tontine, le total des cotisations **VALIDÉES** tous cycles confondus (`totalCotise`) ainsi que le nombre de cotisations prises en compte. Permet au gestionnaire de connaître à tout moment le cumul cotisé par chaque membre, sans devoir se limiter à un cycle précis.\n\nLes membres sans cotisation validée apparaissent avec `totalCotise = 0`. Les membres SORTI sont exclus, sauf avec `?inclureSortis=true` (B48) : un membre SORTI apparaît s'il a au moins une cotisation VALIDÉE, comme dans la distribution finale (B43) ; `statutMembre` permet de le distinguer. Les membres retirés restent exclus. Tri par `ordreJackpot` croissant puis par date d'adhésion.\n\nPagination : `?page=0&size=20` (tri par défaut `ordreJackpot,asc` puis `createdAt,asc`).\n\n**Épargne événementielle (B42)** : `totalRetire` (retraits remis) et `solde` (`totalCotise` − `totalRetire`) par membre, `soldeLe` si le membre a tout retiré ; absents en rotative.",
         "operationId": "getTontineRecapTotal",
         "parameters": [
           {
@@ -5537,6 +5810,86 @@
                 "schema": {
                   "type": "string",
                   "format": "byte"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/v1/tontines/{id}/distribution": {
+      "get": {
+        "tags": [
+          "Tontines"
+        ],
+        "summary": "Relire la répartition finale (événementielle)",
+        "description": "🔒 Rôles : créateur de la tontine, SUPER_ADMIN (toutes les lignes) ; membre de la tontine (sa ligne seulement).\n\nRépartition enregistrée à la distribution finale (clôture du dernier sous-cycle, ou clôture forcée de la tontine) : par membre `montantCotise`, `montantCommission`, `montantNet` et statut actuel du membre ; totaux de toute la tontine et date de distribution, quel que soit l'appelant (B51).",
+        "operationId": "getDistribution",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "UUID de la tontine",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "example": "550e8400-e29b-41d4-a716-446655440000"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Répartition finale",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DistributionFinaleResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Tontine non événementielle",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "JWT manquant ou expiré",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Accès interdit – pas créateur ni membre ni SUPER_ADMIN",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Tontine introuvable, ou `DISTRIBUTION_NON_FAITE` : distribution finale pas encore faite",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
                 }
               }
             }
@@ -7019,6 +7372,93 @@
         ]
       }
     },
+    "/v1/tontines/{tontineId}/retraits/{retraitId}": {
+      "delete": {
+        "tags": [
+          "Retraits d'épargne"
+        ],
+        "summary": "Annuler un retrait saisi par erreur",
+        "description": "🔒 Rôles : créateur de la tontine, SUPER_ADMIN. Corps `{motif}` obligatoire. Le retrait passe **ANNULE** ; un retrait total annulé rend le membre non soldé. Impossible après la distribution finale, ou sur un retrait partiel tant que le membre est soldé (`RETRAIT_NON_ANNULABLE`).",
+        "operationId": "annuler",
+        "parameters": [
+          {
+            "name": "tontineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "retraitId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Annuler"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Retrait annulé (avec `soldeRestant`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RetraitEpargneResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`RETRAIT_NON_ANNULABLE`, `VALIDATION_ERROR`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Accès interdit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Retrait introuvable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
     "/v1/tontines/{tontineId}/priorites/{prioriteId}": {
       "delete": {
         "tags": [
@@ -7026,7 +7466,7 @@
         ],
         "summary": "Annuler une priorité",
         "description": "🔒 Créateur de la tontine, SUPER_ADMIN, ou le membre concerné. Priorité EN_ATTENTE ou ACCEPTEE → ANNULEE.",
-        "operationId": "annuler",
+        "operationId": "annuler_1",
         "parameters": [
           {
             "name": "tontineId",
@@ -7299,7 +7739,13 @@
               "MEMBRE_INACTIF",
               "TOUR_NON_COMMENCE",
               "CLOTURE_FINALE_PREMATUREE",
-              "DATE_DEBUT_PASSEE"
+              "DATE_DEBUT_PASSEE",
+              "DISTRIBUTION_NON_FAITE",
+              "RETRAIT_INTERDIT",
+              "RETRAIT_SOLDE_INSUFFISANT",
+              "MEMBRE_SOLDE",
+              "RETRAIT_NON_ANNULABLE",
+              "RETRAIT_NON_DISPONIBLE"
             ]
           },
           "message": {
@@ -7617,12 +8063,17 @@
           },
           "montantCommission": {
             "type": "number",
-            "description": "Quote-part de commission déduite",
+            "description": "Quote-part de commission déduite, au prorata de ce qui lui est réellement distribué (cotisé − retiré)",
             "example": 1000
+          },
+          "montantRetire": {
+            "type": "number",
+            "description": "Retraits anticipés déjà remis avant la distribution (B42)",
+            "example": 0
           },
           "montantNet": {
             "type": "number",
-            "description": "Montant net à restituer à ce membre",
+            "description": "Montant restitué à la distribution = cotisé − commission − retiré (0 pour un membre soldé)",
             "example": 49000
           }
         }
@@ -8212,6 +8663,15 @@
             ],
             "example": "DISPONIBLE"
           },
+          "regleRetrait": {
+            "type": "string",
+            "description": "Règle de retrait anticipé (B42) : LIBRE (nouvelle événementielle) ou INTERDIT (rotative, tontines antérieures)",
+            "enum": [
+              "INTERDIT",
+              "LIBRE"
+            ],
+            "example": "LIBRE"
+          },
           "ordreBeneficiaire": {
             "type": "string",
             "description": "Code de l'ordre des bénéficiaires (ROTATIVE uniquement)",
@@ -8316,6 +8776,16 @@
               "SUSPENDU",
               "SORTI"
             ]
+          },
+          "distributionParMembre": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "description": "Répartition finale par membre (B51), présente seulement dans la réponse de PUT /cloturer quand la clôture d'une événementielle a fait la distribution ; absente sinon. Elle se relit ensuite avec GET /v1/tontines/{id}/distribution.",
+            "items": {
+              "$ref": "#/components/schemas/MembreDistributionInfo"
+            }
           },
           "createdAt": {
             "type": "string",
@@ -8917,6 +9387,179 @@
           "tontineType"
         ]
       },
+      "Saisir": {
+        "type": "object",
+        "description": "Retrait déjà remis au membre, saisi par le gestionnaire (B42, lot 1)",
+        "properties": {
+          "membreId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "UUID du membership (tontine_membres.id)"
+          },
+          "nature": {
+            "type": "string",
+            "description": "PARTIEL (montant obligatoire) ou TOTAL (tout le solde)",
+            "enum": [
+              "PARTIEL",
+              "TOTAL"
+            ]
+          },
+          "montant": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Montant remis, en francs entiers. Obligatoire en PARTIEL (≤ solde) ; en TOTAL, facultatif et, s'il est fourni, égal au solde",
+            "example": 10000,
+            "exclusiveMinimum": 0
+          },
+          "methodePaiement": {
+            "type": "string",
+            "description": "Moyen de remise (code list METHODE_PAIEMENT)",
+            "example": "CASH",
+            "maxLength": 50,
+            "minLength": 0
+          },
+          "referenceTransaction": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Référence de la transaction (Wave, OM…)",
+            "maxLength": 100,
+            "minLength": 0
+          },
+          "motif": {
+            "type": "string",
+            "description": "Motif ou note (optionnel)",
+            "example": "Frais de scolarité",
+            "maxLength": 500,
+            "minLength": 0
+          },
+          "dateRemise": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "Date réelle de la remise (heure de Dakar), pour reporter un retrait noté dans le cahier : au plus maintenant, au plus tôt le jour de début de la tontine. Défaut : maintenant. Antérieure de plus de 24 h : aucune notification",
+            "example": "2026-11-28T17:30:00"
+          }
+        },
+        "required": [
+          "membreId",
+          "methodePaiement",
+          "nature"
+        ]
+      },
+      "RetraitEpargneResponse": {
+        "type": "object",
+        "description": "Retrait anticipé d'épargne (B42)",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "tontineId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "membreId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "UUID du membership (tontine_membres.id)"
+          },
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "firstName": {
+            "type": "string"
+          },
+          "lastName": {
+            "type": "string"
+          },
+          "nature": {
+            "type": "string",
+            "description": "PARTIEL = une partie du solde, le membre continue de cotiser ; TOTAL = tout le solde, le membre devient « soldé » (plus de cotisation ni de rappel)",
+            "enum": [
+              "PARTIEL",
+              "TOTAL"
+            ]
+          },
+          "montant": {
+            "type": "number",
+            "description": "Montant remis (FCFA)",
+            "example": 10000
+          },
+          "frais": {
+            "type": "number",
+            "description": "Frais retenus (FCFA, 0 au lot 1)",
+            "example": 0
+          },
+          "statut": {
+            "type": "string",
+            "description": "DEMANDE → ACCEPTE → REMIS, ou REFUSE / ANNULE. Au lot 1, seul REMIS (saisie du gestionnaire) et ANNULE (saisie erronée) sont utilisés",
+            "enum": [
+              "DEMANDE",
+              "ACCEPTE",
+              "REMIS",
+              "REFUSE",
+              "ANNULE"
+            ]
+          },
+          "origine": {
+            "type": "string",
+            "description": "MEMBRE = demandé par le membre (lot 2) ; GESTIONNAIRE = saisi par le gestionnaire, argent déjà remis",
+            "enum": [
+              "MEMBRE",
+              "GESTIONNAIRE"
+            ]
+          },
+          "methodePaiement": {
+            "type": "string",
+            "example": "CASH"
+          },
+          "referenceTransaction": {
+            "type": "string"
+          },
+          "motif": {
+            "type": "string"
+          },
+          "dateRemise": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date réelle de la remise (heure de Dakar)"
+          },
+          "motifAnnulation": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Motif de l'annulation, si annulé"
+          },
+          "dateAnnulation": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "Date de l'annulation, si annulé"
+          },
+          "soldeRestant": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Solde du membre après l'opération (création ou annulation) ; absent dans les listes",
+            "example": 36000
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
       "Demander": {
         "type": "object",
         "description": "Demande du membre : recevoir le prochain jackpot en priorité",
@@ -9117,6 +9760,14 @@
             ],
             "format": "date-time",
             "description": "Date de son jackpot dans cette tontine – null s'il n'a pas encore gagné"
+          },
+          "soldeLe": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "Date du retrait total de son épargne (B42) : membre « soldé », il ne cotise plus ; null sinon"
           },
           "createdAt": {
             "type": "string",
@@ -9526,7 +10177,13 @@
               "MEMBRE_INACTIF",
               "TOUR_NON_COMMENCE",
               "CLOTURE_FINALE_PREMATUREE",
-              "DATE_DEBUT_PASSEE"
+              "DATE_DEBUT_PASSEE",
+              "DISTRIBUTION_NON_FAITE",
+              "RETRAIT_INTERDIT",
+              "RETRAIT_SOLDE_INSUFFISANT",
+              "MEMBRE_SOLDE",
+              "RETRAIT_NON_ANNULABLE",
+              "RETRAIT_NON_DISPONIBLE"
             ]
           },
           "message": {
@@ -10183,6 +10840,18 @@
               "CAISSE"
             ],
             "example": "DISPONIBLE"
+          },
+          "regleRetrait": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Règle de retrait anticipé (B42, événementielle uniquement) : INTERDIT ou LIBRE. Une rotative → 400 RETRAIT_NON_DISPONIBLE.",
+            "enum": [
+              "INTERDIT",
+              "LIBRE"
+            ],
+            "example": "LIBRE"
           }
         }
       },
@@ -10245,6 +10914,40 @@
             "items": {
               "type": "string"
             }
+          }
+        }
+      },
+      "SoldeEpargneResponse": {
+        "type": "object",
+        "description": "Solde d'épargne d'un membre (B42) = cotisations VALIDÉES − retraits REMIS (montant + frais)",
+        "properties": {
+          "membreId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "UUID du membership (tontine_membres.id)"
+          },
+          "totalCotiseValide": {
+            "type": "number",
+            "description": "Total de ses cotisations VALIDÉES (FCFA)",
+            "example": 46000
+          },
+          "totalRetire": {
+            "type": "number",
+            "description": "Total de ses retraits remis, frais compris (FCFA)",
+            "example": 10000
+          },
+          "solde": {
+            "type": "number",
+            "description": "Solde disponible (FCFA)",
+            "example": 36000
+          },
+          "soldeLe": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "Date du retrait total : membre soldé (plus de cotisation) ; null sinon"
           }
         }
       },
@@ -10728,6 +11431,144 @@
             "type": "integer",
             "format": "int64",
             "description": "Nombre de cotisations validées prises en compte dans le total"
+          },
+          "totalRetire": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Retraits anticipés remis, frais compris (B42, événementielle) ; absent en rotative",
+            "example": 10000
+          },
+          "solde": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Solde d'épargne = totalCotise − totalRetire (B42, événementielle) ; absent en rotative",
+            "example": 36000
+          },
+          "soldeLe": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "Date du retrait total : membre soldé (badge), null sinon (B42)"
+          }
+        }
+      },
+      "DistributionFinaleResponse": {
+        "type": "object",
+        "description": "Répartition finale d'une tontine ÉVÉNEMENTIELLE (B51), relue depuis l'historique enregistré à la distribution. Le gestionnaire voit toutes les lignes ; un membre ne voit que la sienne, avec les totaux de toute la tontine.",
+        "properties": {
+          "tontineId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "UUID de la tontine"
+          },
+          "cycleId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Dernier sous-cycle, dont la clôture a fait la distribution"
+          },
+          "dateDistribution": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date et heure de la distribution (heure de Dakar)"
+          },
+          "nombreMembres": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Nombre de membres distribués (toutes les lignes)",
+            "example": 3
+          },
+          "totalCotise": {
+            "type": "number",
+            "description": "Total des cotisations VALIDÉES de tous les membres",
+            "example": 92000
+          },
+          "totalCommission": {
+            "type": "number",
+            "description": "Total des commissions prélevées",
+            "example": 0
+          },
+          "totalRetire": {
+            "type": "number",
+            "description": "Total des retraits anticipés remis avant la distribution",
+            "example": 0
+          },
+          "totalNet": {
+            "type": "number",
+            "description": "Total remis aux membres à la distribution (totalNet + totalRetire + totalCommission = totalCotise)",
+            "example": 92000
+          },
+          "lignes": {
+            "type": "array",
+            "description": "Lignes visibles par l'appelant (toutes, ou la sienne pour un membre)",
+            "items": {
+              "$ref": "#/components/schemas/Ligne"
+            }
+          }
+        }
+      },
+      "Ligne": {
+        "type": "object",
+        "description": "Part d'un membre dans la distribution finale",
+        "properties": {
+          "membreId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "UUID du membership (tontine_membres.id)"
+          },
+          "userId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "UUID de l'utilisateur"
+          },
+          "firstName": {
+            "type": "string",
+            "description": "Prénom",
+            "example": "Awa"
+          },
+          "lastName": {
+            "type": "string",
+            "description": "Nom de famille",
+            "example": "Diop"
+          },
+          "phone": {
+            "type": "string",
+            "description": "Numéro de téléphone normalisé",
+            "example": "221770000001"
+          },
+          "statutMembre": {
+            "type": "string",
+            "description": "Statut actuel du membre dans la tontine (un membre SORTI ou retiré reçoit aussi sa part, B43)",
+            "enum": [
+              "ACTIF",
+              "SUSPENDU",
+              "SORTI"
+            ]
+          },
+          "montantCotise": {
+            "type": "number",
+            "description": "Somme de ses cotisations VALIDÉES",
+            "example": 46000
+          },
+          "montantCommission": {
+            "type": "number",
+            "description": "Part de commission prélevée",
+            "example": 0
+          },
+          "montantRetire": {
+            "type": "number",
+            "description": "Retraits anticipés remis avant la distribution (B42)",
+            "example": 0
+          },
+          "montantNet": {
+            "type": "number",
+            "description": "Montant remis à la distribution = cotisé − commission − retiré",
+            "example": 46000
           }
         }
       },
@@ -11141,7 +11982,8 @@
               "JACKPOT_PRET",
               "COMPLEMENT_A_REMETTRE",
               "TONTINE_PRETE_A_CLOTURER",
-              "TONTINE_CLOTUREE"
+              "TONTINE_CLOTUREE",
+              "RETRAIT_REMIS"
             ]
           },
           "title": {
@@ -11585,6 +12427,30 @@
           "totalEnAttente": {
             "type": "number",
             "description": "Mes cotisations EN_ATTENTE dans cette tontine, en FCFA"
+          },
+          "totalRetire": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Mes retraits anticipés remis (B42, événementielle) ; absent en rotative",
+            "example": 10000
+          },
+          "solde": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Mon solde d'épargne = totalCotiseValide − totalRetire (B42, événementielle) ; absent en rotative",
+            "example": 36000
+          },
+          "soldeLe": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "Date de mon retrait total (B42) : je ne cotise plus dans cette tontine ; null sinon"
           },
           "totalJackpotsRecus": {
             "type": "number",
@@ -12417,6 +13283,22 @@
             "example": 34
           }
         }
+      },
+      "Annuler": {
+        "type": "object",
+        "description": "Annulation d'un retrait saisi par erreur",
+        "properties": {
+          "motif": {
+            "type": "string",
+            "description": "Motif de l'annulation (obligatoire)",
+            "example": "Saisi deux fois",
+            "maxLength": 500,
+            "minLength": 0
+          }
+        },
+        "required": [
+          "motif"
+        ]
       }
     },
     "securitySchemes": {
