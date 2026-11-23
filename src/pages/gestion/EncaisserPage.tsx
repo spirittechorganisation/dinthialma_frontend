@@ -3,14 +3,18 @@
  * enregistré et validé immédiatement.
  *
  * /encaisser                       → « Pour quelle tontine ? » (sauté s'il n'y en a qu'une avec un tour en cours)
- * /encaisser/:tontineId            → « De qui ? » (membres pas encore payés en tête)
+ * /encaisser/:tontineId            → « De qui ? » (membres pas encore payés en tête, compteur « 8 / 20 payés »)
  * /encaisser/:tontineId?membre=id  → « Combien ? » directement (fiche membre, scan d'un QR membre)
  * ?echeance=id (et ?tour=id pour un tour déjà remis) → encaisser un retard sur une cotisation passée
+ *
+ * Saisie en série (FR24) : après un encaissement, retour à « De qui ? » de la même tontine et de la même
+ * période, toast « Reçu enregistré · Voir ». Montant prérempli (minimum en montant libre), dernier moyen gardé.
  *
  * Desktop (≥ 1024 px) : « De qui ? » à gauche et « Combien ? » à droite sur le même écran ;
  * le membre choisi reste dans l'URL (?membre=id), comme sur mobile.
  */
 import { useMemo, useState } from 'react'
+import { toast } from 'sonner'
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { clsx } from 'clsx'
 import { ChevronDown, ChevronRight, Search, PartyPopper, CalendarX, CalendarClock, RotateCw, Pencil } from 'lucide-react'
@@ -19,18 +23,20 @@ import { EncaisserDesktop } from '@/pages/gestion/EncaisserDesktop'
 import { ScreenHeader } from '@/components/layout/ScreenHeader'
 import { InitialsAvatar } from '@/components/ui/Section'
 import { PaymentMethodTiles } from '@/components/pay/PaymentMethodTiles'
-import { METHODE_PAR_DEFAUT } from '@/lib/paymentMethods'
+import { METHODE_PAR_DEFAUT, METHODES_DISPONIBLES } from '@/lib/paymentMethods'
 import { AmountPad, BigAmount } from '@/components/pay/AmountPad'
 import { useGestionSummary } from '@/hooks/useMe'
 import { useTontine } from '@/hooks/useTontines'
 import { useRecapCycle, useAdminRecordCotisation } from '@/hooks/useCotisations'
 import { useCycle } from '@/hooks/useCycles'
 import { useOnline } from '@/hooks/useOnline'
+import { useLocalPreference } from '@/hooks/useLocalPreference'
 import { formatF } from '@/lib/format'
-import { erreurTontine, periodePayable, texteNonOuverte } from '@/lib/periodes'
+import { erreurTontine, estJournaliere, nomPeriode, periodePayable, texteNonOuverte } from '@/lib/periodes'
+import { METHODE_ENCAISSEMENT_KEY, aPaye, avecEncaissementsRecents, montantPrerempli, textePayes, type EncaissementRecent } from '@/lib/encaissement'
 import { AccountStatus, CotisationStatut, MembreStatut } from '@/types/common'
 import { TontineType } from '@/types/tontine'
-import type { CycleRecapLigne } from '@/types/cotisation'
+import type { Cotisation, CycleRecapLigne } from '@/types/cotisation'
 
 export function EncaisserPage() {
   const { tontineId } = useParams<{ tontineId: string }>()
@@ -70,7 +76,7 @@ function ChoisirTontine() {
                     <span className="min-w-0 flex-1">
                       <span className="block font-semibold text-neutral-900 truncate">{t.nom}</span>
                       <span className="block text-sm text-neutral-500">
-                        Tour {c.numeroCycle}{c.nombreEcheances > 1 && c.numeroEcheanceCourante ? ` · cotisation ${c.numeroEcheanceCourante}/${c.nombreEcheances}` : ''} · {manquants > 0 ? `${manquants} n'ont pas payé` : 'tout le monde a payé'}
+                        {nomPeriode({ tontineType: t.tontineType }, { numeroCycle: c.numeroCycle })}{c.nombreEcheances > 1 && c.numeroEcheanceCourante ? ` · cotisation ${c.numeroEcheanceCourante}/${c.nombreEcheances}` : ''} · {manquants > 0 ? `${manquants} n'ont pas payé` : 'tout le monde a payé'}
                       </span>
                     </span>
                     <ChevronRight size={18} className="text-neutral-300" />
@@ -89,9 +95,12 @@ function ChoisirTontine() {
 
 function EncaisserTontine({ tontineId }: { tontineId: string }) {
   const [params, setParams] = useSearchParams()
+  const navigate = useNavigate()
   const membreId = params.get('membre')
   const gestion = useGestionSummary()
-  const { data: tontine } = useTontine(tontineId)
+  const { data: tontine, isLoading: tontineChargement } = useTontine(tontineId)
+  // FR24 : membres encaissés pendant la séance (affichés « payés » sans attendre le récapitulatif relu)
+  const [recents, setRecents] = useState<Record<string, EncaissementRecent>>({})
   const stats = gestion.data?.tontines.find((t) => t.tontineId === tontineId)
   // Retard à encaisser : tour précisé (déjà remis) et / ou cotisation passée du tour
   const tourParam = params.get('tour')
@@ -110,7 +119,8 @@ function EncaisserTontine({ tontineId }: { tontineId: string }) {
     return n
   }
 
-  if (gestion.isLoading || (cycleId && (recap.isLoading || tour.isLoading))) return <Shell title={tontine?.nom}><Skeleton /></Shell>
+  // La tontine donne le minimum du montant libre et le rythme : attendue pour préremplir le montant
+  if (gestion.isLoading || tontineChargement || (cycleId && (recap.isLoading || tour.isLoading))) return <Shell title={tontine?.nom}><Skeleton /></Shell>
   if (gestion.isError || recap.isError) return <Shell><Erreur onRetry={() => { gestion.refetch(); recap.refetch() }} /></Shell>
   if (!stats) {
     return <Shell><Message icon={<CalendarX size={28} />} title="Tontine introuvable" text="Vous ne gérez pas cette tontine." /></Shell>
@@ -138,33 +148,50 @@ function EncaisserTontine({ tontineId }: { tontineId: string }) {
     )
   }
 
-  const lignes = (recap.data?.content ?? []).filter((l) => l.statutMembre === MembreStatut.ACTIF)
+  const lignes = avecEncaissementsRecents((recap.data?.content ?? []).filter((l) => l.statutMembre === MembreStatut.ACTIF), recents)
   const membre = membreId ? lignes.find((l) => l.membreId === membreId) : undefined
   // « · cotisation 2/4 » quand le tour en compte plusieurs ; « · retard » pour une cotisation passée
   const ref = lignes[0]
   const suffixeTour = `${ref?.nombreEcheances && ref.nombreEcheances > 1 && ref.numeroEcheance ? ` · cotisation ${ref.numeroEcheance}/${ref.nombreEcheances}` : ''}${echeanceId || tourParam ? ' · retard' : ''}`
 
-  const actif = (l: CycleRecapLigne) => (l.statutCotisation === CotisationStatut.EN_ATTENTE || l.statutCotisation === CotisationStatut.VALIDE)
-  const membreAEncaisser = membreId && membre && !actif(membre) ? membre : undefined
+  const membreAEncaisser = membreId && membre && !aPaye(membre) ? membre : undefined
+  // FR25 : « Tour 3 », « Jour du 23/11 » (épargne journalière) ou « Période 3 »
+  const periode = nomPeriode(tontine ?? { tontineType: stats.tontineType }, { numeroCycle, dateDebut: tour.data?.dateDebut })
+  const retard = !!(echeanceId || tourParam)
+  // FR24 : encaissement réussi → retour à « De qui ? » de la même période, reçu accessible depuis le toast
+  const apresEncaissement = (m: CycleRecapLigne, cot: Cotisation) => {
+    setRecents((r) => ({ ...r, [m.membreId]: { cotisationId: cot.id, montant: cot.montant } }))
+    setParams(avecMembre(), { replace: true })
+    toast.success('Reçu enregistré', {
+      description: `${`${m.firstName} ${m.lastName}`.trim()} · ${formatF(cot.montant)}`,
+      action: { label: 'Voir', onClick: () => navigate(`/recu/${tontineId}/${cot.id}`) },
+    })
+  }
   const montantProps = {
     tontineId,
     tontineNom: stats.nom,
     cycleId,
     echeanceId,
-    numeroCycle,
+    periode,
     suffixeTour,
-    montantDefaut: stats.montantLibre ? 0 : stats.montant ?? tontine?.montant ?? 0,
-    // Montant libre : plancher affiché et vérifié avant l'envoi (le backend recopie le minimum dans `montant`)
+    // Montant libre : prérempli au minimum (le backend recopie le minimum dans `montant`)
+    montantDefaut: montantPrerempli({ montantLibre: stats.montantLibre, montant: stats.montant ?? tontine?.montant, montantMinimum: tontine?.montantMinimum }),
+    // Montant libre : plancher affiché et vérifié avant l'envoi
     montantMinimum: stats.montantLibre ? tontine?.montantMinimum ?? null : null,
     evenement: stats.tontineType === TontineType.EVENEMENTIELLE,
     dateDebutPeriode: tour.data?.dateDebut ?? null,
     onChangeMembre: () => setParams(avecMembre(), { replace: true }),
+    onEncaisse: apresEncaissement,
   }
   const deQuiProps = {
     tontineId,
-    numeroCycle,
+    periode,
     suffixeTour,
     lignes,
+    compteur: textePayes(lignes, !retard && estJournaliere(tontine)),
+    evenement: stats.tontineType === TontineType.EVENEMENTIELLE,
+    // Pas de clavier qui s'ouvre à chaque retour sur la liste pendant la saisie en série
+    autoFocus: Object.keys(recents).length === 0,
     // Desktop : changer de membre remplace la sélection (pas d'empilement dans l'historique)
     onChoisir: (id: string) => setParams(avecMembre(id)),
   }
@@ -177,7 +204,7 @@ function EncaisserTontine({ tontineId }: { tontineId: string }) {
         tontineNom={stats.nom}
         cycleId={cycleId}
         echeanceId={echeanceId}
-        numeroCycle={numeroCycle}
+        periode={periode}
         suffixeTour={suffixeTour}
         montantDefaut={montantProps.montantDefaut}
         montantMinimum={montantProps.montantMinimum}
@@ -187,6 +214,7 @@ function EncaisserTontine({ tontineId }: { tontineId: string }) {
         membreId={membreAEncaisser?.membreId ?? null}
         onChoisir={(id) => setParams(avecMembre(id), { replace: true })}
         onFermer={montantProps.onChangeMembre}
+        onEncaisse={apresEncaissement}
       />
     )
   }
@@ -208,11 +236,17 @@ function EncaisserTontine({ tontineId }: { tontineId: string }) {
 
 // ─── « De qui ? » ────────────────────────────────────────────────────────────
 
-function DeQuiContenu({ tontineId, numeroCycle, suffixeTour = '', lignes, onChoisir, selectedId }: {
+function DeQuiContenu({ tontineId, periode, suffixeTour = '', lignes, compteur, evenement = false, autoFocus = true, onChoisir, selectedId }: {
   tontineId: string
-  numeroCycle: number
+  /** « Tour 3 », « Jour du 23/11 » */
+  periode: string
   suffixeTour?: string
   lignes: CycleRecapLigne[]
+  /** « 8 / 20 payés aujourd'hui » */
+  compteur: string
+  /** Épargne : « cette période », pas « ce tour » (FR25) */
+  evenement?: boolean
+  autoFocus?: boolean
   onChoisir: (membreId: string) => void
   /** Desktop : membre dont le formulaire est ouvert à droite */
   selectedId?: string
@@ -222,17 +256,16 @@ function DeQuiContenu({ tontineId, numeroCycle, suffixeTour = '', lignes, onChoi
     const s = q.trim().toLowerCase()
     return !s || `${l.firstName} ${l.lastName}`.toLowerCase().includes(s) || (l.phone ?? '').includes(s.replace(/\s/g, ''))
   }
-  const actif = (l: CycleRecapLigne) => (l.statutCotisation === CotisationStatut.EN_ATTENTE || l.statutCotisation === CotisationStatut.VALIDE)
-  const nonPayes = lignes.filter((l) => !actif(l) && filtre(l))
-  const payes = lignes.filter((l) => actif(l) && filtre(l))
-  const toutPaye = lignes.length > 0 && lignes.every(actif)
+  const nonPayes = lignes.filter((l) => !aPaye(l) && filtre(l))
+  const payes = lignes.filter((l) => aPaye(l) && filtre(l))
+  const toutPaye = lignes.length > 0 && lignes.every(aPaye)
 
   return (
     <>
       <div className="relative">
         <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400" />
         <input
-          autoFocus
+          autoFocus={autoFocus}
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="De qui ? Nom ou numéro"
@@ -240,11 +273,14 @@ function DeQuiContenu({ tontineId, numeroCycle, suffixeTour = '', lignes, onChoi
           aria-label="Chercher un membre"
         />
       </div>
-      <p className="mt-2 px-1 text-xs text-neutral-500">Tour {numeroCycle}{suffixeTour}</p>
+      <p className="mt-2 px-1 flex items-center justify-between gap-3 text-xs text-neutral-500">
+        <span>{periode}{suffixeTour}</span>
+        <span className="font-semibold text-neutral-700 tabular-nums" aria-live="polite">{compteur}</span>
+      </p>
 
       {toutPaye && !q && (
         <div className="mt-3 lg:hidden">
-          <Message icon={<PartyPopper size={28} />} title={suffixeTour ? 'Tout le monde a payé cette cotisation ✓' : 'Tout le monde a payé ce tour ✓'} text="Il n'y a rien à encaisser." />
+          <Message icon={<PartyPopper size={28} />} title={suffixeTour ? 'Tout le monde a payé cette cotisation ✓' : evenement ? 'Tout le monde a payé cette période ✓' : 'Tout le monde a payé ce tour ✓'} text="Il n'y a rien à encaisser." />
         </div>
       )}
 
@@ -286,7 +322,7 @@ function DeQuiContenu({ tontineId, numeroCycle, suffixeTour = '', lignes, onChoi
               const enAttente = l.statutCotisation === CotisationStatut.EN_ATTENTE
               return (
                 <li key={l.membreId}>
-                  <Link to={`/recu/${tontineId}/${l.cotisationId}`} className="flex items-center gap-3 px-4 py-3 min-h-[64px]">
+                  <Link to={`/recu/${tontineId}/${l.cotisationId}`} className="flex items-center gap-3 px-4 py-3 min-h-[64px] opacity-60">
                     <InitialsAvatar name={`${l.firstName} ${l.lastName}`} />
                     <span className="min-w-0 flex-1">
                       <span className="block font-semibold text-neutral-900 truncate">{l.firstName} {l.lastName}</span>
@@ -313,15 +349,15 @@ function DeQuiContenu({ tontineId, numeroCycle, suffixeTour = '', lignes, onChoi
 // ─── « Combien ? » ───────────────────────────────────────────────────────────
 
 function MontantForm({
-  tontineId, cycleId, echeanceId, numeroCycle, suffixeTour = '', montantDefaut, montantMinimum = null, evenement = false,
-  dateDebutPeriode = null, membre, onChangeMembre, inline = false,
+  tontineId, cycleId, echeanceId, periode, suffixeTour = '', montantDefaut, montantMinimum = null, evenement = false,
+  dateDebutPeriode = null, membre, onChangeMembre, onEncaisse, inline = false,
 }: {
   tontineId: string
   tontineNom: string
   cycleId: string
   /** Cotisation passée à régulariser ; absente = cotisation en cours */
   echeanceId?: string
-  numeroCycle: number
+  periode: string
   suffixeTour?: string
   montantDefaut: number
   /** Montant libre : minimum par cotisation (null = aucun) */
@@ -331,15 +367,19 @@ function MontantForm({
   dateDebutPeriode?: string | null
   membre: CycleRecapLigne
   onChangeMembre: () => void
+  /** Encaissement enregistré (FR24 : retour à la liste) */
+  onEncaisse: (membre: CycleRecapLigne, cot: Cotisation) => void
   /** Desktop : formulaire dans le panneau de droite, bouton dans le flux (pas de barre fixe) */
   inline?: boolean
 }) {
-  const navigate = useNavigate()
   const online = useOnline()
   const { mutate: encaisser, isPending } = useAdminRecordCotisation()
   const [montant, setMontant] = useState(montantDefaut)
-  const [editMontant, setEditMontant] = useState(montantDefaut === 0)
-  const [methode, setMethode] = useState(METHODE_PAR_DEFAUT)
+  // Montant libre : pavé ouvert d'emblée sur le minimum ; la première touche le remplace (FR24)
+  const [editMontant, setEditMontant] = useState(montantDefaut === 0 || montantMinimum != null)
+  const [remplacer, setRemplacer] = useState(montantDefaut > 0)
+  // Dernier moyen utilisé pour encaisser sur cet appareil ; Espèces par défaut
+  const [methode, setMethode] = useLocalPreference<string>(METHODE_ENCAISSEMENT_KEY, METHODE_PAR_DEFAUT, METHODES_DISPONIBLES)
   const [plusOpen, setPlusOpen] = useState(false)
   const [reference, setReference] = useState('')
   const [note, setNote] = useState('')
@@ -367,7 +407,7 @@ function MontantForm({
         },
       },
       {
-        onSuccess: (cot) => navigate(`/recu/${tontineId}/${cot.id}`, { replace: true, state: { justCreated: true } }),
+        onSuccess: (cot) => onEncaisse(membre, cot),
         onError: (err) => {
           const e = erreurTontine(err, { role: 'gestionnaire', evenement, dateDebut: dateDebutPeriode }, "L'encaissement n'a pas pu être enregistré. Réessayez.")
           setError(e.texte)
@@ -395,7 +435,7 @@ function MontantForm({
             <InitialsAvatar name={nom} size={48} />
             <div className="min-w-0 flex-1">
               <p className="font-bold text-neutral-900 truncate">{nom}</p>
-              <p className="text-sm text-neutral-500">Tour {numeroCycle}{suffixeTour}{membre.accountStatus === AccountStatus.PRE_ENROLLED ? ' · Sans compte' : ''}</p>
+              <p className="text-sm text-neutral-500">{periode}{suffixeTour}{membre.accountStatus === AccountStatus.PRE_ENROLLED ? ' · Sans compte' : ''}</p>
             </div>
             <button onClick={onChangeMembre} className="h-11 px-3 rounded-full bg-neutral-100 text-sm font-semibold">Changer</button>
           </div>
@@ -405,12 +445,12 @@ function MontantForm({
             {montantMinimum ? <p className="mt-1 text-center text-sm text-neutral-500">Montant libre · minimum {formatF(montantMinimum)}</p> : null}
             {!editMontant ? (
               <div className="mt-2 flex justify-center">
-                <button onClick={() => setEditMontant(true)} className="h-11 px-3 rounded-full text-sm font-semibold text-primary-800 inline-flex items-center gap-1.5">
+                <button onClick={() => { setEditMontant(true); setRemplacer(true) }} className="h-11 px-3 rounded-full text-sm font-semibold text-primary-800 inline-flex items-center gap-1.5">
                   <Pencil size={15} /> Modifier le montant
                 </button>
               </div>
             ) : (
-              <div className="mt-4"><AmountPad value={montant} onChange={setMontant} /></div>
+              <div className="mt-4"><AmountPad value={montant} remplacer={remplacer} onChange={(v) => { setMontant(v); setRemplacer(false) }} /></div>
             )}
           </div>
         </section>

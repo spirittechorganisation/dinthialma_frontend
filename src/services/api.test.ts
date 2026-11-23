@@ -245,14 +245,10 @@ describe('api – échec du refresh', () => {
     expect(window.location.href).toBe('/login')
   })
 
-  it('sans refresh token : un 401 suivant reste bloqué indéfiniment (tant que la page n\'est pas rechargée)', async () => {
-    // BUG: quand il n'y a pas de refresh token, `isRefreshing` passe à true puis le code sort
-    // (return) AVANT le bloc try/finally qui le remet à false. Tout 401 suivant est mis en file
-    // d'attente et ne se termine jamais. Attendu : isRefreshing remis à false (ou le contrôle du
-    // refresh token fait avant de le passer à true).
-    // Gravité : latente. La redirection `window.location.href = '/login'` recharge la page dans un
-    // navigateur, ce qui réinitialise le module ; le blocage ne touche que les 401 qui arrivent
-    // avant ce rechargement, ou tout environnement où la redirection ne recharge pas la page.
+  it('sans refresh token : un 401 suivant n\'est plus bloqué (B3 corrigé, FR26)', async () => {
+    // B3 (spec 01) : `isRefreshing` restait à true quand il n'y avait pas de refresh token, et tout 401
+    // suivant attendait indéfiniment. Corrigé en FR26 : le renouvellement est une promesse partagée,
+    // remise à zéro dans tous les cas ; aucun état ne reste bloqué.
     localStorage.setItem('dinthialma_access_token', 'jeton-sans-refresh')
     ressourceProtegee('/v1/tontines')
     await expect(api.get('/v1/tontines')).rejects.toBeDefined()
@@ -265,8 +261,9 @@ describe('api – échec du refresh', () => {
     refreshReussi()
     const suivante = api.get('/v1/tontines')
 
-    expect(await toujoursEnAttente(suivante)).toBe(true)
-    expect(refreshs).toHaveLength(0)
+    expect(await toujoursEnAttente(suivante)).toBe(false)
+    await expect(suivante).resolves.toMatchObject({ data: { data: { id: 'r1' } } })
+    expect(refreshs).toHaveLength(1)
   })
 })
 

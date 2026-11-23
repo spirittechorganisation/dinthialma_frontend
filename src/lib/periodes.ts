@@ -12,6 +12,7 @@
  */
 import { messageErreur, parseApiError } from '@/lib/apiError'
 import { TontineType } from '@/types/tontine'
+import { rythmeDe } from '@/lib/tontineLabels'
 
 export const FUSEAU_DAKAR = 'Africa/Dakar'
 
@@ -124,4 +125,27 @@ export function erreurTontine(
       }
   }
   return { code, texte: messageErreur(err, repli) }
+}
+
+// ─── Vocabulaire d'une période (FR25) ────────────────────────────────────────
+
+type TontinePeriode = Parameters<typeof rythmeDe>[0] & { tontineType?: TontineType | string | null }
+
+/** Épargne (événementielle) cotisée chaque jour : une période = un jour */
+export function estJournaliere(t: TontinePeriode | null | undefined): boolean {
+  const r = rythmeDe(t)
+  return t?.tontineType === TontineType.EVENEMENTIELLE && !!r && r.unite === 'JOUR' && r.intervalle === 1
+}
+
+/**
+ * Nom d'un tour selon la tontine : « Tour 3 » (rotative), « Jour du 23/11 » (épargne journalière),
+ * « Période 3 » (autre événementielle, ou date inconnue). Une épargne n'a ni tour ni jackpot.
+ */
+export function nomPeriode(
+  t: TontinePeriode | null | undefined,
+  cycle: { numeroCycle: number; dateDebut?: string | null },
+): string {
+  if (t?.tontineType !== TontineType.EVENEMENTIELLE) return `Tour ${cycle.numeroCycle}`
+  if (estJournaliere(t) && cycle.dateDebut) return `Jour du ${jourMois(cycle.dateDebut)}`
+  return `Période ${cycle.numeroCycle}`
 }

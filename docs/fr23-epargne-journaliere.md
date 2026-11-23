@@ -118,3 +118,146 @@ docs(fr23): parcours épargne journalière, corrections et guide du gestionnaire
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 ```
+
+---
+
+## FR24 à FR26 : avant le démarrage du gestionnaire (24-25/11)
+
+Branche `fix/fr24-26-saisie-serie`, depuis `develop` (FR23 fusionné, `be143e7`). Vérifié dans l'app à 375 px (Chrome headless, même méthode que FR23) contre le backend local. **Attention** : le dépôt backend local était sur `feature/b51-b42-retraits`, pas sur `develop`. Captures : `docs/fr24-26-captures/`.
+
+### FR24 : saisie en série dans Encaisser
+
+**Ce qui change**
+- Après un encaissement réussi, on **reste sur « De qui ? »** de la même tontine et de la même période (et du même retard, `?tour=` / `?echeance=`), avec le toast « Reçu enregistré », le nom et le montant, et un bouton « Voir » qui ouvre le reçu. Plus de passage par le reçu ni de retour à l'accueil. Même chose sur desktop : le panneau se referme et la recherche reprend le focus.
+- Le membre encaissé passe **tout de suite** dans « Déjà payé », sans attendre le récapitulatif relu : on ne peut pas l'encaisser deux fois par erreur.
+- Liste : pas encore payés en haut ; payés en bas, **grisés, avec leur montant** ; compteur « 8 / 20 payés aujourd’hui » (épargne journalière), « 8 / 20 payés » sinon.
+- **Montant prérempli** : le minimum en montant libre (pavé ouvert, la première touche remplace le minimum : 5 puis 000 donne 5.000F) ; le montant fixe sinon (« Modifier le montant », puis la première touche le remplace).
+- **Moyen** : le dernier utilisé pour encaisser sur l'appareil (`dinthialma_derniere_methode_encaissement`, distinct de celui du membre) ; Espèces par défaut, et si le moyen mémorisé n'est pas ouvert.
+- Pas de clavier qui s'ouvre à chaque retour sur la liste (recherche sans focus automatique après le premier encaissement).
+
+**Gestes pour 20 membres** (épargne journalière, une seule tontine en cours)
+
+| | Par membre | 20 membres |
+|---|---|---|
+| Avant (FR23) | membre (1) + montant (2 à 3) + Encaisser (1) + Terminé, retour à l'accueil (1) + Encaisser (1) ≈ 6 à 7 | ≈ 130 gestes, 80 écrans |
+| Après, au minimum | membre (1) + « Encaisser 2.000F » (1) = **2** | 40 gestes, 40 écrans |
+| Après, autre montant (5.000F) | membre (1) + 5 (1) + 000 (1) + Encaisser (1) = **4** | — |
+| Après, mélange réaliste (15 au minimum, 5 autres montants) | ≈ **2,5** | ≈ 50 gestes |
+
+Objectif « environ 3 gestes par membre » atteint. Une note ajoute toujours 2 gestes (« Référence et note », saisie). B49 (saisie groupée) reste la suite logique.
+
+Vérifié dans l'app ([fr24-01](fr24-26-captures/fr24-01-de-qui.png), [fr24-02](fr24-26-captures/fr24-02-combien.png), [fr24-03](fr24-26-captures/fr24-03-toast-liste.png)) : « Tontine Tabaski », Babacar Ba, montant prérempli 1.000F (minimum), 2 gestes, toast « Reçu enregistré · Babacar Ba · 1.000F · Voir », retour sur la liste, compteur 2 / 2.
+
+**Fichiers** : `src/lib/encaissement.ts` (nouveau : `montantPrerempli`, `avecEncaissementsRecents`, `textePayes`, `aPaye`), `src/components/pay/AmountPad.tsx` (prop facultative `remplacer`, sans effet sur PayerPage), `src/pages/gestion/EncaisserPage.tsx`, `src/pages/gestion/EncaisserDesktop.tsx`.
+**Tests** : `src/lib/encaissement.fr24.test.ts` (14), `src/pages/gestion/EncaisserPage.fr24.test.tsx` (6). Deux assertions du test FR23 `EncaisserPage.fr23.test.tsx` adaptées (retour à la liste au lieu du reçu ; ce n'est pas un test de caractérisation).
+
+### FR25 : termes trompeurs dans une épargne
+
+| Terme | Avant | Après (événementielle) | Où |
+|---|---|---|---|
+| « Tour N » | Tour 3 | « Jour du 23/11 » (rythme d'un jour), sinon « Période 3 » | Reçu, Encaisser (liste, formulaire, choix de la tontine), fiche (montant collecté, ligne d'état, rubrique, historique, tableau desktop) |
+| « Jackpot prêt » | pastille quand tout le monde a payé | absente | Liste des périodes |
+| Points en suspens | « 2 tours non remis », « tour sans gagnant », « Les tours déjà commencés peuvent encore être remis » | « 2 périodes à venir seront annulées, la répartition se fera sur ce qui a été encaissé » ; pas de ligne « sans gagnant » | Clôture de la tontine (Réglages) |
+| « Position jackpot » | champ à l'ajout d'un membre | masqué | Ajout d'un membre |
+| SMS | « Un SMS d'invitation a été envoyé » | « Invitation envoyée par WhatsApp » | Ajout d'un membre (toast et encadré « numéro inconnu ») |
+| « ce tour » | « Tout le monde a payé ce tour ✓ » | « … cette période ✓ » | Encaisser (vu pendant la vérification, même famille de termes) |
+
+Rotatives inchangées, **sauf SMS → WhatsApp** : le backend envoie l'invitation par WhatsApp pour tous les types (`MembreServiceImpl.createPreEnrolledUser` → `whatsappService.sendTontineInvite`). Laisser « SMS » aux rotatives serait faux. À annuler si vous préférez s'en tenir à la consigne.
+
+Le choix de la tontine dans Encaisser ne connaît pas le rythme (tableau de bord gestionnaire) : il affiche « Période N » pour une épargne.
+
+**Fichiers** : `src/lib/periodes.ts` (`nomPeriode`, `estJournaliere`), `src/pages/pay/RecuPage.tsx`, `src/pages/tontine/FicheTontinePage.tsx`, `src/pages/tontine/ToursPage.tsx`, `src/pages/tontine/ReglagesTontinePage.tsx`, `src/components/shared/AddMembreModal.tsx`, `src/pages/gestion/EncaisserPage.tsx` / `EncaisserDesktop.tsx`.
+**Tests** : `src/lib/periodes.fr25.test.ts` (9), `RecuPage.fr25`, `EncaisserPage.fr25`, `FicheTontinePage.fr25`, `ToursPage.fr25`, `ReglagesTontinePage.fr25`, `AddMembreModal.fr25` (11 au total). Assertion « Collecté · Tour 1 » du test FR23 de la fiche devenue « Collecté · Jour du 01/11 ». Les tests `[caractérisation]` du reçu (rotative, « Famille · Tour 6 ») passent sans modification.
+
+Vérifié dans l'app ([fr25-01](fr24-26-captures/fr25-01-recu.png)) : reçu « Tontine Tabaski · Période 3 » ; liste Encaisser « Période 3 » et « Tout le monde a payé cette période ✓ ».
+
+### FR26 : session perdue au rechargement
+
+**Mesures (Keycloak local, realm `dinthialma`)**
+- Jeton d'accès : **300 s** (`exp − iat` lu dans le jeton).
+- Refresh token : **1 800 s** (30 min sans activité : « SSO Session Idle »). Le realm de test du backend indique aussi `ssoSessionMaxLifespan` = 36 000 s (10 h).
+
+**Cause trouvée (front)** : au chargement d'une page protégée, `ProtectedRoute` envoyait sur `/login` dès que le jeton d'accès était expiré, **sans essayer le refresh token**, pourtant valable 30 minutes. D'où le retour à `/login` au rechargement « après environ 5 minutes ». Même effet en ouvrant une autre page après 5 minutes sans appel au serveur (aucun 401 n'avait déclenché le renouvellement de l'intercepteur).
+
+| Cas | Avant | Après |
+|---|---|---|
+| Rechargement, jeton d'accès expiré, refresh token valable | `/login` | session renouvelée, page affichée |
+| Reprise après mise en veille (< 30 min) | `/login` à la page suivante | renouvellement au premier appel ou à la page suivante |
+| Hors ligne puis en ligne | erreur réseau sans déconnexion (pas de 401) | inchangé ; renouvellement au premier 401 après le retour en ligne |
+| Inactif plus de 30 min (refresh token expiré) | `/login` | `/login`, une seule fois, page demandée mémorisée |
+| Après une déconnexion douce (écran PIN) | `/login` | `/login` : pas de renouvellement silencieux (voir le verrou ci-dessous) |
+
+**Lien avec B3 (spec 01)** : B3 n'est pas la cause (il ne bloquait que les 401 arrivant avant le rechargement de `/login`), mais il est corrigé au passage. Le renouvellement est désormais **une seule promesse partagée** par l'intercepteur, le démarrage (`ProtectedRoute`) et `useAuth.refreshSession` (création d'une tontine, B12) : un seul appel `/v1/auth/refresh` à la fois, aucun état bloqué sans refresh token, une seule redirection vers `/login`.
+
+**Verrou de la déconnexion douce** : `logout()` garde le refresh token pour l'écran PIN. Sans précaution, le renouvellement au démarrage aurait rouvert la session sans le PIN en ouvrant une URL protégée. `logout()` pose donc `dinthialma_session_verrouillee` ; une connexion (mot de passe, PIN, inscription) le lève via `storeSession`, et `clearAll` l'efface.
+
+Vérifié dans l'app ([fr26-01](fr24-26-captures/fr26-01-rechargement.png)) : jeton d'accès forcé à « expiré », rechargement de `/encaisser/…` : la page reste affichée, nouveau jeton (expire dans 296 s), aucun passage par `/login`.
+
+**Réglage Keycloak, non modifié (lié à SE15)** : un gestionnaire qui laisse son téléphone plus de 30 minutes entre deux paiements devra se reconnecter avec son mot de passe : le PIN ne suffit pas, car `login-pin` rejoue le refresh token enregistré côté serveur, expiré lui aussi. Si ce n'est pas voulu :
+- où : console Keycloak → realm `dinthialma` → *Realm settings* → onglet *Sessions* ;
+- quoi : **SSO Session Idle** (aujourd'hui 30 min ; à mettre au moins à **12 h** pour couvrir une journée de saisie) et **SSO Session Max** (aujourd'hui 10 h ; au moins **12 h**, ou plus si l'on veut garder la session plusieurs jours derrière le PIN) ;
+- à vérifier aussi sur le serveur de production, dont je n'ai pas pu lire les valeurs.
+
+**Fichiers** : `src/services/api.ts` (`renouvelerJetons`, `SansRefreshToken`, redirection unique), `src/router/ProtectedRoute.tsx`, `src/hooks/useAuth.tsx`, `src/lib/tokenStorage.ts` (`verrouillerSession`, `sessionVerrouillee`).
+**Tests** : `src/router/ProtectedRoute.fr26.test.tsx` (5 : renouvellement au démarrage, refus → `/login` une fois avec la page mémorisée, verrou, jeton valable, démarrage + 401 simultané = un seul refresh), `src/services/api.fr26.test.ts` (5 : deux 401 simultanés, refresh partagé, une seule redirection, B3 corrigé, pas d'appel sans refresh token).
+
+**Test B3 de la spec 01** : avec l'accord du responsable produit (23/11/2026), l'attente du test de `src/services/api.test.ts` est inversée (« sans refresh token : un 401 suivant n'est plus bloqué (B3 corrigé, FR26) ») et B3 est coché dans `.kiro/specs/01-filet-de-tests/tasks.md`.
+
+### Contrôles
+
+| Contrôle | Résultat |
+|---|---|
+| `npm run lint` | ✅ 0 avertissement |
+| `npm run typecheck` | ✅ |
+| `npm test` | ✅ 499 / 499 (42 fichiers, dont 50 nouveaux tests FR24 à FR26) |
+| `npm run test:coverage` | ✅ 499 / 499 ; seuil bloquant `src/lib/**` lignes ≥ 90 % : **98,76 %** (instructions 97,73 %, branches 91,96 %, fonctions 99,04 %). Global : lignes 46,85 %, instructions 44,30 %, branches 40,54 %, fonctions 35,77 % (lignes 43,78 % après FR23). Un échec isolé sur le premier de quatre passages, non reproduit ensuite (test non identifié) |
+| `npm run build` | ✅ |
+| App réelle à 375 px | ✅ FR24, FR25, FR26 (captures ci-dessus) |
+
+Hors de cette branche : `api-docs.json` et `docs/BESOINS_BACKEND.md` sont modifiés dans la copie de travail, mais pas par ce travail. Ils ne figurent pas dans les commits proposés.
+
+### Messages de commit proposés
+
+`EncaisserPage.tsx` et `EncaisserDesktop.tsx` portent FR24 et FR25 : ils vont dans le commit FR24 (le nom de la période en fait partie).
+
+```text
+feat(encaisser): saisie en série, montant prérempli et dernier moyen gardé (FR24)
+
+Après un encaissement, retour à « De qui ? » de la même période avec le toast
+« Reçu enregistré · Voir » ; membre encaissé aussitôt dans « Déjà payé » ;
+payés grisés avec leur montant, compteur « 8 / 20 payés aujourd'hui » ;
+montant prérempli (minimum en montant libre), première touche qui le remplace ;
+dernier moyen d'encaissement gardé, Espèces par défaut.
+Environ 2,5 gestes par membre au lieu de 6 à 7.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+```
+
+```text
+fix(epargne): vocabulaire d'une épargne, sans tour ni jackpot (FR25)
+
+« Jour du JJ/MM » ou « Période N » au lieu de « Tour N » (reçu, fiche) ;
+pas de « Jackpot prêt » ; clôture : « N périodes à venir seront annulées » ;
+« Position jackpot » masquée à l'ajout d'un membre ; invitation annoncée
+par WhatsApp (canal réel du backend, tous types). Rotatives inchangées.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+```
+
+```text
+fix(session): renouvellement des jetons au rechargement (FR26, corrige B3)
+
+ProtectedRoute ne renouvelait jamais la session : jeton d'accès de 5 min expiré
+= retour à /login malgré un refresh token valable. Renouvellement partagé
+(intercepteur, démarrage, refreshSession), une seule redirection vers /login,
+plus d'état bloqué sans refresh token (B3). Déconnexion douce : session
+verrouillée, le code secret reste demandé.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+```
+
+```text
+docs(fr24-26): saisie en série, vocabulaire d'une épargne et session
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+```

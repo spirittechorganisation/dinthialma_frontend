@@ -11,6 +11,8 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { PhoneInput } from '@/components/ui/PhoneInput'
 import { useAddMembre } from '@/hooks/useMembres'
+import { useTontine } from '@/hooks/useTontines'
+import { TontineType } from '@/types/tontine'
 import { userService } from '@/services/userService'
 import { UserSearchResult } from '@/types/user'
 import { AccountStatus } from '@/types/common'
@@ -70,6 +72,9 @@ export function AddMembreModal({ tontineId, isOpen, onClose, initialPhone }: Add
   const [addError, setAddError] = useState<string | null>(null)
 
   const { mutate: addMembre, isPending: isAdding } = useAddMembre()
+  // FR25 : pas d'ordre de jackpot dans une épargne (événementielle)
+  const { data: tontine } = useTontine(tontineId)
+  const avecPosition = tontine?.tontineType !== TontineType.EVENEMENTIELLE
 
   const searchForm = useForm<SearchForm>({
     resolver: zodResolver(searchSchema),
@@ -130,7 +135,7 @@ export function AddMembreModal({ tontineId, isOpen, onClose, initialPhone }: Add
       {
         onSuccess: (result) => {
           const msg = result.user.accountStatus === AccountStatus.PRE_ENROLLED
-            ? `Membre ajouté. Un SMS d'invitation a été envoyé au ${result.user.phone}.`
+            ? `Membre ajouté. Invitation envoyée par WhatsApp au ${result.user.phone}.`
             : 'Membre ajouté avec succès.'
           toast.success(msg)
           handleClose()
@@ -149,7 +154,7 @@ export function AddMembreModal({ tontineId, isOpen, onClose, initialPhone }: Add
       {
         onSuccess: (result) => {
           const msg = result.user.accountStatus === AccountStatus.PRE_ENROLLED
-            ? `Membre ajouté. Un SMS d'invitation a été envoyé au ${result.user.phone}.`
+            ? `Membre ajouté. Invitation envoyée par WhatsApp au ${result.user.phone}.`
             : 'Membre ajouté avec succès.'
           toast.success(msg)
           handleClose()
@@ -230,14 +235,16 @@ export function AddMembreModal({ tontineId, isOpen, onClose, initialPhone }: Add
             </div>
           </div>
 
-          <Input
-            label="Position jackpot (optionnel)"
-            type="number"
-            min={1}
-            placeholder="Laisser vide = fin de liste automatique"
-            error={positionForm.formState.errors.ordreJackpot?.message}
-            {...positionForm.register('ordreJackpot')}
-          />
+          {avecPosition && (
+            <Input
+              label="Position jackpot (optionnel)"
+              type="number"
+              min={1}
+              placeholder="Laisser vide = fin de liste automatique"
+              error={positionForm.formState.errors.ordreJackpot?.message}
+              {...positionForm.register('ordreJackpot')}
+            />
+          )}
 
           {addError && (
             <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
@@ -264,7 +271,7 @@ export function AddMembreModal({ tontineId, isOpen, onClose, initialPhone }: Add
       {step === 'not_found' && (
         <div className="space-y-4">
           <div className="p-3 bg-blue-50 border border-blue-100 rounded-xl text-sm text-blue-700">
-            Ce numéro n'est pas encore sur Dinthialma. Un SMS d'invitation sera envoyé automatiquement.
+            Ce numéro n'est pas encore sur Dinthialma. Une invitation lui sera envoyée par WhatsApp.
           </div>
 
           {/* Téléphone pré-rempli en lecture seule */}
@@ -293,14 +300,16 @@ export function AddMembreModal({ tontineId, isOpen, onClose, initialPhone }: Add
             />
           </div>
 
-          <Input
-            label="Position jackpot (optionnel)"
-            type="number"
-            min={1}
-            placeholder="Laisser vide = fin de liste automatique"
-            error={newMembreForm.formState.errors.ordreJackpot?.message}
-            {...newMembreForm.register('ordreJackpot')}
-          />
+          {avecPosition && (
+            <Input
+              label="Position jackpot (optionnel)"
+              type="number"
+              min={1}
+              placeholder="Laisser vide = fin de liste automatique"
+              error={newMembreForm.formState.errors.ordreJackpot?.message}
+              {...newMembreForm.register('ordreJackpot')}
+            />
+          )}
 
           {addError && (
             <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">

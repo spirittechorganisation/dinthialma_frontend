@@ -78,14 +78,14 @@ export function ToursPage() {
             {enCours && (
               <section>
                 <h2 className="px-1 mb-2 text-sm font-semibold text-neutral-600">En cours</h2>
-                <ul className="bg-white rounded-3xl shadow-sm ring-2 ring-primary-600 overflow-hidden"><LigneTour tontineId={id} cycle={enCours} mot={motTour} selected={enCours.id === cycleId} replace={desktop} /></ul>
+                <ul className="bg-white rounded-3xl shadow-sm ring-2 ring-primary-600 overflow-hidden"><LigneTour tontineId={id} cycle={enCours} mot={motTour} evenement={isEvent} selected={enCours.id === cycleId} replace={desktop} /></ul>
               </section>
             )}
             {autres.length > 0 && (
               <section>
                 <h2 className="px-1 mb-2 text-sm font-semibold text-neutral-600">{isEvent ? 'Toutes les périodes' : 'Tous les tours'}</h2>
                 <ul className="bg-white rounded-3xl shadow-sm divide-y divide-neutral-100 overflow-hidden">
-                  {autres.map((c) => <LigneTour key={c.id} tontineId={id} cycle={c} mot={motTour} selected={c.id === cycleId} replace={desktop} />)}
+                  {autres.map((c) => <LigneTour key={c.id} tontineId={id} cycle={c} mot={motTour} evenement={isEvent} selected={c.id === cycleId} replace={desktop} />)}
                 </ul>
               </section>
             )}
@@ -128,7 +128,7 @@ export function ToursPage() {
   )
 }
 
-function LigneTour({ tontineId, cycle, mot, selected = false, replace = false }: { tontineId: string; cycle: Cycle; mot: string; selected?: boolean; replace?: boolean }) {
+function LigneTour({ tontineId, cycle, mot, evenement = false, selected = false, replace = false }: { tontineId: string; cycle: Cycle; mot: string; evenement?: boolean; selected?: boolean; replace?: boolean }) {
   const st = TOUR_STATUT[cycle.statut]
   const gagnants = (cycle.gagnants ?? []).map((g) => g.firstName).join(', ')
   return (
@@ -155,7 +155,8 @@ function LigneTour({ tontineId, cycle, mot, selected = false, replace = false }:
         {cycle.montantNet != null && cycle.statut === CycleStatut.TERMINE && (
           <span className="text-sm font-bold tabular-nums">{formatF(cycle.montantNet)}</span>
         )}
-        {cycle.statut === CycleStatut.EN_COURS && cycle.tousPayes && (
+        {/* FR25 : pas de jackpot dans une épargne (événementielle) */}
+        {!evenement && cycle.statut === CycleStatut.EN_COURS && cycle.tousPayes && (
           <span className="rounded-full bg-yellow-100 px-2 py-0.5 text-[11px] font-semibold text-yellow-900 flex-shrink-0">Jackpot prêt</span>
         )}
         <ChevronRight size={18} className="text-neutral-300" />

@@ -5,6 +5,7 @@
  * (↑ ↓ pour parcourir depuis la recherche, Entrée pour choisir).
  * À droite : formulaire compact (montant au clavier, moyens sur une ligne, référence et note visibles),
  * bouton « Encaisser » toujours visible en bas du panneau. Entrée valide le formulaire.
+ * Saisie en série (FR24) : après un encaissement, le panneau se referme et la recherche reprend le focus.
  */
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
@@ -12,13 +13,15 @@ import { clsx } from 'clsx'
 import { ArrowLeft, Search, ChevronRight, PartyPopper, MousePointerClick, X } from 'lucide-react'
 import { InitialsAvatar } from '@/components/ui/Section'
 import { PaymentMethodTiles } from '@/components/pay/PaymentMethodTiles'
-import { METHODE_PAR_DEFAUT } from '@/lib/paymentMethods'
+import { METHODE_PAR_DEFAUT, METHODES_DISPONIBLES } from '@/lib/paymentMethods'
 import { useAdminRecordCotisation } from '@/hooks/useCotisations'
 import { useOnline } from '@/hooks/useOnline'
+import { useLocalPreference } from '@/hooks/useLocalPreference'
+import { METHODE_ENCAISSEMENT_KEY } from '@/lib/encaissement'
 import { formatF } from '@/lib/format'
 import { erreurTontine } from '@/lib/periodes'
 import { AccountStatus, CotisationStatut } from '@/types/common'
-import type { CycleRecapLigne } from '@/types/cotisation'
+import type { Cotisation, CycleRecapLigne } from '@/types/cotisation'
 
 interface EncaisserDesktopProps {
   tontineId: string
@@ -26,10 +29,11 @@ interface EncaisserDesktopProps {
   cycleId: string
   /** Cotisation passée à régulariser ; absente = cotisation en cours */
   echeanceId?: string
-  numeroCycle: number
+  /** « Tour 3 », « Jour du 23/11 », « Période 3 » (FR25) */
+  periode: string
   /** « · cotisation 2/4 », « · retard » */
   suffixeTour?: string
-  /** 0 = montant libre (à saisir) */
+  /** Montant prérempli : minimum en montant libre (0 s'il n'y en a pas), montant prévu sinon */
   montantDefaut: number
   /** Montant libre : minimum par cotisation (null = aucun) */
   montantMinimum?: number | null
@@ -40,6 +44,8 @@ interface EncaisserDesktopProps {
   membreId: string | null
   onChoisir: (membreId: string) => void
   onFermer: () => void
+  /** Encaissement enregistré : retour à la liste (FR24) */
+  onEncaisse: (membre: CycleRecapLigne, cot: Cotisation) => void
 }
 
 type Onglet = 'aEncaisser' | 'paye'
@@ -53,6 +59,7 @@ export function EncaisserDesktop(p: EncaisserDesktopProps) {
   const [onglet, setOnglet] = useState<Onglet>('aEncaisser')
   const [curseur, setCurseur] = useState(0)
   const listeRef = useRef<HTMLUListElement>(null)
+  const rechercheRef = useRef<HTMLInputElement>(null)
 
   const filtre = (l: CycleRecapLigne) => {
     const s = q.trim().toLowerCase()
@@ -93,7 +100,7 @@ export function EncaisserDesktop(p: EncaisserDesktopProps) {
         </button>
         <div className="min-w-0 flex-1">
           <h1 className="text-[26px] font-bold text-neutral-900 leading-tight">Encaisser</h1>
-          <p className="text-sm text-neutral-500 truncate">{p.tontineNom} · Tour {p.numeroCycle}{p.suffixeTour}</p>
+          <p className="text-sm text-neutral-500 truncate">{p.tontineNom} · {p.periode}{p.suffixeTour}</p>
         </div>
         <div className="w-64">
           <div className="flex items-center justify-between text-sm">
@@ -114,6 +121,7 @@ export function EncaisserDesktop(p: EncaisserDesktopProps) {
             <div className="relative">
               <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400" />
               <input
+                ref={rechercheRef}
                 autoFocus
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
@@ -186,7 +194,12 @@ export function EncaisserDesktop(p: EncaisserDesktopProps) {
         {/* Formulaire */}
         <section className="bg-white rounded-3xl shadow-sm flex flex-col min-h-0 overflow-hidden">
           {membre ? (
-            <FormulaireEncaissement key={membre.membreId} {...p} membre={membre} />
+            <FormulaireEncaissement
+              key={membre.membreId}
+              {...p}
+              membre={membre}
+              onEncaisse={(m, cot) => { p.onEncaisse(m, cot); setQ(''); rechercheRef.current?.focus() }}
+            />
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
               <span className="w-14 h-14 rounded-full bg-neutral-100 text-neutral-500 flex items-center justify-center">
@@ -205,14 +218,14 @@ export function EncaisserDesktop(p: EncaisserDesktopProps) {
 }
 
 function FormulaireEncaissement({
-  tontineId, cycleId, echeanceId, numeroCycle, suffixeTour = '', montantDefaut, montantMinimum = null, evenement = false,
-  dateDebutPeriode = null, membre, onFermer,
+  tontineId, cycleId, echeanceId, periode, suffixeTour = '', montantDefaut, montantMinimum = null, evenement = false,
+  dateDebutPeriode = null, membre, onFermer, onEncaisse,
 }: EncaisserDesktopProps & { membre: CycleRecapLigne }) {
-  const navigate = useNavigate()
   const online = useOnline()
   const { mutate: encaisser, isPending } = useAdminRecordCotisation()
   const [saisie, setSaisie] = useState(montantDefaut ? String(montantDefaut) : '')
-  const [methode, setMethode] = useState(METHODE_PAR_DEFAUT)
+  // Dernier moyen utilisé pour encaisser sur cet appareil ; Espèces par défaut
+  const [methode, setMethode] = useLocalPreference<string>(METHODE_ENCAISSEMENT_KEY, METHODE_PAR_DEFAUT, METHODES_DISPONIBLES)
   const [reference, setReference] = useState('')
   const [note, setNote] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -246,7 +259,7 @@ function FormulaireEncaissement({
         },
       },
       {
-        onSuccess: (cot) => navigate(`/recu/${tontineId}/${cot.id}`, { replace: true, state: { justCreated: true } }),
+        onSuccess: (cot) => onEncaisse(membre, cot),
         onError: (err) => {
           const e = erreurTontine(err, { role: 'gestionnaire', evenement, dateDebut: dateDebutPeriode }, "L'encaissement n'a pas pu être enregistré. Réessayez.")
           setError(e.texte)
@@ -267,7 +280,7 @@ function FormulaireEncaissement({
           <div className="min-w-0 flex-1">
             <p className="text-lg font-bold text-neutral-900 truncate">{nom}</p>
             <p className="text-sm text-neutral-500">
-              Tour {numeroCycle}{suffixeTour}{membre.ordreJackpot ? ` · N° ${membre.ordreJackpot}` : ''}{membre.accountStatus === AccountStatus.PRE_ENROLLED ? ' · Sans compte' : ''}
+              {periode}{suffixeTour}{membre.ordreJackpot ? ` · N° ${membre.ordreJackpot}` : ''}{membre.accountStatus === AccountStatus.PRE_ENROLLED ? ' · Sans compte' : ''}
             </p>
           </div>
           <button type="button" onClick={onFermer} className="h-10 px-3 rounded-full bg-neutral-100 text-sm font-semibold text-neutral-700 hover:bg-neutral-200 inline-flex items-center gap-1.5">

@@ -79,7 +79,7 @@ describe('FR23 FicheTontinePage — lancement', () => {
     expect(emplacement()).toBe('/tontine/t1/modifier')
   })
 
-  it('lancement réussi : le tour 1 et « Encaisser » apparaissent sans recharger la page', async () => {
+  it('lancement réussi : la première période et « Encaisser » apparaissent sans recharger la page', async () => {
     epargne({ statut: TontineStatut.BROUILLON })
     let lancee = false
     server.use(
@@ -93,7 +93,8 @@ describe('FR23 FicheTontinePage — lancement', () => {
     epargne({ statut: TontineStatut.ACTIVE })
     await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Lancer' }))
 
-    expect(await screen.findByText('Collecté · Tour 1')).toBeInTheDocument()
+    // FR25 : épargne journalière, la période porte la date de son jour
+    expect(await screen.findByText('Collecté · Jour du 01/11')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Encaisser/ })).toBeEnabled()
   })
 })

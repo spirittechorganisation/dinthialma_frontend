@@ -7,6 +7,11 @@ interface AmountPadProps {
   onChange: (value: number) => void
   /** Montant maximum accepté (garde-fou de saisie) */
   max?: number
+  /**
+   * Montant prérempli (FR24) : la première touche le remplace au lieu de s'y ajouter
+   * (5 sur 2.000 donne 5, pas 20.005). Au parent de repasser à false après le premier changement.
+   */
+  remplacer?: boolean
 }
 
 const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '000', '0', 'del'] as const
@@ -15,13 +20,14 @@ const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '000', '0', 'del'] as
  * Pavé numérique pour saisir un montant en FCFA (touches 64 px, séparateur de milliers à l'affichage).
  * Desktop : le clavier physique fonctionne aussi (chiffres, Retour arrière), sauf si un champ de saisie a le focus.
  */
-export function AmountPad({ value, onChange, max = 100_000_000 }: AmountPadProps) {
+export function AmountPad({ value, onChange, max = 100_000_000, remplacer = false }: AmountPadProps) {
   const press = (k: (typeof KEYS)[number]) => {
+    const base = remplacer ? 0 : value
     if (k === 'del') {
-      onChange(Math.floor(value / 10))
+      onChange(Math.floor(base / 10))
       return
     }
-    const next = Number(`${value || ''}${k}`)
+    const next = Number(`${base || ''}${k}`)
     if (Number.isFinite(next) && next <= max) onChange(next)
   }
 

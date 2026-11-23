@@ -15,6 +15,7 @@ import { messageErreur } from '@/lib/apiError'
 import { useCotisation, useValiderCotisation } from '@/hooks/useCotisations'
 import { useTontine } from '@/hooks/useTontines'
 import { useCycle } from '@/hooks/useCycles'
+import { nomPeriode } from '@/lib/periodes'
 import { useMaTontine } from '@/hooks/useMe'
 import { useOnline } from '@/hooks/useOnline'
 import { formatFcfaRecu, formatDateHeure } from '@/lib/format'
@@ -89,7 +90,7 @@ export function RecuPage() {
   const tontineNom = tontine?.nom ?? 'Tontine'
 
   const lignes: [string, string][] = [
-    ['Tontine', `${tontineNom}${cycle ? ` · Tour ${cycle.numeroCycle}` : ''}`],
+    ['Tontine', `${tontineNom}${cycle ? ` · ${nomPeriode(tontine, cycle)}` : ''}`],
     ['Membre', membreNom || '—'],
     ['Moyen', paymentMethodLabel(cot.methodePaiement)],
     ...(cot.referenceTransaction ? [['Référence', cot.referenceTransaction] as [string, string]] : []),
@@ -104,7 +105,7 @@ export function RecuPage() {
 
   const partager = () => shareLink({
     title: 'Reçu Dinthialma',
-    text: `Reçu Dinthialma — ${formatFcfaRecu(cot.montant)} · ${tontineNom}${cycle ? ` · Tour ${cycle.numeroCycle}` : ''} · ${membreNom} · ${etat.label} · ${formatDateHeure(cot.createdAt)}`,
+    text: `Reçu Dinthialma — ${formatFcfaRecu(cot.montant)} · ${tontineNom}${cycle ? ` · ${nomPeriode(tontine, cycle)}` : ''} · ${membreNom} · ${etat.label} · ${formatDateHeure(cot.createdAt)}`,
     url: window.location.href,
   })
 
