@@ -394,13 +394,20 @@ export function ReglagesTontinePage() {
           <>
             <div className="rounded-2xl bg-amber-50 border border-amber-200 p-3 mb-4 flex items-start gap-2">
               <AlertTriangle size={18} className="text-amber-700 flex-shrink-0 mt-0.5" />
-              <p className="text-sm text-amber-900">La clôture est possible mais des éléments restent ouverts. Les tours déjà commencés peuvent encore être remis ; aucun nouveau tour ne s'ouvrira.</p>
+              <p className="text-sm text-amber-900">
+                {isEvent
+                  ? 'La clôture est possible mais des éléments restent ouverts. La répartition se fera sur ce qui a été encaissé.'
+                  : 'La clôture est possible mais des éléments restent ouverts. Les tours déjà commencés peuvent encore être remis ; aucun nouveau tour ne s’ouvrira.'}
+              </p>
             </div>
             <ul className="space-y-2 text-sm text-neutral-700">
-              {clotureEnSuspens.toursNonRemis.length > 0 && (
+              {/* FR25 : une épargne n'a pas de tour à remettre ; ses périodes restantes sont annulées */}
+              {clotureEnSuspens.toursNonRemis.length > 0 && (isEvent ? (
+                <li>• <strong>{clotureEnSuspens.toursNonRemis.length}</strong> période{clotureEnSuspens.toursNonRemis.length > 1 ? 's' : ''} à venir {clotureEnSuspens.toursNonRemis.length > 1 ? 'seront annulées' : 'sera annulée'}, la répartition se fera sur ce qui a été encaissé</li>
+              ) : (
                 <li>• <strong>{clotureEnSuspens.toursNonRemis.length}</strong> tour{clotureEnSuspens.toursNonRemis.length > 1 ? 's' : ''} non remis</li>
-              )}
-              {clotureEnSuspens.toursSansGagnant.length > 0 && (
+              ))}
+              {!isEvent && clotureEnSuspens.toursSansGagnant.length > 0 && (
                 <li>• <strong>{clotureEnSuspens.toursSansGagnant.length}</strong> tour{clotureEnSuspens.toursSansGagnant.length > 1 ? 's' : ''} sans gagnant désigné</li>
               )}
               {clotureEnSuspens.retards.length > 0 && (
