@@ -2,11 +2,11 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { membreService } from '@/services/membreService'
 import { AddMembreRequest, UpdateMembreStatutRequest } from '@/types/membre'
 
-export function useMembres(tontineId: string, page = 0, size = 20) {
+export function useMembres(tontineId: string, page = 0, size = 20, enabled = true) {
   return useQuery({
     queryKey: ['membres', tontineId, page, size],
     queryFn: () => membreService.listMembres(tontineId, page, size),
-    enabled: !!tontineId,
+    enabled: enabled && !!tontineId,
   })
 }
 

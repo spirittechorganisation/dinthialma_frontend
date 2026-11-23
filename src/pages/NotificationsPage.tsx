@@ -12,6 +12,7 @@ import { useNotifications, useMarkAsRead, useMarkAllAsRead } from '@/hooks/useNo
 import { useMesTontines } from '@/hooks/useMe'
 import { NotificationType, type NotificationItem } from '@/types/notification'
 import { jeCotise, jeGere, type MaTontine } from '@/types/me'
+import { titreRetraitRemis } from '@/lib/retraits'
 
 type Categorie = 'jackpot' | 'paiement' | 'validation' | 'retard' | 'tour' | 'membre'
 
@@ -26,7 +27,8 @@ function categorie(type: NotificationType): Categorie {
     case NotificationType.PRIORITE_JACKPOT_ACCORDEE:
     case NotificationType.PRIORITE_JACKPOT_REFUSEE: return 'jackpot'
     case NotificationType.PAIEMENT_RECU:
-    case NotificationType.COTISATION_SOUMISE: return 'paiement'
+    case NotificationType.COTISATION_SOUMISE:
+    case NotificationType.RETRAIT_REMIS: return 'paiement'
     case NotificationType.COTISATION_VALIDEE: return 'validation'
     case NotificationType.PAIEMENT_EN_RETARD:
     case NotificationType.RAPPEL_COTISATION:
@@ -101,6 +103,9 @@ function destination(n: NotificationItem, t: MaTontine | undefined): string | nu
     case NotificationType.INVITATION_TONTINE:
     case NotificationType.STATUT_MEMBRE:
       return tid ? (gere && n.membreId ? `/tontine/${tid}/membres/${n.membreId}` : `/tontine/${tid}`) : null
+    // FR29 : retrait enregistré → fiche du membre (gestionnaire) ou fiche de l'épargne, avec mon solde (membre)
+    case NotificationType.RETRAIT_REMIS:
+      return tid ? (gere && n.membreId ? `/tontine/${tid}/membres/${n.membreId}` : `/tontine/${tid}`) : null
     case NotificationType.DEMANDE_ADHESION:
       return tid ? `/a-valider?tontine=${tid}${n.demandeId ? `&demande=${n.demandeId}` : ''}` : '/a-valider'
     case NotificationType.ADHESION_REFUSEE:
@@ -151,7 +156,7 @@ export function NotificationsPage() {
         <button onClick={() => ouvrir(n, cible)} className="flex flex-1 min-w-0 items-start gap-3 text-left">
           <span className={clsx('w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0', cat.cls)}>{cat.icon}</span>
           <span className="min-w-0 flex-1">
-            <span className={clsx('block text-[15px] text-neutral-900', !n.read ? 'font-bold' : 'font-semibold')}>{n.title}</span>
+            <span className={clsx('block text-[15px] text-neutral-900', !n.read ? 'font-bold' : 'font-semibold')}>{n.type === NotificationType.RETRAIT_REMIS ? titreRetraitRemis(n.body) : n.title}</span>
             <span className="block text-sm text-neutral-600 line-clamp-2">{n.body}</span>
             <span className="block mt-0.5 text-xs text-neutral-400">{dateRelative(n.createdAt)}{t ? ` · ${t.nom}` : ''}</span>
           </span>

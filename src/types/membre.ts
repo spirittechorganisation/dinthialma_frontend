@@ -12,6 +12,8 @@ export interface Membre {
   aRecuJackpot: boolean
   /** Date de son jackpot, null s'il n'a pas encore gagné */
   dateJackpot: string | null
+  /** Date du retrait total de son épargne (B42) : membre « soldé », il ne cotise plus ; null sinon */
+  soldeLe?: string | null
   createdAt: string
   updatedAt: string
 }

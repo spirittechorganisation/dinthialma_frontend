@@ -9,6 +9,7 @@ import { useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { clsx } from 'clsx'
+import { RegleRetrait } from '@/components/epargne/RegleRetrait'
 import { Phone, Plus, Pencil, Trash2, RotateCw, CheckCircle2, Circle, AlertTriangle, Star } from 'lucide-react'
 import { ScreenHeader } from '@/components/layout/ScreenHeader'
 import { Modal } from '@/components/ui/Modal'
@@ -167,7 +168,7 @@ export function ReglagesTontinePage() {
     cloturer: {
       titre: 'Clôturer la tontine ?',
       texte: isEvent
-        ? 'L’épargne est partagée maintenant : chacun reçoit ce qu’il a cotisé. Aucune nouvelle période ne s’ouvrira. Cette action est irréversible.'
+        ? 'L’épargne est partagée maintenant : chacun reçoit son solde (ce qu’il a cotisé, moins ses retraits). Aucune nouvelle période ne s’ouvrira. Cette action est irréversible.'
         : 'La tontine sera définitivement terminée. Aucun nouveau tour ne pourra être ouvert. Cette action est irréversible.',
       bouton: 'Clôturer',
       danger: true,
@@ -334,6 +335,9 @@ export function ReglagesTontinePage() {
             </div>
           </section>
         )}
+
+        {/* FR29 : retraits anticipés d'une épargne (B42) */}
+        {gerant && isEvent && !terminee && <RegleRetrait tontineId={id} regle={t.regleRetrait} online={online} />}
 
         {gerant && !isEvent && t.statut === TontineStatut.ACTIVE && (
           <SectionPriorites tontineId={id} online={online} />
