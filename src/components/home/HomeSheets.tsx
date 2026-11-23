@@ -94,6 +94,9 @@ export function MontantsSheet({ isOpen, onClose, mode, cotisant, gestion, hidden
           <ul className="-mx-2">
             {(cotisant?.tontines ?? []).map((t) => {
               const pct = t.toursTotal > 0 ? Math.round((t.toursPayes / t.toursTotal) * 100) : 0
+              // FR29 : une épargne affiche son solde (cotisé − retiré) et ses retraits ; ni tour ni jackpot (FR25)
+              const epargne = t.tontineType === 'EVENEMENTIELLE'
+              const retire = t.totalRetire ?? 0
               return (
                 <li key={t.tontineId}>
                   <Link to={`/tontine/${t.tontineId}`} onClick={onClose} className="flex items-center gap-3 px-2 py-3 rounded-2xl hover:bg-neutral-50">
@@ -101,9 +104,16 @@ export function MontantsSheet({ isOpen, onClose, mode, cotisant, gestion, hidden
                     <span className="min-w-0 flex-1">
                       <span className="flex justify-between gap-2">
                         <span className="font-semibold text-neutral-900 truncate">{t.nom}</span>
-                        <span className="font-bold tabular-nums">{montant(t.totalCotiseValide)}</span>
+                        <span className="font-bold tabular-nums">{montant(epargne && t.solde != null ? t.solde : t.totalCotiseValide)}</span>
                       </span>
-                      <span className="block text-sm text-neutral-500">{t.toursPayes}/{t.toursTotal} tours payés</span>
+                      {epargne ? (
+                        <span className="flex items-center gap-1.5 text-sm text-neutral-500">
+                          {t.soldeLe && <span className="rounded-full bg-neutral-200 px-2 py-0.5 text-[11px] font-semibold text-neutral-700">Soldé</span>}
+                          <span>{t.solde != null ? 'Solde' : 'Cotisé'}{retire > 0 ? ` · retiré ${montant(retire)}` : ''}</span>
+                        </span>
+                      ) : (
+                        <span className="block text-sm text-neutral-500">{t.toursPayes}/{t.toursTotal} tours payés</span>
+                      )}
                       <span className="mt-1.5 block h-1.5 rounded-full bg-neutral-100 overflow-hidden">
                         <span className="block h-full bg-primary-600 rounded-full" style={{ width: `${pct}%` }} />
                       </span>

@@ -46,6 +46,8 @@ export interface Tontine extends RythmeTontine {
   rappels?: RappelsEcheance | null
   /** Rotative : option de remise par défaut */
   modeRemise?: ModeRemise | null
+  /** Retraits avant la fin (B42) : LIBRE ou INTERDIT ; une rotative est toujours INTERDIT */
+  regleRetrait?: 'LIBRE' | 'INTERDIT' | null
   /** null pour EVENEMENTIELLE */
   ordreBeneficiaire?: string | null
   /** null pour EVENEMENTIELLE */

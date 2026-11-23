@@ -33,7 +33,9 @@ import { useOnline } from '@/hooks/useOnline'
 import { useLocalPreference } from '@/hooks/useLocalPreference'
 import { formatF } from '@/lib/format'
 import { erreurTontine, estJournaliere, nomPeriode, periodePayable, texteNonOuverte } from '@/lib/periodes'
-import { METHODE_ENCAISSEMENT_KEY, aPaye, avecEncaissementsRecents, montantPrerempli, textePayes, type EncaissementRecent } from '@/lib/encaissement'
+import { METHODE_ENCAISSEMENT_KEY, aPaye, avecEncaissementsRecents, avecSoldes, horsEncaissement, montantPrerempli, textePayes, type EncaissementRecent, type LigneEncaisser } from '@/lib/encaissement'
+import { estSolde } from '@/lib/retraits'
+import { useMembres } from '@/hooks/useMembres'
 import { AccountStatus, CotisationStatut, MembreStatut } from '@/types/common'
 import { TontineType } from '@/types/tontine'
 import type { Cotisation, CycleRecapLigne } from '@/types/cotisation'
@@ -109,6 +111,9 @@ function EncaisserTontine({ tontineId }: { tontineId: string }) {
   // Tour visé : numéro d'un tour déjà remis, et premier jour d'une période (B47)
   const tour = useCycle(tontineId, cycleId)
   const recap = useRecapCycle(tontineId, cycleId, 0, 200, !!cycleId, echeanceId)
+  // FR29 : membres soldés d'une épargne (soldeLe vient de la liste des membres)
+  const epargne = tontine?.tontineType === TontineType.EVENEMENTIELLE
+  const membresQ = useMembres(tontineId, 0, 200, epargne)
   const desktop = useIsDesktop()
   // Garde le tour et la cotisation visés quand on choisit ou change de membre
   const avecMembre = (id?: string) => {
@@ -148,13 +153,16 @@ function EncaisserTontine({ tontineId }: { tontineId: string }) {
     )
   }
 
-  const lignes = avecEncaissementsRecents((recap.data?.content ?? []).filter((l) => l.statutMembre === MembreStatut.ACTIF), recents)
+  const lignes: LigneEncaisser[] = avecSoldes(
+    avecEncaissementsRecents((recap.data?.content ?? []).filter((l) => l.statutMembre === MembreStatut.ACTIF), recents),
+    membresQ.data?.content ?? [],
+  )
   const membre = membreId ? lignes.find((l) => l.membreId === membreId) : undefined
   // « · cotisation 2/4 » quand le tour en compte plusieurs ; « · retard » pour une cotisation passée
   const ref = lignes[0]
   const suffixeTour = `${ref?.nombreEcheances && ref.nombreEcheances > 1 && ref.numeroEcheance ? ` · cotisation ${ref.numeroEcheance}/${ref.nombreEcheances}` : ''}${echeanceId || tourParam ? ' · retard' : ''}`
 
-  const membreAEncaisser = membreId && membre && !aPaye(membre) ? membre : undefined
+  const membreAEncaisser = membreId && membre && !horsEncaissement(membre) ? membre : undefined
   // FR25 : « Tour 3 », « Jour du 23/11 » (épargne journalière) ou « Période 3 »
   const periode = nomPeriode(tontine ?? { tontineType: stats.tontineType }, { numeroCycle, dateDebut: tour.data?.dateDebut })
   const retard = !!(echeanceId || tourParam)
@@ -241,7 +249,7 @@ function DeQuiContenu({ tontineId, periode, suffixeTour = '', lignes, compteur, 
   /** « Tour 3 », « Jour du 23/11 » */
   periode: string
   suffixeTour?: string
-  lignes: CycleRecapLigne[]
+  lignes: LigneEncaisser[]
   /** « 8 / 20 payés aujourd'hui » */
   compteur: string
   /** Épargne : « cette période », pas « ce tour » (FR25) */
@@ -256,9 +264,9 @@ function DeQuiContenu({ tontineId, periode, suffixeTour = '', lignes, compteur, 
     const s = q.trim().toLowerCase()
     return !s || `${l.firstName} ${l.lastName}`.toLowerCase().includes(s) || (l.phone ?? '').includes(s.replace(/\s/g, ''))
   }
-  const nonPayes = lignes.filter((l) => !aPaye(l) && filtre(l))
-  const payes = lignes.filter((l) => aPaye(l) && filtre(l))
-  const toutPaye = lignes.length > 0 && lignes.every(aPaye)
+  const nonPayes = lignes.filter((l) => !horsEncaissement(l) && filtre(l))
+  const payes = lignes.filter((l) => horsEncaissement(l) && filtre(l))
+  const toutPaye = lignes.length > 0 && lignes.every(horsEncaissement)
 
   return (
     <>
@@ -319,6 +327,19 @@ function DeQuiContenu({ tontineId, periode, suffixeTour = '', lignes, compteur, 
           <h2 className="px-1 text-sm font-semibold text-neutral-600">Déjà payé ({payes.length})</h2>
           <ul className="mt-2 bg-white rounded-3xl shadow-sm divide-y divide-neutral-100">
             {payes.map((l) => {
+              // FR29 : membre soldé sans paiement sur la période, grisé, rien à ouvrir
+              if (estSolde(l) && !aPaye(l)) {
+                return (
+                  <li key={l.membreId} className="flex items-center gap-3 px-4 py-3 min-h-[64px] opacity-60">
+                    <InitialsAvatar name={`${l.firstName} ${l.lastName}`} />
+                    <span className="min-w-0 flex-1">
+                      <span className="block font-semibold text-neutral-900 truncate">{l.firstName} {l.lastName}</span>
+                      <span className="block text-sm text-neutral-500">A tout retiré</span>
+                    </span>
+                    <span className="rounded-full bg-neutral-200 px-2 py-0.5 text-xs font-semibold text-neutral-700">Soldé</span>
+                  </li>
+                )
+              }
               const enAttente = l.statutCotisation === CotisationStatut.EN_ATTENTE
               return (
                 <li key={l.membreId}>

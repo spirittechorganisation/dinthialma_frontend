@@ -11,6 +11,7 @@ import { Panneau, PanneauVide } from '@/components/layout/Panneau'
 import { useIsDesktop } from '@/hooks/useMediaQuery'
 import { MembreFichePage } from '@/pages/tontine/MembreFichePage'
 import { clsx } from 'clsx'
+import { estSolde } from '@/lib/retraits'
 import { Search, UserPlus, ChevronRight, Trophy, RotateCw, Users } from 'lucide-react'
 import { ScreenHeader } from '@/components/layout/ScreenHeader'
 import { InitialsAvatar } from '@/components/ui/Section'
@@ -95,7 +96,9 @@ export function MembresTontinePage() {
             {membres.map((m) => {
               const nom = `${m.user.firstName} ${m.user.lastName}`.trim()
               const st = STATUT_MEMBRE[m.statut]
-              const sit = gerant && cycleEnCours && m.statut === MembreStatut.ACTIF ? situation(m) : undefined
+              // FR29 : un membre soldé ne cotise plus, pas de situation de paiement
+              const solde = estSolde(m)
+              const sit = gerant && cycleEnCours && m.statut === MembreStatut.ACTIF && !solde ? situation(m) : undefined
               const paye = sit?.statutCotisation === CotisationStatut.VALIDE
               const declare = sit?.statutCotisation === CotisationStatut.EN_ATTENTE
               // REFUSE (dernier refus affiché par le récap) = pas encore payé
@@ -110,6 +113,7 @@ export function MembresTontinePage() {
                     </span>
                     <span className="flex flex-wrap gap-1 mt-0.5">
                       {st && <span className={clsx('rounded-full px-2 py-0.5 text-[11px] font-semibold', st.cls)}>{st.label}</span>}
+                      {solde && <span className="rounded-full bg-neutral-200 px-2 py-0.5 text-[11px] font-semibold text-neutral-700">Soldé</span>}
                       {m.user.accountStatus === AccountStatus.PRE_ENROLLED && <span className="rounded-full bg-sky-50 px-2 py-0.5 text-[11px] font-semibold text-sky-800">Sans compte</span>}
                       {sit && (
                         <span className={clsx('rounded-full px-2 py-0.5 text-[11px] font-semibold', paye ? 'bg-primary-50 text-primary-800' : declare ? 'bg-amber-50 text-amber-800' : 'bg-neutral-100 text-neutral-600')}>

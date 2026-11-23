@@ -75,6 +75,10 @@ export interface CotisantTontineSummary {
   aRecuJackpot: boolean
   totalCotiseValide: number
   totalEnAttente: number
+  /** Épargne (B42) : mes retraits remis, mon solde, date de mon retrait total ; absents en rotative */
+  totalRetire?: number | null
+  solde?: number | null
+  soldeLe?: string | null
   toursPayes: number
   toursTotal: number
   /** Total des jackpots reçus dans cette tontine (déduit de /me/jackpots) */

@@ -22,7 +22,8 @@ import { AddMembreModal } from '@/components/shared/AddMembreModal'
 import { useTontineVue } from '@/hooks/useTontineVue'
 import { useCycles } from '@/hooks/useCycles'
 import { useMembres } from '@/hooks/useMembres'
-import { useRecapCycle, useRecapTotal, useValiderCotisation } from '@/hooks/useCotisations'
+import { useRecapCycle, useValiderCotisation } from '@/hooks/useCotisations'
+import { EpargneParMembre, RepartitionFinale } from '@/components/epargne/TableauxEpargne'
 import { useActiverTontine } from '@/hooks/useTontines'
 import { useCotisantSummary, useCotisationsParStatut } from '@/hooks/useMe'
 import { useLocalPreference } from '@/hooks/useLocalPreference'
@@ -100,9 +101,9 @@ export function FicheTontinePage() {
   const membres = membresData?.content ?? []
   const actifs = membres.filter((m) => m.statut === MembreStatut.ACTIF)
   const recap = useRecapCycle(id, cycleEnCours?.id ?? '', 0, 200, gerant && !!cycleEnCours)
-  // Événementielle terminée : total par membre, sortis compris (B48), comme la distribution finale (B43)
-  const evenementTermine = t?.tontineType === TontineType.EVENEMENTIELLE && t?.statut === TontineStatut.TERMINEE
-  const repartition = useRecapTotal(id, 0, 200, gerant && evenementTermine)
+  // Épargne en cours (FR29) : cotisé, retiré, solde par membre ; la répartition finale vient de /distribution (B51)
+  const epargneEnCours = t?.tontineType === TontineType.EVENEMENTIELLE
+    && (t?.statut === TontineStatut.ACTIVE || t?.statut === TontineStatut.SUSPENDUE)
   const cotisant = useCotisantSummary(v.vue === 'COTISE')
   const maLigne = cotisant.data?.tontines.find((l) => l.tontineId === id)
 
@@ -162,8 +163,10 @@ export function FicheTontinePage() {
     titreMontant = periodeEnCours ? `Collecté · ${periodeEnCours}` : isEvent ? 'Aucune période en cours' : 'Aucun tour en cours'
     montant = cycleEnCours ? collecte : null
   } else if (isEvent) {
-    titreMontant = 'Cotisé par moi'
-    montant = maLigne?.totalCotiseValide ?? 0
+    // FR29 : après un retrait, le solde (cotisé − retiré) est ce qui revient au membre
+    const aRetire = (maLigne?.totalRetire ?? 0) > 0
+    titreMontant = aRetire ? 'Mon solde' : 'Cotisé par moi'
+    montant = aRetire ? maLigne?.solde ?? 0 : maLigne?.totalCotiseValide ?? 0
   } else {
     titreMontant = 'Jackpot du tour'
     montant = jackpotEstime
@@ -173,6 +176,9 @@ export function FicheTontinePage() {
     gerant && cycleEnCours ? `${ontPaye}/${actifsRecap || actifs.length} payés${enAttente ? ` + ${enAttente} en attente` : ''}` : null,
     cycleEnCours ? `fin le ${formatDateCourte(cycleEnCours.dateFin)}` : null,
     isEvent ? compteARebours(t.dateEcheance) : null,
+    // FR29 : retraits du membre (vue « Je cotise »)
+    !gerant && isEvent && maLigne?.soldeLe ? 'Soldé' : null,
+    !gerant && isEvent && (maLigne?.totalRetire ?? 0) > 0 ? `retiré ${formatF(maLigne?.totalRetire)}` : null,
   ].filter(Boolean).join(' · ')
   const pct = gerant && t.montant && actifsRecap ? Math.min(100, Math.round((collecte / (t.montant * actifsRecap)) * 100)) : null
 
@@ -189,12 +195,14 @@ export function FicheTontinePage() {
       : v.vue === 'COTISE'
         ? [
             {
-              label: due?.statut === 'VALIDE' ? 'Payé ✓' : due?.statut === 'EN_ATTENTE' ? 'Déclaré' : 'Payer',
+              // FR29 : un membre soldé ne cotise plus
+              label: maLigne?.soldeLe ? 'Soldé' : due?.statut === 'VALIDE' ? 'Payé ✓' : due?.statut === 'EN_ATTENTE' ? 'Déclaré' : 'Payer',
               icon: <Send size={20} />,
               onClick: () => navigate(`/payer/${id}`),
-              disabled: !due,
+              disabled: !due || !!maLigne?.soldeLe,
             },
-            { label: 'Mon tour', icon: <CalendarClock size={20} />, onClick: () => navigate('/jackpots') },
+            // Une épargne n'a pas de tour de jackpot (FR25)
+            ...(isEvent ? [] : [{ label: 'Mon tour', icon: <CalendarClock size={20} />, onClick: () => navigate('/jackpots') }]),
             ...(t.tontineType === 'ROTATIVE' && t.statut === 'ACTIVE'
               ? [{ label: 'Priorité', icon: <Star size={20} />, onClick: () => navigate(`/tontine/${id}/priorites`) }]
               : []),
@@ -320,24 +328,9 @@ export function FicheTontinePage() {
             </div>
           )}
 
-          {/* Répartition finale d'une événementielle clôturée : chacun reçoit ce qu'il a cotisé */}
-          {evenementTermine && gerant && (repartition.data?.content.length ?? 0) > 0 && (
-            <section className="bg-white rounded-3xl shadow-sm p-4" aria-labelledby="repartition-finale">
-              <h2 id="repartition-finale" className="text-[17px] font-semibold text-neutral-900">Répartition finale</h2>
-              <p className="mt-1 text-sm text-neutral-500">Chacun reçoit ce qu’il a cotisé (avant une éventuelle commission).</p>
-              <ul className="mt-2 divide-y divide-neutral-100">
-                {repartition.data!.content.map((m) => (
-                  <li key={m.membreId} className={clsx('flex items-center justify-between gap-3 py-2.5', m.statutMembre !== MembreStatut.ACTIF && 'opacity-60')}>
-                    <span className="min-w-0 flex items-center gap-2">
-                      <span className="text-sm font-medium text-neutral-900 truncate">{m.firstName} {m.lastName}</span>
-                      {m.statutMembre === MembreStatut.SORTI && <span className="rounded-full bg-neutral-200 px-2 py-0.5 text-[11px] font-semibold text-neutral-700 flex-shrink-0">Sorti</span>}
-                    </span>
-                    <span className="text-sm font-bold tabular-nums">{formatF(m.totalCotise)}</span>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
+          {/* FR29 : épargne par membre (gestionnaire), puis répartition finale relue depuis /distribution */}
+          {gerant && epargneEnCours && <EpargneParMembre tontineId={id} />}
+          {isEvent && v.vue !== 'LECTURE' && <RepartitionFinale tontineId={id} gerant={gerant} />}
 
           {/* Rubriques */}
           <section className="bg-white rounded-3xl shadow-sm divide-y divide-neutral-100">

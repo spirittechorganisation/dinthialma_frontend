@@ -17,7 +17,8 @@ import { METHODE_PAR_DEFAUT, METHODES_DISPONIBLES } from '@/lib/paymentMethods'
 import { useAdminRecordCotisation } from '@/hooks/useCotisations'
 import { useOnline } from '@/hooks/useOnline'
 import { useLocalPreference } from '@/hooks/useLocalPreference'
-import { METHODE_ENCAISSEMENT_KEY } from '@/lib/encaissement'
+import { METHODE_ENCAISSEMENT_KEY, horsEncaissement, type LigneEncaisser } from '@/lib/encaissement'
+import { estSolde } from '@/lib/retraits'
 import { formatF } from '@/lib/format'
 import { erreurTontine } from '@/lib/periodes'
 import { AccountStatus, CotisationStatut } from '@/types/common'
@@ -40,7 +41,7 @@ interface EncaisserDesktopProps {
   evenement?: boolean
   /** Premier jour de la période (texte de ECHEANCE_NON_OUVERTE) */
   dateDebutPeriode?: string | null
-  lignes: CycleRecapLigne[]
+  lignes: LigneEncaisser[]
   membreId: string | null
   onChoisir: (membreId: string) => void
   onFermer: () => void
@@ -51,7 +52,7 @@ interface EncaisserDesktopProps {
 type Onglet = 'aEncaisser' | 'paye'
 
 const nomDe = (l: CycleRecapLigne) => `${l.firstName} ${l.lastName}`.trim()
-const actif = (l: CycleRecapLigne) => l.statutCotisation === CotisationStatut.EN_ATTENTE || l.statutCotisation === CotisationStatut.VALIDE
+const actif = (l: LigneEncaisser) => l.statutCotisation === CotisationStatut.EN_ATTENTE || l.statutCotisation === CotisationStatut.VALIDE
 
 export function EncaisserDesktop(p: EncaisserDesktopProps) {
   const navigate = useNavigate()
@@ -65,8 +66,9 @@ export function EncaisserDesktop(p: EncaisserDesktopProps) {
     const s = q.trim().toLowerCase()
     return !s || nomDe(l).toLowerCase().includes(s) || (l.phone ?? '').includes(s.replace(/\s/g, ''))
   }
-  const nonPayes = p.lignes.filter((l) => !actif(l))
-  const payes = p.lignes.filter(actif)
+  // FR29 : un membre soldé n'a plus rien à encaisser, rangé avec les « déjà payés »
+  const nonPayes = p.lignes.filter((l) => !horsEncaissement(l))
+  const payes = p.lignes.filter(horsEncaissement)
   const visibles = (onglet === 'aEncaisser' ? nonPayes : payes).filter(filtre)
   const membre = p.membreId ? nonPayes.find((l) => l.membreId === p.membreId) : undefined
   const pct = p.lignes.length ? Math.round((payes.length / p.lignes.length) * 100) : 0
@@ -161,14 +163,18 @@ export function EncaisserDesktop(p: EncaisserDesktopProps) {
                     <span className="block font-semibold text-neutral-900 truncate">{nomDe(l)}</span>
                     <span className="block text-xs text-neutral-500 truncate">
                       {onglet === 'paye'
-                        ? (l.montant != null ? formatF(l.montant) : '')
+                        ? (estSolde(l) && !actif(l) ? 'A tout retiré' : l.montant != null ? formatF(l.montant) : '')
                         : [l.ordreJackpot ? `N° ${l.ordreJackpot}` : null, l.accountStatus === AccountStatus.PRE_ENROLLED ? 'Sans compte' : null].filter(Boolean).join(' · ')}
                     </span>
                   </span>
                   {onglet === 'paye' ? (
-                    <span className={clsx('rounded-full px-2 py-0.5 text-xs font-semibold', enAttente ? 'bg-amber-50 text-amber-800' : 'bg-primary-50 text-primary-800')}>
-                      {enAttente ? 'À valider' : 'Payé ✓'}
-                    </span>
+                    estSolde(l) && !actif(l) ? (
+                      <span className="rounded-full bg-neutral-200 px-2 py-0.5 text-xs font-semibold text-neutral-700">Soldé</span>
+                    ) : (
+                      <span className={clsx('rounded-full px-2 py-0.5 text-xs font-semibold', enAttente ? 'bg-amber-50 text-amber-800' : 'bg-primary-50 text-primary-800')}>
+                        {enAttente ? 'À valider' : 'Payé ✓'}
+                      </span>
+                    )
                   ) : (
                     <ChevronRight size={16} className="text-neutral-300" />
                   )}

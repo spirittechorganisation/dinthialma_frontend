@@ -57,7 +57,8 @@ describe('FR23 ReglagesTontinePage — épargne journalière', () => {
     const { user } = afficher('/tontine/t1/reglages?action=cloturer')
 
     const confirmation = await screen.findByRole('dialog', { name: 'Clôturer la tontine ?' })
-    expect(confirmation).toHaveTextContent('L’épargne est partagée maintenant : chacun reçoit ce qu’il a cotisé.')
+    // FR29 : avec les retraits anticipés, chacun reçoit son solde
+    expect(confirmation).toHaveTextContent('L’épargne est partagée maintenant : chacun reçoit son solde (ce qu’il a cotisé, moins ses retraits).')
     await user.click(within(confirmation).getByRole('button', { name: 'Clôturer' }))
     await user.click(await screen.findByRole('button', { name: 'Clôturer quand même' }))
 

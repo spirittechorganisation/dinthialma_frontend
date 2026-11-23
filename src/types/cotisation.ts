@@ -129,4 +129,8 @@ export interface MembreTotalCotisation {
   ordreJackpot: number | null
   totalCotise: number
   nombreCotisationsValidees: number
+  /** Épargne (B42) : retraits remis, solde = cotisé − retiré, date du retrait total ; absents en rotative */
+  totalRetire?: number | null
+  solde?: number | null
+  soldeLe?: string | null
 }
