@@ -35,6 +35,9 @@ export type ApiErrorCode =
   | 'REMISE_JACKPOT_INCOMPLETE' | 'MODE_REMISE_INDISPONIBLE'
   // Garde-fous de date et membres non actifs (B44 à B47) : textes avec date dans lib/periodes
   | 'DATE_DEBUT_PASSEE' | 'TOUR_NON_COMMENCE' | 'CLOTURE_FINALE_PREMATUREE' | 'MEMBRE_INACTIF'
+  // Retraits d'une épargne et répartition finale (B42, B51) : textes avec montants dans lib/retraits
+  | 'RETRAIT_SOLDE_INSUFFISANT' | 'RETRAIT_COTISATIONS_EN_ATTENTE' | 'RETRAIT_INTERDIT' | 'MEMBRE_SOLDE'
+  | 'RETRAIT_NON_ANNULABLE' | 'RETRAIT_NON_DISPONIBLE' | 'DISTRIBUTION_NON_FAITE'
   // Commissions (B30)
   | 'COMMISSION_ALREADY_EXISTS' | 'COMMISSION_PERCENTAGE_TOO_HIGH'
   // Clôture de tontine (B33 / TERMINEE)
@@ -66,6 +69,13 @@ export function parseApiError(err: unknown): ParsedApiError {
     serverMessage: typeof body?.message === 'string' ? body.message : '',
     retryAfterSeconds: Number.isFinite(retry) && retry > 0 ? retry : null,
   }
+}
+
+/** Détails structurés de l'erreur (`data` de l'enveloppe), ou null : ex. `data.solde` de RETRAIT_SOLDE_INSUFFISANT */
+export function donneesErreur(err: unknown): Record<string, unknown> | null {
+  if (!isAxiosError(err) || !err.response) return null
+  const data = (err.response.data as { data?: unknown } | undefined)?.data
+  return data && typeof data === 'object' && !Array.isArray(data) ? (data as Record<string, unknown>) : null
 }
 
 /** Textes front par défaut ; un code absent d'ici affiche le message du serveur. */

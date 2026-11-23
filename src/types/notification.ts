@@ -31,6 +31,8 @@ export enum NotificationType {
   TONTINE_PRETE_A_CLOTURER   = 'TONTINE_PRETE_A_CLOTURER',
   /** Membres actifs : la tontine vient d'être clôturée (TERMINEE) */
   TONTINE_CLOTUREE            = 'TONTINE_CLOTUREE',
+  /** Membre : un retrait de son épargne a été enregistré par le gestionnaire (B42) ; lien membreId */
+  RETRAIT_REMIS               = 'RETRAIT_REMIS',
 }
 
 export interface NotificationItem {
