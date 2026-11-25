@@ -93,7 +93,7 @@ Le rejeu dans la même seconde passe encore, car Keycloak date ses jetons à la 
 
 ## 3. Parcours vérifié dans l'app (375 px)
 
-PIN du compte de test local changé en `482913` (accord du 24/11).
+PIN du compte de test local changé (accord du 24/11) ; noté « PIN du compte de test » ci-dessous.
 
 | Étape | Résultat |
 |---|---|
@@ -177,8 +177,8 @@ Sur iPhone, la PWA ajoutée à l'écran d'accueil a **un stockage séparé de Sa
 - **Vérifié dans l'app à 375 px** (25/11, backend local relancé, Keycloak avec rotation) :
   1. Connexion par mot de passe du compte de test : `appareilId` présent, PIN configuré, numéro connu, jeton `Offline`. C'est un appareil de confiance.
   2. Refresh token stocké remplacé par une valeur invalide, jeton d'accès expiré, puis rechargement de `/encaisser`.
-  3. Résultat : **écran PIN** (`/pin`, « Bon retour », **+221 77 388 00 47** affiché). Le refresh token invalide est effacé ; le numéro, le PIN et l'`appareilId` sont gardés.
-  4. PIN `482913` : retour sur **`/accueil`**, nouveau jeton `Offline`, appel protégé `/v1/me/summary` → 200.
+  3. Résultat : **écran PIN** (`/pin`, « Bon retour », **numéro du compte de test** affiché). Le refresh token invalide est effacé ; le numéro, le PIN et l'`appareilId` sont gardés.
+  4. « PIN du compte de test » : retour sur **`/accueil`**, nouveau jeton `Offline`, appel protégé `/v1/me/summary` → 200.
 
 ## 8. Messages de commit proposés
 
