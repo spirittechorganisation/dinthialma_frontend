@@ -18,9 +18,9 @@ export type ApiErrorCode =
   | 'CURRENT_PASSWORD_INVALID' | 'PASSWORD_UNCHANGED'
   // Code secret
   | 'PIN_INVALID' | 'PIN_INVALID_FORMAT' | 'PIN_TOO_SIMPLE' | 'PIN_MISMATCH' | 'PIN_NOT_CONFIGURED'
-  | 'PIN_EXPIRED' | 'PIN_LOCKED' | 'PIN_SESSION_EXPIRED'
+  | 'PIN_EXPIRED' | 'PIN_LOCKED' | 'PIN_SESSION_EXPIRED' | 'PIN_DISABLED'
   // Codes SMS
-  | 'OTP_INVALID' | 'OTP_EXPIRED' | 'OTP_NOT_VERIFIED' | 'OTP_RATE_LIMITED'
+  | 'OTP_INVALID' | 'OTP_EXPIRED' | 'OTP_NOT_VERIFIED' | 'OTP_RATE_LIMITED' | 'OTP_TOO_MANY_ATTEMPTS'
   // Tontines / membres / adhésions
   | 'MEMBER_ALREADY_IN_TONTINE' | 'JACKPOT_POSITION_TAKEN' | 'MEMBER_NAME_REQUIRED' | 'MEMBER_IDENTIFIER_REQUIRED'
   | 'TONTINE_FULL' | 'TONTINE_NOT_OPEN' | 'DEMANDE_DEJA_EN_ATTENTE' | 'DEMANDE_NOT_PENDING'
@@ -103,6 +103,9 @@ const TEXTES: Partial<Record<ApiErrorCode, string>> = {
   OTP_INVALID: 'Code incorrect.',
   OTP_EXPIRED: 'Code expiré. Demandez-en un nouveau.',
   OTP_NOT_VERIFIED: 'Vérifiez d’abord le code reçu par SMS.',
+  // SE07 (FR31) : textes avec délai dans lib/securite
+  OTP_TOO_MANY_ATTEMPTS: 'Trop d’essais avec ce code. Demandez un nouveau code.',
+  PIN_DISABLED: 'Trop d’essais : votre code a été désactivé. Reconnectez-vous avec votre mot de passe.',
   MEMBER_ALREADY_IN_TONTINE: 'Déjà membre de cette tontine.',
   JACKPOT_POSITION_TAKEN: 'Cette position est déjà prise. Choisissez-en une autre.',
   MEMBER_IDENTIFIER_REQUIRED: 'Ajout impossible : identifiant du membre manquant.',

@@ -1,6 +1,6 @@
 /**
- * Sécurité du compte : mot de passe (B21) et appareils connectés (B20).
- * Une seule session par type de client (WEB, MOBILE) : une nouvelle connexion du même type remplace l'autre.
+ * Sécurité du compte : mot de passe (B21) et appareils connectés (B20, B53).
+ * B53 : une session par appareil (`appareilId`) ; un appareil « de confiance » garde le PIN pendant des mois.
  */
 import api from './api'
 import type { CustomResponse } from '@/types/common'
@@ -14,6 +14,12 @@ export interface SessionAppareil {
   expiree: boolean
   /** true pour l'appareil utilisé en ce moment */
   courante: boolean
+  /** B53 : appareil de confiance (le PIN suffit sans mot de passe pendant des mois) */
+  confiance: boolean
+  /** B53 : dernière utilisation (connexion, PIN ou renouvellement) */
+  derniereUtilisation: string | null
+  /** B53 : identifiant de l'appareil, absent pour une session d'avant B53 */
+  appareilId: string | null
 }
 
 export const securiteService = {
@@ -31,6 +37,9 @@ export const securiteService = {
       expireLe: s.expireLe ?? null,
       expiree: !!s.expiree,
       courante: !!s.courante,
+      confiance: !!s.confiance,
+      derniereUtilisation: s.derniereUtilisation ?? null,
+      appareilId: s.appareilId ?? null,
     }))
   },
 

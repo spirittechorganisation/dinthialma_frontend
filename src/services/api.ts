@@ -1,5 +1,6 @@
   import axios, { AxiosInstance, AxiosError } from 'axios'
-import { getAccessToken, getRefreshToken, setTokens, clearAll } from '@/lib/tokenStorage'
+import { getAccessToken, getRefreshToken, setTokens, isTokenExpired, oublierSessionPerdue } from '@/lib/tokenStorage'
+import { avecVerrouOnglets, VERROU_RENOUVELLEMENT } from '@/lib/verrouOnglets'
 import { ApiError } from '@/types/common'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8081'
@@ -35,30 +36,40 @@ export class SansRefreshToken extends Error {
 
 /**
  * Renouvelle les jetons avec le refresh token et renvoie le nouveau jeton d'accès.
- * Les appels simultanés partagent la même requête `/v1/auth/refresh`.
+ *
+ * Rotation des refresh tokens (FR31) : un jeton ne sert qu'une fois, le rejouer ferme la session.
+ * - Dans un onglet : les appels simultanés partagent la même requête `/v1/auth/refresh`.
+ * - Entre onglets : verrou `navigator.locks`. Dans le verrou, le jeton est relu ; si un autre onglet l'a
+ *   renouvelé pendant l'attente, on reprend ses jetons sans rien renvoyer.
+ * - Le nouveau couple est enregistré avant toute autre requête.
  */
 export function renouvelerJetons(): Promise<string> {
   if (renouvellement) return renouvellement
-  const refreshToken = getRefreshToken()
-  if (!refreshToken) return Promise.reject(new SansRefreshToken())
-  renouvellement = axios
+  const avant = getRefreshToken()
+  if (!avant) return Promise.reject(new SansRefreshToken())
+  renouvellement = avecVerrouOnglets(VERROU_RENOUVELLEMENT, async () => {
+    const refreshToken = getRefreshToken()
+    if (!refreshToken) throw new SansRefreshToken()
+    const acces = getAccessToken()
+    if (refreshToken !== avant && acces && !isTokenExpired(acces)) return acces
     // Endpoint public : appelé SANS en-tête Authorization (le jeton d'accès peut être expiré)
-    .post(`${API_BASE_URL}/api/v1/auth/refresh`, { refreshToken })
-    .then(({ data }) => {
-      const { access_token, refresh_token } = data.data
-      setTokens(access_token, refresh_token)
-      return access_token as string
-    })
-    .finally(() => { renouvellement = null })
+    const { data } = await axios.post(`${API_BASE_URL}/api/v1/auth/refresh`, { refreshToken })
+    const { access_token, refresh_token } = data.data
+    setTokens(access_token, refresh_token)
+    return access_token as string
+  }).finally(() => { renouvellement = null })
   return renouvellement
 }
 
-/** Session perdue : efface tout et part sur /login, une seule fois même si plusieurs requêtes échouent */
+/**
+ * Session perdue, une seule redirection même si plusieurs requêtes échouent.
+ * Appareil de confiance (FR31) : numéro et PIN gardés, écran PIN ; sinon tout est effacé et /login.
+ */
 function sessionPerdue() {
-  clearAll()
+  const ecran = oublierSessionPerdue()
   if (redirectionLogin) return
   redirectionLogin = true
-  window.location.href = '/login'
+  window.location.href = ecran
 }
 
 // Rôle insuffisant = 403 (code FORBIDDEN) : jamais de déconnexion. Seul un 401 tente un refresh.
@@ -67,6 +78,10 @@ function sessionPerdue() {
 // - refresh : éviter la récursion
 // - logout : inutile de retenter
 const SKIP_RETRY = ['/v1/auth/login', '/v1/auth/register', '/v1/auth/refresh', '/v1/auth/logout']
+
+// 401 qui ne parlent pas du jeton (FR31) : mot de passe faux à la création du PIN (`pin/setup`), PIN désactivé
+// ou session PIN expirée. Les renouveler serait inutile, et un échec du renouvellement déconnecterait à tort.
+const CODES_401_METIER = ['INVALID_CREDENTIALS', 'CURRENT_PASSWORD_INVALID', 'PIN_DISABLED', 'PIN_SESSION_EXPIRED']
 
 api.interceptors.response.use(
   (response) => response,
@@ -78,6 +93,10 @@ api.interceptors.response.use(
       return Promise.reject(error)
     }
 
+    if (CODES_401_METIER.includes((error.response?.data as { code?: string } | undefined)?.code ?? '')) {
+      return Promise.reject(error)
+    }
+
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true
       try {
@@ -85,6 +104,9 @@ api.interceptors.response.use(
         originalRequest.headers!.Authorization = `Bearer ${token}`
         return api(originalRequest)
       } catch (refreshError) {
+        // Réseau coupé pendant le renouvellement (aucune réponse) : la session n'est pas perdue, on garde
+        // les jetons et la requête échoue comme hors ligne. Le prochain essai repartira du jeton stocké.
+        if (axios.isAxiosError(refreshError) && !refreshError.response) return Promise.reject(refreshError)
         sessionPerdue()
         // Sans refresh token : on rejette l'erreur d'origine (le 401 de la requête)
         return Promise.reject(refreshError instanceof SansRefreshToken ? error : refreshError)

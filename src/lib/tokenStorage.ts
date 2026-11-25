@@ -1,4 +1,5 @@
 import type { AuthUser } from '@/types/user'
+import { APPAREIL_KEY } from '@/lib/appareil'
 import { UserRole } from '@/types/common'
 
 const ACCESS_TOKEN_KEY   = 'dinthialma_access_token'
@@ -115,6 +116,32 @@ export function getPinConfigured(): boolean | null {
 }
 export function setPinConfigured(value: boolean): void {
   localStorage.setItem(PIN_CONFIGURED_KEY, value ? 'true' : 'false')
+}
+
+// ─── Appareil de confiance (FR31) ─────────────────────────────────────────────
+// appareilId présent, PIN configuré et numéro connu : la session du serveur (B53) permet de revenir par le PIN,
+// sans mot de passe, même si les jetons de l'app sont perdus. Ne crée jamais d'appareilId.
+export function appareilDeConfiance(): boolean {
+  try {
+    return !!localStorage.getItem(APPAREIL_KEY) && getPinConfigured() === true && !!getUserPhone()
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Renouvellement impossible : jetons inutilisables effacés.
+ * Appareil de confiance : numéro et PIN gardés, retour à l'écran PIN (`/pin`) ; sinon tout est effacé
+ * (l'appareilId reste) et la connexion complète est demandée (`/login`). Renvoie l'écran où aller.
+ */
+export function oublierSessionPerdue(): '/pin' | '/login' {
+  if (appareilDeConfiance()) {
+    clearTokens()
+    localStorage.removeItem(VERROU_KEY)
+    return '/pin'
+  }
+  clearAll()
+  return '/login'
 }
 
 // ─── Effacement complet (logout) ──────────────────────────────────────────────

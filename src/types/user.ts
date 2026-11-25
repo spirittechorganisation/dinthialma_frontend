@@ -74,6 +74,8 @@ export interface LoginRequest {
   password: string
   clientType: 'WEB' | 'MOBILE'
   deviceInfo?: string
+  /** B53 : identifiant stable de l'appareil (session longue de confiance) */
+  appareilId?: string
 }
 
 // ─── Réponse login (Keycloak snake_case) ─────────────────────────────────────
@@ -92,10 +94,15 @@ export interface PinLoginRequest {
   pin: string
   clientType: 'WEB' | 'MOBILE'
   deviceInfo?: string
+  /** B53 : seule la session de CET appareil est rejouée */
+  appareilId?: string
 }
 
 export interface LogoutRequest {
   refreshToken: string
+  clientType?: 'WEB' | 'MOBILE'
+  /** B53 : déconnexion complète de cet appareil (révoque sa session de confiance) */
+  appareilId?: string
 }
 
 export interface RefreshTokenRequest {
@@ -121,6 +128,8 @@ export interface RegisterCompleteRequest {
   /** B13 : permet la connexion automatique après inscription */
   clientType?: 'WEB' | 'MOBILE'
   deviceInfo?: string
+  /** B53 : identifiant stable de l'appareil */
+  appareilId?: string
 }
 
 // ─── Reset mot de passe ───────────────────────────────────────────────────────
@@ -134,6 +143,17 @@ export interface ResetPasswordRequest {
 export interface PinSetupRequest {
   pin: string
   confirmPin: string
+  /** B53 : avec le mot de passe, cet appareil devient de confiance dès la création du PIN */
+  motDePasse?: string
+  appareilId?: string
+  clientType?: 'WEB' | 'MOBILE'
+  deviceInfo?: string
+}
+
+/** Réponse de `pin/setup` (B53) */
+export interface PinSetupResponse {
+  /** true : cet appareil est de confiance, le PIN suffira pendant des mois */
+  confiance?: boolean
 }
 
 export interface PinResetRequest {
