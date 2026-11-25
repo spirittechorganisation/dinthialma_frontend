@@ -20,7 +20,10 @@ export const queryClient = new QueryClient({
       refetchOnWindowFocus: false,
     },
     mutations: {
-      retry: 1,
+      // FR31 : jamais de renvoi automatique d'une écriture. Un POST qui échoue sur le réseau a pu arriver au
+      // serveur : le renvoyer doublerait un encaissement ou un retrait (pas de protection contre les doublons).
+      // L'utilisateur voit l'erreur et décide lui-même de recommencer.
+      retry: 0,
     },
   },
 })
