@@ -1,5 +1,5 @@
   import axios, { AxiosInstance, AxiosError } from 'axios'
-import { getAccessToken, getRefreshToken, setTokens, clearAll, isTokenExpired } from '@/lib/tokenStorage'
+import { getAccessToken, getRefreshToken, setTokens, isTokenExpired, oublierSessionPerdue } from '@/lib/tokenStorage'
 import { avecVerrouOnglets, VERROU_RENOUVELLEMENT } from '@/lib/verrouOnglets'
 import { ApiError } from '@/types/common'
 
@@ -61,12 +61,15 @@ export function renouvelerJetons(): Promise<string> {
   return renouvellement
 }
 
-/** Session perdue : efface tout et part sur /login, une seule fois même si plusieurs requêtes échouent */
+/**
+ * Session perdue, une seule redirection même si plusieurs requêtes échouent.
+ * Appareil de confiance (FR31) : numéro et PIN gardés, écran PIN ; sinon tout est effacé et /login.
+ */
 function sessionPerdue() {
-  clearAll()
+  const ecran = oublierSessionPerdue()
   if (redirectionLogin) return
   redirectionLogin = true
-  window.location.href = '/login'
+  window.location.href = ecran
 }
 
 // Rôle insuffisant = 403 (code FORBIDDEN) : jamais de déconnexion. Seul un 401 tente un refresh.

@@ -1,6 +1,6 @@
 import { Navigate, useLocation } from 'react-router-dom'
 import { ReactNode, useEffect, useState } from 'react'
-import { getAccessToken, getRefreshToken, isTokenExpired, sessionVerrouillee, clearTokens } from '@/lib/tokenStorage'
+import { getAccessToken, getRefreshToken, isTokenExpired, sessionVerrouillee, appareilDeConfiance, oublierSessionPerdue } from '@/lib/tokenStorage'
 import { memoriserRetour } from '@/lib/retour'
 import { useAuth } from '@/hooks/useAuth'
 import { Spinner } from '@/components/ui/Spinner'
@@ -10,6 +10,8 @@ interface ProtectedRouteProps {
 }
 
 type Etat = 'ok' | 'renouvellement' | 'perdue'
+/** Écran de reconnexion : PIN pour un appareil de confiance (FR31), sinon connexion complète */
+const ecranReconnexion = () => (appareilDeConfiance() ? '/pin' : '/login')
 
 /**
  * Le jeton d'accès Keycloak dure 5 minutes. Expiré au chargement de la page (rechargement, reprise après
@@ -27,14 +29,15 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const location = useLocation()
   const { refreshSession } = useAuth()
   const [etat, setEtat] = useState<Etat>(etatInitial)
+  const [ecran, setEcran] = useState<'/pin' | '/login'>(ecranReconnexion)
 
   useEffect(() => {
     if (etat !== 'renouvellement') return
     let actif = true
     refreshSession().then((ok) => {
       if (!actif) return
-      // Refresh refusé (session Keycloak expirée) : jetons inutilisables effacés, connexion demandée
-      if (!ok) clearTokens()
+      // Refresh refusé : jetons inutilisables effacés ; appareil de confiance → écran PIN, sinon connexion complète
+      if (!ok) setEcran(oublierSessionPerdue())
       setEtat(ok ? 'ok' : 'perdue')
     })
     return () => { actif = false }
@@ -51,7 +54,7 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   if (etat === 'perdue') {
     // Sauvegarde la page demandée pour y revenir après la connexion (même via le code secret)
     memoriserRetour(`${location.pathname}${location.search}`)
-    return <Navigate to="/login" state={{ from: location }} replace />
+    return <Navigate to={ecran} state={{ from: location }} replace />
   }
 
   return <>{children}</>

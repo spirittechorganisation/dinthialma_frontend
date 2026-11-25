@@ -10,11 +10,14 @@ import { API, ok, erreur } from '@/test/msw/api'
 import { server } from '@/test/msw/server'
 import { connecter, creerJwt } from '@/test/auth'
 import { UserRole } from '@/types/common'
-import { getRefreshToken, setTokens } from '@/lib/tokenStorage'
+import { getPinConfigured, getRefreshToken, getUserPhone, setTokens } from '@/lib/tokenStorage'
+import { APPAREIL_KEY } from '@/lib/appareil'
 
 let api: AxiosInstance
 let refreshs: { refreshToken: string }[]
 let redirections: number
+/** Affectations de window.location.href, dans l'ordre */
+let destinations: string[]
 
 /** Verrou exclusif, partagé comme entre deux onglets ; `avant` simule ce qu'un autre onglet fait pendant l'attente */
 function verrouPartage(avant?: () => void) {
@@ -37,11 +40,12 @@ beforeEach(async () => {
   api = (await import('./api')).default
   refreshs = []
   redirections = 0
+  destinations = []
   let href = 'http://localhost/'
   Object.defineProperty(window.location, 'href', {
     configurable: true,
     get: () => href,
-    set: (v: string) => { href = v; if (v === '/login') redirections++ },
+    set: (v: string) => { href = v; destinations.push(v); if (v === '/login') redirections++ },
   })
 })
 
@@ -141,6 +145,22 @@ describe('FR31 api — rotation des refresh tokens', () => {
     expect(refreshs).toHaveLength(0)
     expect(redirections).toBe(0)
     expect(getRefreshToken()).toBe('refresh-test')
+  })
+
+  it('appareil de confiance, refresh refusé : écran PIN, numéro et PIN gardés (une seule redirection)', async () => {
+    connecter([UserRole.MEMBER], { expiresIn: -60 })
+    localStorage.setItem(APPAREIL_KEY, 'appareil-12345678')
+    installerVerrous(verrouPartage())
+    server.use(http.post(`${API}/v1/auth/refresh`, async () => { await delay(10); return erreur(401, 'SESSION_EXPIRED', 'Session expirée') }))
+    protegee(() => 'inutile')
+
+    await Promise.allSettled([api.get('/v1/me'), api.get('/v1/me')])
+
+    expect(destinations).toEqual(['/pin'])
+    expect(getRefreshToken()).toBeNull()
+    expect(getUserPhone()).toBe('221700000001')
+    expect(getPinConfigured()).toBe(true)
+    expect(localStorage.getItem(APPAREIL_KEY)).toBe('appareil-12345678')
   })
 
   it('refresh refusé (session fermée) : une seule redirection vers /login', async () => {
