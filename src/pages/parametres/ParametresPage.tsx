@@ -27,6 +27,10 @@ import { formatDateHeure } from '@/lib/format'
 import { clearAll } from '@/lib/tokenStorage'
 import { formatPhoneLocal, toLocalPhone } from '@/lib/phone'
 import { messageErreur } from '@/lib/apiError'
+import { getAppareilId } from '@/lib/appareil'
+import { erreurOtp, compteARebours, finAttente } from '@/lib/securite'
+import { useCompteARebours } from '@/hooks/useCompteARebours'
+import type { SessionAppareil } from '@/services/securiteService'
 import { jeCotise, jeGere } from '@/types/me'
 import pkg from '../../../package.json'
 
@@ -189,8 +193,8 @@ export function ParametresPage() {
             <span className="text-sm text-neutral-600">Vous reviendrez avec votre code secret.</span>
           </button>
           <button onClick={() => logoutComplet()} className="w-full rounded-2xl border-2 border-red-200 p-4 text-left">
-            <b className="block text-red-700">Oublier cet appareil</b>
-            <span className="text-sm text-neutral-600">Recommandé sur un téléphone partagé. Il faudra votre mot de passe.</span>
+            <b className="block text-red-700">Se déconnecter de cet appareil</b>
+            <span className="text-sm text-neutral-600">Recommandé sur un téléphone partagé : le code secret ne fonctionnera plus ici, il faudra votre mot de passe.</span>
           </button>
         </div>
       </Modal>
@@ -245,6 +249,9 @@ function NumeroSheet({ onClose, online }: { onClose: () => void; online: boolean
   const [code, setCode] = useState('')
   const [chargement, setChargement] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
+  // OTP_RATE_LIMITED (SE07) : nouvel envoi impossible jusqu'à cette date
+  const [envoiJusqua, setEnvoiJusqua] = useState<number | null>(null)
+  const attenteEnvoi = useCompteARebours(envoiJusqua)
   const local = toLocalPhone(numero)
   const e164 = `+221${local}`
 
@@ -255,7 +262,9 @@ function NumeroSheet({ onClose, online }: { onClose: () => void; online: boolean
       await userService.requestPhoneChange({ newPhone: e164 })
       setEtape(2)
     } catch (err) {
-      setErreur(messageErreur(err, "Impossible d'envoyer le code."))
+      const e = erreurOtp(err, "Impossible d'envoyer le code.")
+      if (e.attente) setEnvoiJusqua(finAttente(e.attente))
+      setErreur(e.texte)
     } finally { setChargement(false) }
   }
   const verifier = async () => {
@@ -266,8 +275,11 @@ function NumeroSheet({ onClose, online }: { onClose: () => void; online: boolean
       toast.success('Numéro modifié — reconnectez-vous avec le nouveau numéro')
       clearAll()
       setTimeout(() => { window.location.href = '/login' }, 1200)
-    } catch {
-      setErreur('Code incorrect ou expiré.')
+    } catch (err) {
+      // OTP_TOO_MANY_ATTEMPTS : ce code ne marche plus, il faut en redemander un
+      const e = erreurOtp(err)
+      setErreur(e.nouveauCode ? e.texte : 'Code incorrect ou expiré.')
+      if (e.nouveauCode) { setEtape(1); setCode('') }
       setChargement(false)
     }
   }
@@ -282,8 +294,8 @@ function NumeroSheet({ onClose, online }: { onClose: () => void; online: boolean
             <input value={numero} onChange={(e) => setNumero(e.target.value.replace(/[^\d ]/g, ''))} inputMode="tel" autoComplete="tel" placeholder="77 123 45 67" className="flex-1 h-12 px-4 rounded-2xl bg-neutral-100 text-[16px] outline-none focus:ring-2 focus:ring-primary-600" />
           </div>
           {erreur && <p role="alert" className="text-sm text-red-700">{erreur}</p>}
-          <button onClick={envoyer} disabled={chargement || !online} className="w-full h-14 rounded-full bg-primary-700 text-white text-[17px] font-bold disabled:opacity-50">
-            {chargement ? 'Envoi…' : 'Recevoir le code'}
+          <button onClick={envoyer} disabled={chargement || !online || attenteEnvoi > 0} className="w-full h-14 rounded-full bg-primary-700 text-white text-[17px] font-bold disabled:opacity-50">
+            {chargement ? 'Envoi…' : attenteEnvoi > 0 ? `Nouveau code dans ${compteARebours(attenteEnvoi)}` : 'Recevoir le code'}
           </button>
         </div>
       ) : (
@@ -343,56 +355,88 @@ function MotDePasseSheet({ onClose, online }: { onClose: () => void; online: boo
   )
 }
 
+/**
+ * Appareils connectés (B20, B53) : « Cet appareil » repéré par `appareilId` (ou `courante`), badge
+ * « Appareil de confiance », dernière utilisation. Déconnecter un autre appareil y coupe le code secret.
+ */
 function SessionsSheet({ onClose, online }: { onClose: () => void; online: boolean }) {
   const qc = useQueryClient()
+  const monAppareil = getAppareilId()
+  const [aRevoquer, setARevoquer] = useState<SessionAppareil | null>(null)
   const { data, isLoading, isError, refetch } = useQuery({ queryKey: ['me', 'sessions'], queryFn: () => securiteService.listSessions() })
-  const { mutate: revoquer, isPending, variables } = useMutation({
+  const estCetAppareil = (s: SessionAppareil) => s.courante || (!!s.appareilId && s.appareilId === monAppareil)
+  const { mutate: revoquer, isPending } = useMutation({
     mutationFn: (id: string) => securiteService.revoquerSession(id),
     onSuccess: (_, id) => {
-      const courante = data?.find((s) => s.id === id)?.courante
-      if (courante) {
-        // Révoquer la session courante = se déconnecter : on vide l'état local
+      const session = data?.find((s) => s.id === id)
+      if (session && estCetAppareil(session)) {
+        // Révoquer cet appareil = se déconnecter : on vide l'état local (l'appareilId est gardé)
         clearAll()
         window.location.href = '/login'
         return
       }
+      setARevoquer(null)
       qc.invalidateQueries({ queryKey: ['me', 'sessions'] })
       toast.success('Appareil déconnecté')
     },
     onError: (err) => toast.error(messageErreur(err, 'La déconnexion a échoué.')),
   })
+  const nomAppareil = (s: SessionAppareil) => s.deviceInfo || (s.clientType === 'MOBILE' ? 'Application' : 'Navigateur')
+  const derniere = (s: SessionAppareil) => s.derniereUtilisation ?? s.derniereActivite
 
   return (
     <Modal isOpen onClose={onClose} title="Appareils connectés" size="sm">
-      <p className="text-sm text-neutral-600">Une seule session par type d'appareil (web, application) : une nouvelle connexion remplace l'ancienne.</p>
+      <p className="text-sm text-neutral-600">Sur un appareil de confiance, votre code secret suffit pour vous connecter, sans mot de passe.</p>
       {isLoading ? (
         <div className="mt-3 space-y-2" aria-busy="true">{[0, 1].map((i) => <div key={i} className="h-16 rounded-2xl bg-neutral-100 animate-pulse" />)}</div>
       ) : isError ? (
         <button onClick={() => refetch()} className="mt-3 h-11 px-4 rounded-full bg-neutral-100 text-sm font-semibold">Réessayer</button>
       ) : (
         <ul className="mt-3 space-y-2">
-          {(data ?? []).map((s) => (
-            <li key={s.id} className="flex items-center gap-3 rounded-2xl border border-neutral-200 px-3 py-3">
-              <span className="min-w-0 flex-1">
-                <span className="block font-semibold text-neutral-900 truncate">{s.deviceInfo || (s.clientType === 'MOBILE' ? 'Application' : 'Navigateur')}</span>
-                <span className="block text-xs text-neutral-500">
-                  {s.clientType === 'MOBILE' ? 'Application' : 'Web'}
-                  {s.courante ? ' · cet appareil' : ''}
-                  {s.expiree ? ' · expirée' : s.derniereActivite ? ` · actif ${formatDateHeure(s.derniereActivite)}` : ''}
+          {(data ?? []).map((s) => {
+            const ici = estCetAppareil(s)
+            return (
+              <li key={s.id} className={clsx('flex items-center gap-3 rounded-2xl border px-3 py-3', ici ? 'border-primary-200 bg-primary-50/40' : 'border-neutral-200')}>
+                <span className="min-w-0 flex-1">
+                  <span className="block font-semibold text-neutral-900 truncate">{nomAppareil(s)}</span>
+                  <span className="mt-0.5 flex flex-wrap gap-1">
+                    {ici && <span className="rounded-full bg-primary-100 px-2 py-0.5 text-[11px] font-semibold text-primary-800">Cet appareil</span>}
+                    {s.confiance && <span className="rounded-full bg-sky-50 px-2 py-0.5 text-[11px] font-semibold text-sky-800">Appareil de confiance</span>}
+                  </span>
+                  <span className="block text-xs text-neutral-500">
+                    {s.expiree ? 'Session expirée' : derniere(s) ? `Utilisé le ${formatDateHeure(derniere(s))}` : ''}
+                  </span>
                 </span>
-              </span>
-              <button
-                onClick={() => revoquer(s.id)}
-                disabled={!online || (isPending && variables === s.id)}
-                className="h-9 px-3 rounded-full text-xs font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50"
-              >
-                {s.courante ? 'Me déconnecter' : 'Déconnecter'}
-              </button>
-            </li>
-          ))}
+                <button
+                  onClick={() => (ici ? revoquer(s.id) : setARevoquer(s))}
+                  disabled={!online || isPending}
+                  className="h-9 px-3 rounded-full text-xs font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50"
+                >
+                  {ici ? 'Me déconnecter' : 'Déconnecter'}
+                </button>
+              </li>
+            )
+          })}
           {(data ?? []).length === 0 && <li className="text-sm text-neutral-500">Aucune session active.</li>}
         </ul>
       )}
+
+      <Modal isOpen={!!aRevoquer} onClose={() => setARevoquer(null)} title="Déconnecter cet appareil ?" size="sm">
+        {aRevoquer && (
+          <>
+            <p className="text-neutral-600">
+              « {nomAppareil(aRevoquer)} » sera déconnecté{aRevoquer.confiance ? ' et ne sera plus un appareil de confiance' : ''} :
+              le code secret n’y fonctionnera plus, il faudra se reconnecter avec le mot de passe.
+            </p>
+            <div className="mt-5 grid grid-cols-2 gap-3">
+              <button onClick={() => setARevoquer(null)} className="h-12 rounded-full bg-neutral-100 font-semibold">Annuler</button>
+              <button onClick={() => revoquer(aRevoquer.id)} disabled={isPending || !online} className="h-12 rounded-full bg-red-600 text-white font-bold disabled:opacity-50">
+                {isPending ? '…' : 'Déconnecter'}
+              </button>
+            </div>
+          </>
+        )}
+      </Modal>
     </Modal>
   )
 }

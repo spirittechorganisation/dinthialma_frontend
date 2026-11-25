@@ -6,14 +6,16 @@ import {
   storeSession, clearAccessToken,
   getAuthUser, isTokenExpired,
   setPinConfigured, detectClientType,
-  getRefreshToken, getClientType, clearAll, verrouillerSession,
+  getRefreshToken, getClientType, clearAll, verrouillerSession, setTokens, getUserPhone,
 } from '@/lib/tokenStorage'
 import { describeDevice } from '@/lib/device'
+import { getAppareilId } from '@/lib/appareil'
 import api, { renouvelerJetons } from '@/services/api'
 
 interface ExtendedAuthContextType extends AuthContextType {
   loginWithPin: (phone: string, pin: string) => Promise<AuthUser | null>
-  setupPin: (pin: string, confirmPin: string) => Promise<void>
+  /** B53 : avec le mot de passe, l'appareil devient de confiance (`true` renvoyé) */
+  setupPin: (pin: string, confirmPin: string, motDePasse?: string) => Promise<boolean>
   /**
    * Renouvelle les jetons sans reconnexion (ex. : rôle gestionnaire obtenu après création d'une
    * tontine — B12). Renvoie false si le renouvellement échoue ; la session en cours reste valable.
@@ -49,6 +51,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         password,
         clientType: detectClientType(),
         deviceInfo: describeDevice(),
+        appareilId: getAppareilId(),
       })
 
       const { access_token, refresh_token, pin_configured: pinConfigured } = data.data
@@ -77,6 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           pin,
           clientType: detectClientType(),
           deviceInfo: describeDevice(),
+          appareilId: getAppareilId(),
         }
       )
       const { access_token, refresh_token } = data.data
@@ -90,9 +94,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   // ─── Setup PIN ─────────────────────────────────────────────────────────────
-  const setupPin = useCallback(async (pin: string, confirmPin: string): Promise<void> => {
-    await api.post('/v1/auth/pin/setup', { pin, confirmPin })
+  // B53 : avec le mot de passe, le backend ouvre une nouvelle session hors ligne pour cet appareil et révoque
+  // celle du jeton reçu à la connexion, sans renvoyer de jetons. Le front se reconnecte donc aussitôt avec le PIN
+  // qui vient d'être créé, sinon le prochain renouvellement échouerait et déconnecterait l'utilisateur.
+  const setupPin = useCallback(async (pin: string, confirmPin: string, motDePasse?: string): Promise<boolean> => {
+    const { data } = await api.post<{ data?: { confiance?: boolean; access_token?: string; refresh_token?: string } | null }>('/v1/auth/pin/setup', {
+      pin,
+      confirmPin,
+      ...(motDePasse ? { motDePasse } : {}),
+      appareilId: getAppareilId(),
+      clientType: detectClientType(),
+      deviceInfo: describeDevice(),
+    })
     setPinConfigured(true)
+    const reponse = data?.data
+    const confiance = !!reponse?.confiance
+    if (reponse?.access_token && reponse.refresh_token) {
+      setTokens(reponse.access_token, reponse.refresh_token)
+      setUser(getAuthUser(reponse.access_token))
+    } else if (confiance) {
+      const phone = getUserPhone()
+      if (phone) {
+        try {
+          const { data: pinData } = await api.post<{ data: { access_token: string; refresh_token: string } }>('/v1/auth/login-pin', {
+            phone, pin, clientType: detectClientType(), deviceInfo: describeDevice(), appareilId: getAppareilId(),
+          })
+          setTokens(pinData.data.access_token, pinData.data.refresh_token)
+          setUser(getAuthUser(pinData.data.access_token))
+        } catch { /* le PIN est créé ; au pire, le prochain renouvellement renverra vers la connexion */ }
+      }
+    }
+    return confiance
   }, [])
 
   // ─── Renouvellement silencieux ─────────────────────────────────────────────
@@ -118,7 +150,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logoutComplet = useCallback(async (): Promise<void> => {
     const refreshToken = getRefreshToken()
     try {
-      if (refreshToken) await api.post('/v1/auth/logout', { refreshToken, clientType: getClientType() })
+      // B53 : révoque la session de confiance de cet appareil ; l'appareilId est gardé (clearAll n'y touche pas)
+      if (refreshToken) await api.post('/v1/auth/logout', { refreshToken, clientType: getClientType(), appareilId: getAppareilId() })
     } catch { /* non bloquant */ }
     clearAll()
     setUser(null)
