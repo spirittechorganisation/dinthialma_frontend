@@ -3,12 +3,14 @@ import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { LogOut, Lock } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
-import { getUserPhone, clearAll, getRefreshToken, getClientType } from '@/lib/tokenStorage'
+import { getUserPhone, clearAll, clearTokens, getRefreshToken, getClientType, setPinConfigured } from '@/lib/tokenStorage'
+import { getAppareilId } from '@/lib/appareil'
+import { actionPin, compteARebours, finAttente } from '@/lib/securite'
+import { useCompteARebours } from '@/hooks/useCompteARebours'
 import { PinScreen, PIN_LENGTH } from '@/components/auth/PinPad'
 import { UserRole } from '@/types/common'
 import { getHomePath } from '@/lib/homePath'
 import { consommerRetour } from '@/lib/retour'
-import { parseApiError, messageErreur } from '@/lib/apiError'
 import api from '@/services/api'
 
 export function PinLoginPage() {
@@ -19,6 +21,9 @@ export function PinLoginPage() {
   const [pin, setPin] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [shake, setShake] = useState(false)
+  // PIN_LOCKED (SE07) : clavier bloqué jusqu'à cette date, compte à rebours affiché
+  const [verrouJusqua, setVerrouJusqua] = useState<number | null>(null)
+  const attente = useCompteARebours(verrouJusqua)
 
   const redirectAfterLogin = (roles: UserRole[]) => {
     navigate(consommerRetour() ?? getHomePath(roles), { replace: true })
@@ -33,7 +38,7 @@ export function PinLoginPage() {
   }, [phone])
 
   const handleKey = async (key: string) => {
-    if (isLoading) return
+    if (isLoading || attente > 0) return
     if (key === 'del') { setPin((p) => p.slice(0, -1)); return }
     if (pin.length >= PIN_LENGTH) return
 
@@ -50,28 +55,36 @@ export function PinLoginPage() {
         setShake(true)
         setTimeout(() => setShake(false), 500)
 
-        const { code, retryAfterSeconds } = parseApiError(err)
-        switch (code) {
-          case 'PIN_SESSION_EXPIRED':
-          case 'SESSION_EXPIRED':
-          case 'NOT_FOUND':
-          case 'PIN_NOT_CONFIGURED':
-            // Plus de session PIN (ou pas de PIN) : connexion complète par mot de passe
-            clearAll()
-            toast.error(messageErreur(err, 'Reconnectez-vous avec votre mot de passe.'))
-            navigate('/login', { replace: true })
+        // FR31 (B53, SE07) : action selon le code ; le numéro reste mémorisé pour la connexion par mot de passe
+        const action = actionPin(err)
+        switch (action.type) {
+          case 'motDePasse':
+            // Plus de session pour cet appareil (utilisateur d'avant B53, session révoquée) : une fois le mot
+            // de passe, l'appareil devient de confiance et le PIN suffit ensuite
+            clearTokens()
+            navigate('/login', { replace: true, state: { raison: 'pin-session' } })
             break
-          case 'PIN_EXPIRED':
-            toast.error(messageErreur(err))
+          case 'desactive':
+            clearTokens()
+            setPinConfigured(false)
+            toast.error(action.texte)
+            navigate('/login', { replace: true, state: { raison: 'pin-desactive' } })
+            break
+          case 'creerPin':
+            clearTokens()
+            setPinConfigured(false)
+            navigate('/login', { replace: true, state: { raison: 'pin-absent' } })
+            break
+          case 'reinitialiser':
+            toast.error(action.texte)
             navigate('/pin/reset', { replace: true })
             break
-          case 'PIN_LOCKED': {
-            const min = retryAfterSeconds ? Math.ceil(retryAfterSeconds / 60) : null
-            toast.error(min ? `Code verrouillé. Réessayez dans ${min} min.` : 'Code verrouillé. Réessayez plus tard.')
+          case 'verrouille':
+            setVerrouJusqua(finAttente(action.retryAfterSeconds ?? 900))
+            toast.error(action.texte)
             break
-          }
           default:
-            toast.error(messageErreur(err, 'Code secret incorrect.'))
+            toast.error(action.texte)
         }
       } finally {
         setIsLoading(false)
@@ -85,7 +98,8 @@ export function PinLoginPage() {
     const refreshToken = getRefreshToken()
     const clientType   = getClientType()
     try {
-      if (refreshToken) await api.post('/v1/auth/logout', { refreshToken, clientType })
+      // B53 : révoque la session de confiance de cet appareil ; l'appareilId est gardé
+      if (refreshToken) await api.post('/v1/auth/logout', { refreshToken, clientType, appareilId: getAppareilId() })
     } catch { /* non bloquant */ } finally {
       clearAll()
       navigate('/login', { replace: true })
@@ -98,8 +112,8 @@ export function PinLoginPage() {
 
   return (
     <PinScreen
-      title="Bon retour"
-      subtitle={displayPhone}
+      title={attente > 0 ? 'Code verrouillé' : 'Bon retour'}
+      subtitle={attente > 0 ? <span role="status">Trop d’essais. Réessayez dans {compteARebours(attente)}</span> : displayPhone}
       badge={
         <span className="w-16 h-16 rounded-full bg-white/15 ring-2 ring-white/25 lg:bg-primary-50 lg:ring-primary-100 flex items-center justify-center text-white lg:text-primary-700">
           <Lock size={26} />

@@ -19,6 +19,7 @@ import { getHomePath } from '@/lib/homePath'
 import { consommerRetour } from '@/lib/retour'
 import { getUserPhone } from '@/lib/tokenStorage'
 import { parseApiError, messageErreur } from '@/lib/apiError'
+import { TEXTE_RECONNEXION } from '@/lib/securite'
 import { Button } from '@/components/ui/Button'
 import { AuthShell, AuthAlert } from '@/components/auth/AuthShell'
 
@@ -60,7 +61,15 @@ export function LoginPage() {
   const champNumero = useRef<HTMLInputElement>(null)
   const champMotDePasse = useRef<HTMLInputElement>(null)
 
-  const state = location.state as { registered?: boolean; passwordReset?: boolean } | null
+  const state = location.state as { registered?: boolean; passwordReset?: boolean; raison?: 'pin-session' | 'pin-desactive' | 'pin-absent' } | null
+  // FR31 : venu de l'écran PIN (B53) ; une connexion par mot de passe rend cet appareil de confiance
+  const info = state?.raison === 'pin-session'
+    ? TEXTE_RECONNEXION
+    : state?.raison === 'pin-desactive'
+      ? 'Votre code secret a été désactivé après trop d’essais. Connectez-vous avec votre mot de passe pour en créer un nouveau.'
+      : state?.raison === 'pin-absent'
+        ? 'Connectez-vous avec votre mot de passe pour créer votre code secret.'
+        : null
   const succes = state?.registered
     ? 'Compte créé avec succès ! Connectez-vous.'
     : state?.passwordReset
@@ -163,6 +172,7 @@ export function LoginPage() {
       <AuthShell title="Bon retour" subtitle="Entrez votre numéro de téléphone." footer={lienInscription}>
         <div key="numero" className={sens === 'avant' ? 'animate-stepIn' : 'animate-stepBack'}>
           {succes && <div className="mb-4"><AuthAlert tone="success">{succes}</AuthAlert></div>}
+          {info && <div className="mb-4"><AuthAlert tone="info">{info}</AuthAlert></div>}
           <form onSubmit={continuer} noValidate>
             <label htmlFor="login-numero" className="sr-only">Numéro de téléphone</label>
             <div className="flex items-center h-16 rounded-2xl bg-neutral-100 border-2 border-transparent focus-within:border-primary-600 focus-within:bg-white transition-colors">
@@ -199,6 +209,7 @@ export function LoginPage() {
     >
       <div key="motdepasse" className={sens === 'avant' ? 'animate-stepIn' : 'animate-stepBack'}>
         {succes && <div className="mb-4"><AuthAlert tone="success">{succes}</AuthAlert></div>}
+        {info && <div className="mb-4"><AuthAlert tone="info">{info}</AuthAlert></div>}
 
         {/* Numéro en pastille : toucher = revenir le modifier */}
         <div className="flex items-center gap-2 mb-5">

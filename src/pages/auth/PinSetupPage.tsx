@@ -1,13 +1,23 @@
+/**
+ * Création du code secret : 6 chiffres, confirmation, puis mot de passe (FR31, B53) pour que ce téléphone
+ * devienne un appareil de confiance : le PIN suffira ensuite pendant des mois, comme Wave ou Orange Money.
+ * Mot de passe faux (INVALID_CREDENTIALS) : on le redemande, le PIN n'est pas créé.
+ */
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
-import { ArrowRight, KeyRound, ShieldCheck } from 'lucide-react'
+import { clsx } from 'clsx'
+import { ArrowRight, Eye, EyeOff, KeyRound, ShieldCheck } from 'lucide-react'
 import { PinScreen, PIN_LENGTH } from '@/components/auth/PinPad'
+import { AuthShell, AuthAlert } from '@/components/auth/AuthShell'
+import { Button } from '@/components/ui/Button'
+import { motDePasseRefuse } from '@/lib/securite'
+import { messageErreur } from '@/lib/apiError'
 import { useAuth } from '@/hooks/useAuth'
 import { getHomePath } from '@/lib/homePath'
 import { consommerRetour } from '@/lib/retour'
 
-type SetupStep = 'create' | 'confirm'
+type SetupStep = 'create' | 'confirm' | 'password'
 
 export function PinSetupPage() {
   const navigate = useNavigate()
@@ -18,6 +28,9 @@ export function PinSetupPage() {
   const [pin, setPin] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState(false)
+  const [motDePasse, setMotDePasse] = useState('')
+  const [voirMotDePasse, setVoirMotDePasse] = useState(false)
+  const [erreurMotDePasse, setErreurMotDePasse] = useState<string | null>(null)
 
   const redirectAfterLogin = () => {
     if (!user) { navigate('/login', { replace: true }); return }
@@ -47,22 +60,78 @@ export function PinSetupPage() {
       return
     }
 
+    // PIN confirmé : il reste le mot de passe, pour que cet appareil devienne de confiance
+    setStep('password')
+  }
+
+  const recommencer = () => { setPin(''); setFirstPin(''); setMotDePasse(''); setErreurMotDePasse(null); setStep('create') }
+
+  const enregistrer = async (ev: React.FormEvent) => {
+    ev.preventDefault()
+    if (isLoading || !motDePasse) return
+    setErreurMotDePasse(null)
     setIsLoading(true)
     try {
-      await setupPin(next, next)
-      toast.success('PIN configuré avec succès !')
+      await setupPin(pin, pin, motDePasse)
+      toast.success('Code secret créé : ce téléphone se souviendra de vous.')
       redirectAfterLogin()
-    } catch {
-      toast.error('Erreur lors de la configuration. Réessayez.')
-      setPin('')
-      setStep('create')
-      setFirstPin('')
+    } catch (err) {
+      if (motDePasseRefuse(err)) {
+        setErreurMotDePasse('Mot de passe incorrect. Votre code secret n’a pas encore été créé.')
+        setMotDePasse('')
+      } else {
+        toast.error(messageErreur(err, 'Erreur lors de la configuration. Réessayez.'))
+        recommencer()
+      }
     } finally {
       setIsLoading(false)
     }
   }
 
   const handleSkip = () => redirectAfterLogin()
+
+  if (step === 'password') {
+    return (
+      <AuthShell title="Dernière étape" subtitle="Confirmez votre mot de passe pour que ce téléphone se souvienne de vous.">
+        <form onSubmit={enregistrer} noValidate className="space-y-4">
+          <AuthAlert tone="info">Ensuite, votre code secret suffira pour vous connecter sur ce téléphone, pendant des mois.</AuthAlert>
+          <label htmlFor="pin-mdp" className="sr-only">Mot de passe</label>
+          <div className={clsx(
+            'flex items-center h-16 rounded-2xl border-2 transition-colors',
+            erreurMotDePasse ? 'border-red-300 bg-red-50/40' : 'bg-neutral-100 border-transparent focus-within:border-primary-600 focus-within:bg-white',
+          )}>
+            <input
+              id="pin-mdp"
+              autoFocus
+              type={voirMotDePasse ? 'text' : 'password'}
+              autoComplete="current-password"
+              placeholder="Mot de passe"
+              value={motDePasse}
+              onChange={(e) => { setMotDePasse(e.target.value); if (erreurMotDePasse) setErreurMotDePasse(null) }}
+              aria-invalid={!!erreurMotDePasse}
+              aria-describedby={erreurMotDePasse ? 'pin-mdp-erreur' : undefined}
+              className="flex-1 min-w-0 h-full bg-transparent pl-4 text-[18px] text-neutral-900 placeholder:text-neutral-400 outline-none"
+            />
+            <button
+              type="button"
+              onClick={() => setVoirMotDePasse((v) => !v)}
+              className="w-12 h-12 mr-1 rounded-full flex items-center justify-center text-neutral-500 hover:bg-black/5"
+              aria-label={voirMotDePasse ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+            >
+              {voirMotDePasse ? <EyeOff size={20} /> : <Eye size={20} />}
+            </button>
+          </div>
+          {erreurMotDePasse && <p id="pin-mdp-erreur" role="alert" className="text-sm font-medium text-red-700">{erreurMotDePasse}</p>}
+          <Button type="submit" className="w-full" size="lg" loading={isLoading} disabled={!motDePasse}>
+            Créer mon code secret
+          </Button>
+          <button type="button" onClick={recommencer} className="w-full h-11 rounded-full text-sm text-neutral-500 hover:bg-neutral-100">
+            Choisir un autre code
+          </button>
+        </form>
+      </AuthShell>
+    )
+  }
 
   return (
     <PinScreen

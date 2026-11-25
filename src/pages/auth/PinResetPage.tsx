@@ -12,6 +12,8 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { PhoneInput } from '@/components/ui/PhoneInput'
 import { AuthShell, AuthSteps, AuthAlert } from '@/components/auth/AuthShell'
+import { RenvoyerCode } from '@/components/auth/RenvoyerCode'
+import { erreurOtp, finAttente } from '@/lib/securite'
 import { PinScreen, PIN_LENGTH } from '@/components/auth/PinPad'
 
 // ─── Schemas ──────────────────────────────────────────────────────────────────
@@ -39,6 +41,8 @@ export function PinResetPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [pinError, setPinError] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // OTP_RATE_LIMITED (SE07) : « Renvoyer le code » inactif jusqu'à cette date
+  const [renvoiJusqua, setRenvoiJusqua] = useState<number | null>(null)
 
   const form1 = useForm<Step1Data>({ resolver: zodResolver(step1Schema), defaultValues: { phone: storedPhone || '+221' } })
   const form2 = useForm<Step2Data>({ resolver: zodResolver(step2Schema) })
@@ -46,15 +50,25 @@ export function PinResetPage() {
   // Étape 1 — envoi OTP
   const onStep1 = async ({ phone: p }: Step1Data) => {
     setError(null)
-    try { await authService.sendPinResetOtp({ phone: p }) } catch { /* anti-énumération */ }
+    try { await authService.sendPinResetOtp({ phone: p }) } catch (err) {
+      // Anti-énumération : seule la limite d'envoi est montrée (elle vaut pour tout numéro)
+      const e = erreurOtp(err)
+      if (e.attente) { setRenvoiJusqua(finAttente(e.attente)); setError(e.texte) }
+    }
     setPhone(p)
     setStep('otp')
   }
 
   const resendOtp = async () => {
     setError(null)
-    try { await authService.sendPinResetOtp({ phone }) } catch { /* anti-énumération */ }
-    toast.success('Nouveau code envoyé')
+    try {
+      await authService.sendPinResetOtp({ phone })
+      toast.success('Nouveau code envoyé')
+    } catch (err) {
+      const e = erreurOtp(err)
+      if (e.attente) { setRenvoiJusqua(finAttente(e.attente)); setError(e.texte) }
+      else toast.success('Nouveau code envoyé')
+    }
   }
 
   // Étape 2 — vérification OTP
@@ -64,7 +78,10 @@ export function PinResetPage() {
       await authService.verifyPinResetOtp({ phone, code })
       setOtp(code)
       setStep('newpin')
-    } catch { setError('Code incorrect ou expiré.') }
+    } catch (err) {
+      const e = erreurOtp(err)
+      setError(e.nouveauCode ? e.texte : 'Code incorrect ou expiré.')
+    }
   }
 
   // Étapes 3 & 4 — saisie PIN via clavier
@@ -172,9 +189,7 @@ export function PinResetPage() {
           <Button type="submit" className="w-full" size="lg" loading={form2.formState.isSubmitting}>
             <Check size={18} /> Vérifier le code
           </Button>
-          <button type="button" onClick={resendOtp} className="w-full h-11 text-sm text-primary-700 font-semibold text-center hover:underline">
-            Renvoyer le code
-          </button>
+          <RenvoyerCode jusqua={renvoiJusqua} onClick={resendOtp} />
         </form>
       )}
     </AuthShell>

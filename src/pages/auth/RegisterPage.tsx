@@ -10,10 +10,13 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { PhoneInput } from '@/components/ui/PhoneInput'
 import { AuthShell, AuthSteps, AuthAlert } from '@/components/auth/AuthShell'
+import { RenvoyerCode } from '@/components/auth/RenvoyerCode'
+import { erreurOtp, finAttente } from '@/lib/securite'
 import { messageErreur } from '@/lib/apiError'
 import { describeDevice } from '@/lib/device'
 import { detectClientType } from '@/lib/tokenStorage'
 import { useAuth } from '@/hooks/useAuth'
+import { getAppareilId } from '@/lib/appareil'
 
 const step1Schema = z.object({
   phone: zPhone,
@@ -48,6 +51,8 @@ export function RegisterPage() {
   const [step, setStep] = useState<1 | 2 | 3>(1)
   const [phone, setPhone] = useState(preFillPhone)
   const [error, setError] = useState<string | null>(null)
+  // OTP_RATE_LIMITED (SE07) : « Renvoyer le code » inactif jusqu'à cette date
+  const [renvoiJusqua, setRenvoiJusqua] = useState<number | null>(null)
 
   const form1 = useForm<Step1Data>({ resolver: zodResolver(step1Schema), defaultValues: { phone: preFillPhone || '+221' } })
   const form2 = useForm<Step2Data>({ resolver: zodResolver(step2Schema) })
@@ -60,7 +65,9 @@ export function RegisterPage() {
       setPhone(p)
       setStep(2)
     } catch (err: unknown) {
-      setError(messageErreur(err, "Impossible d'envoyer le code. Vérifiez votre numéro."))
+      const e = erreurOtp(err, "Impossible d'envoyer le code. Vérifiez votre numéro.")
+      if (e.attente) setRenvoiJusqua(finAttente(e.attente))
+      setError(e.texte)
     }
   }
 
@@ -69,7 +76,11 @@ export function RegisterPage() {
     try {
       await authService.verifyRegisterOtp({ phone, code })
       setStep(3)
-    } catch { setError('Code incorrect ou expiré.') }
+    } catch (err) {
+      // OTP_TOO_MANY_ATTEMPTS : ce code ne marche plus, il faut en demander un nouveau
+      const e = erreurOtp(err)
+      setError(e.nouveauCode ? e.texte : 'Code incorrect ou expiré.')
+    }
   }
 
   const onStep3 = async ({ firstName, lastName, password, email }: Step3Data) => {
@@ -77,7 +88,7 @@ export function RegisterPage() {
     try {
       const result = await authService.registerComplete({
         phone, firstName, lastName, password, email: email || undefined,
-        clientType: detectClientType(), deviceInfo: describeDevice(),
+        clientType: detectClientType(), deviceInfo: describeDevice(), appareilId: getAppareilId(),
       })
       if (result.access_token && result.refresh_token) {
         // B13 : connexion automatique → création du code secret, sans repasser par la connexion
@@ -141,10 +152,7 @@ export function RegisterPage() {
           <Button type="submit" className="w-full" size="lg" loading={form2.formState.isSubmitting}>
             Vérifier le code
           </Button>
-          <button type="button" onClick={() => { setError(null); form1.handleSubmit(onStep1)() }}
-            className="w-full h-11 text-sm text-primary-700 font-semibold text-center hover:underline">
-            Renvoyer le code
-          </button>
+          <RenvoyerCode jusqua={renvoiJusqua} onClick={() => { setError(null); form1.handleSubmit(onStep1)() }} />
         </form>
       )}
 
