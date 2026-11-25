@@ -148,7 +148,7 @@ Sur iPhone, la PWA ajoutée à l'écran d'accueil a **un stockage séparé de Sa
 | `npm test` | ✅ 625 / 625 (62 fichiers, dont 72 nouveaux tests FR31) |
 | `npm run test:coverage` | ✅ 625 / 625. Seuil bloquant `src/lib/**` lignes ≥ 90 % : **98,57 %** (instructions 97,46 %, branches 93,63 %, fonctions 99,25 %). Global : lignes 56,06 % (50,31 % après FR29) |
 | `npm run build` | ✅ |
-| App réelle à 375 px | ✅ sauf les deux points marqués ⚠️ (section 3) et le retour à l'écran PIN de la section 7 (backend local indisponible au moment de la vérification) |
+| App réelle à 375 px | ✅ sauf les deux points marqués ⚠️ (section 3) ; retour à l'écran PIN de la section 7 vérifié le 25/11 |
 
 ## 7. Suite du 25/11 : décisions du responsable produit
 
@@ -174,7 +174,11 @@ Sur iPhone, la PWA ajoutée à l'écran d'accueil a **un stockage séparé de Sa
   - `src/lib/tokenStorage.fr31.test.ts` (8) : les cinq conditions, aucun `appareilId` créé, `/pin` avec numéro, PIN et `appareilId` gardés, `/login` sinon ;
   - `src/services/api.fr31.test.ts` (+1) : refresh refusé sur un appareil de confiance, une seule redirection vers `/pin` ;
   - `src/router/ProtectedRoute.fr31.test.tsx` (3) : refresh refusé → écran PIN ; déconnexion douce → écran PIN sans renouvellement ; sans `appareilId` → `/login` comme avant.
-- **Vérification dans l'app : non faite.** Le backend local a cessé de répondre pendant la vérification (404 sur `/v1/public/config`). À refaire au redémarrage : sur l'appareil de confiance, remplacer le refresh token stocké par une valeur invalide, expirer le jeton d'accès, puis recharger une page protégée. L'app doit afficher l'écran PIN, numéro affiché.
+- **Vérifié dans l'app à 375 px** (25/11, backend local relancé, Keycloak avec rotation) :
+  1. Connexion par mot de passe du compte de test : `appareilId` présent, PIN configuré, numéro connu, jeton `Offline`. C'est un appareil de confiance.
+  2. Refresh token stocké remplacé par une valeur invalide, jeton d'accès expiré, puis rechargement de `/encaisser`.
+  3. Résultat : **écran PIN** (`/pin`, « Bon retour », **+221 77 388 00 47** affiché). Le refresh token invalide est effacé ; le numéro, le PIN et l'`appareilId` sont gardés.
+  4. PIN `482913` : retour sur **`/accueil`**, nouveau jeton `Offline`, appel protégé `/v1/me/summary` → 200.
 
 ## 8. Messages de commit proposés
 
