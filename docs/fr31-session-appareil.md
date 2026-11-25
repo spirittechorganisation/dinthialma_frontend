@@ -81,7 +81,7 @@ Le rejeu dans la même seconde passe encore, car Keycloak date ses jetons à la 
 `src/lib/appareil.ts`, `src/lib/securite.ts`, `src/lib/verrouOnglets.ts`, `src/lib/apiError.ts` (`PIN_DISABLED`, `OTP_TOO_MANY_ATTEMPTS`), `src/services/api.ts`, `src/services/securiteService.ts`, `src/hooks/useAuth.tsx`, `src/hooks/useCompteARebours.ts`, `src/types/user.ts`, `src/components/auth/RenvoyerCode.tsx`, `src/pages/auth/{LoginPage,PinLoginPage,PinSetupPage,RegisterPage,ForgotPasswordPage,PinResetPage}.tsx`, `src/pages/parametres/ParametresPage.tsx`.
 
 ### Tests (57 nouveaux, aucun test `[caractérisation]` modifié)
-- Logique pure : `src/lib/appareil.fr31.test.ts` (9), `src/lib/securite.fr31.test.ts` (19), `src/lib/verrouOnglets.fr31.test.ts` (2).
+- Logique pure : `src/lib/appareil.fr31.test.ts` (9), `src/lib/securite.fr31.test.ts` (22), `src/lib/verrouOnglets.fr31.test.ts` (2).
 - `src/services/api.fr31.test.ts` (6) :
   - nouveau jeton enregistré avant le rejeu ;
   - autre onglet qui a renouvelé pendant l'attente du verrou (aucun refresh) ;
@@ -130,16 +130,13 @@ Sur iPhone, la PWA ajoutée à l'écran d'accueil a **un stockage séparé de Sa
 - **Explication la plus probable** : le backend local a été arrêté et relancé plusieurs fois ce jour-là. L'erreur demande deux échecs consécutifs (requête, puis le nouvel essai de React Query), ce qui colle à une indisponibilité passagère, pas à un jeton.
 - **Mécanisme voisin, observé en FR31** : quand Keycloak ferme la session (rejeu), les requêtes en cours finissent sur `/login` et une action en cours peut sembler bloquée. Avec FR31, ce cas ne se produit plus entre onglets.
 
-**Point annexe** : les mutations ont aussi `retry: 1`. Un `POST` qui échoue sur le réseau est renvoyé une fois, ce qui peut doubler un encaissement si la première requête était arrivée. Hors périmètre ; à trancher (`retry: 0` pour les mutations).
+**Point annexe, tranché le 25/11** : les mutations avaient `retry: 1`, et un `POST` qui échouait sur le réseau était renvoyé une fois. Cela pouvait doubler un encaissement ou un retrait (pas de protection contre les doublons). Passé à `retry: 0` (section 7).
 
 ## 6. Ce qui reste, et contrôles
 
 **Reste**
 - Backend : renvoyer les jetons dans la réponse de `pin/setup` (le front s'en sert déjà s'ils sont présents).
-- À décider : quand le renouvellement échoue sur un appareil de confiance, aller sur l'écran PIN plutôt que sur `/login`.
-  - Pourquoi : `login-pin` rejoue la session gardée par le serveur, indépendante du jeton du front. Le PIN suffirait donc, comme sur Wave.
-  - Aujourd'hui : `clearAll()` efface le numéro et impose le mot de passe.
-  - Coût : modifier les tests de la spec 01 qui figent ce comportement (`api.test.ts`), donc votre accord.
+- Fait le 25/11 (section 7) : écran PIN au lieu de `/login` sur un appareil de confiance, et `retry: 0` sur les mutations.
 - Les deux vérifications de la section 3 non faites (inscription, suppression de la session SSO).
 
 **Contrôles**
@@ -148,12 +145,40 @@ Sur iPhone, la PWA ajoutée à l'écran d'accueil a **un stockage séparé de Sa
 |---|---|
 | `npm run lint` | ✅ 0 avertissement |
 | `npm run typecheck` | ✅ |
-| `npm test` | ✅ 610 / 610 (59 fichiers, dont 57 nouveaux tests) |
-| `npm run test:coverage` | ✅ 610 / 610. Seuil bloquant `src/lib/**` lignes ≥ 90 % : **98,78 %** (instructions 97,61 %, branches 93,77 %, fonctions 99,24 %). Global : lignes 55,98 % (50,31 % après FR29) |
+| `npm test` | ✅ 625 / 625 (62 fichiers, dont 72 nouveaux tests FR31) |
+| `npm run test:coverage` | ✅ 625 / 625. Seuil bloquant `src/lib/**` lignes ≥ 90 % : **98,57 %** (instructions 97,46 %, branches 93,63 %, fonctions 99,25 %). Global : lignes 56,06 % (50,31 % après FR29) |
 | `npm run build` | ✅ |
-| App réelle à 375 px | ✅ sauf les deux points marqués ⚠️ (section 3) |
+| App réelle à 375 px | ✅ sauf les deux points marqués ⚠️ (section 3) et le retour à l'écran PIN de la section 7 (backend local indisponible au moment de la vérification) |
 
-## 7. Messages de commit proposés
+## 7. Suite du 25/11 : décisions du responsable produit
+
+### `retry: 0` sur toutes les mutations (prioritaire)
+- `src/lib/queryClient.ts` : `mutations.retry` passe de 1 à **0**. Aucune écriture (encaissement, retrait, validation…) n'est plus renvoyée automatiquement : l'utilisateur voit l'erreur et décide lui-même de recommencer. Les requêtes de lecture gardent `retry: 1`.
+- Aucune mutation ne redéfinissait `retry`.
+- Test `src/lib/queryClient.fr31.test.tsx` (3), avec le QueryClient de l'application :
+  - valeur par défaut à 0 ;
+  - un `POST` qui échoue sur le réseau n'est envoyé qu'**une fois**, même après le délai d'un éventuel nouvel essai ;
+  - même chose après une erreur serveur 500.
+
+### Appareil de confiance : écran PIN au lieu de `/login`
+- **Règle** : quand le renouvellement échoue et que l'appareil est de confiance (`appareilId` présent, PIN configuré, numéro connu), les jetons sont effacés, le **numéro et le PIN sont gardés**, et l'app va sur **`/pin`**. Sinon, rien ne change : tout est effacé, sauf l'`appareilId`, et l'app va sur `/login`.
+- `src/lib/tokenStorage.ts` : `appareilDeConfiance()` (ne crée jamais d'`appareilId`) et `oublierSessionPerdue()`, qui renvoie `/pin` ou `/login` et lève le verrou de déconnexion douce.
+- Appliqué aux deux endroits où la session se perd :
+  - l'intercepteur (`src/services/api.ts`), avec toujours une seule redirection ;
+  - le chargement d'une page protégée (`src/router/ProtectedRoute.tsx`).
+
+  Dans `ProtectedRoute`, une page ouverte après une déconnexion douce mène aussi à l'écran PIN sur un appareil de confiance.
+- Pourquoi c'est sûr : `login-pin` rejoue la session gardée par le serveur pour cet `appareilId`, indépendante des jetons de l'app. Si cette session est elle-même révoquée, le PIN répond `PIN_SESSION_EXPIRED`, et l'app demande le mot de passe (section 2).
+- **Tests de la spec 01 (`src/services/api.test.ts`) : aucune modification nécessaire.** Leurs cas portent sur un appareil sans `appareilId` (front d'avant B53). Pour celui-ci, l'ancien comportement est gardé : `clearAll()` efface le téléphone et le PIN, puis `/login`. Ils passent tels quels, de même que `ProtectedRoute.fr26` et `api.fr26`.
+- Tests ajoutés :
+  - `src/lib/tokenStorage.fr31.test.ts` (8) : les cinq conditions, aucun `appareilId` créé, `/pin` avec numéro, PIN et `appareilId` gardés, `/login` sinon ;
+  - `src/services/api.fr31.test.ts` (+1) : refresh refusé sur un appareil de confiance, une seule redirection vers `/pin` ;
+  - `src/router/ProtectedRoute.fr31.test.tsx` (3) : refresh refusé → écran PIN ; déconnexion douce → écran PIN sans renouvellement ; sans `appareilId` → `/login` comme avant.
+- **Vérification dans l'app : non faite.** Le backend local a cessé de répondre pendant la vérification (404 sur `/v1/public/config`). À refaire au redémarrage : sur l'appareil de confiance, remplacer le refresh token stocké par une valeur invalide, expirer le jeton d'accès, puis recharger une page protégée. L'app doit afficher l'écran PIN, numéro affiché.
+
+## 8. Messages de commit proposés
+
+Les quatre premiers commits sont faits (`4467e01`, `1182b3e`, `f7d767b`, `3dc51e7`). Les décisions du 25/11 font l'objet de trois commits de plus (section 8 bis, en fin de document).
 
 Ordre : chaque commit compile seul.
 
@@ -186,4 +211,25 @@ git commit -m "feat(parametres): appareils de confiance et déconnexion à dista
 ```bash
 git add docs/fr31-session-appareil.md
 git commit -m "docs(fr31): session longue par appareil, rotation des jetons et codes de sécurité" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
+```
+
+## 8 bis. Commits des décisions du 25/11
+
+**5. Aucune écriture renvoyée automatiquement (prioritaire)**
+```bash
+git add src/lib/queryClient.ts src/lib/queryClient.fr31.test.tsx
+git commit -m "fix(reseau): aucune écriture renvoyée automatiquement (retry: 0 sur les mutations, FR31)" -m "Un POST qui échoue sur le réseau a pu arriver au serveur : le renvoyer doublait un encaissement ou un retrait (pas de protection contre les doublons). L'utilisateur voit l'erreur et décide de recommencer. Les lectures gardent retry: 1." -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
+```
+
+**6. Session perdue sur un appareil de confiance : écran PIN**
+```bash
+git add src/lib/tokenStorage.ts src/lib/tokenStorage.fr31.test.ts src/services/api.ts src/services/api.fr31.test.ts \
+  src/router/ProtectedRoute.tsx src/router/ProtectedRoute.fr31.test.tsx
+git commit -m "feat(session): écran PIN quand la session d'un appareil de confiance est perdue (FR31)" -m "appareilId présent, PIN configuré et numéro connu : jetons effacés, numéro et PIN gardés, retour sur /pin au lieu de /login (intercepteur et page protégée). Sans appareilId, comportement de la spec 01 inchangé (api.test.ts non modifié)." -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
+```
+
+**7. Livrable**
+```bash
+git add docs/fr31-session-appareil.md
+git commit -m "docs(fr31): retry des mutations et écran PIN sur un appareil de confiance" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
